@@ -1,0 +1,586 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:hrms_app/core/utils/app_colors.dart';
+import 'package:hrms_app/core/utils/api_config.dart';
+import 'package:hrms_app/features/auth/data/services/auth_service.dart';
+import 'package:hrms_app/features/owner/data/services/property_service.dart';
+import 'package:hrms_app/features/owner/presentation/widgets/custom_bottom_nav.dart';
+import 'package:hrms_app/features/owner/presentation/widgets/custom_drawer.dart';
+import 'package:hrms_app/features/owner/presentation/screens/unit_list_screen.dart';
+import 'package:hrms_app/features/tenant/presentation/screens/tenant_list_screen.dart';
+import 'package:hrms_app/features/owner/presentation/screens/profile_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:hrms_app/features/owner/presentation/screens/property_entry_screen.dart';
+import 'package:hrms_app/features/owner/presentation/screens/dashboard_screen.dart';
+import 'package:hrms_app/features/owner/presentation/widgets/custom_bottom_nav.dart';
+
+class PropertyListScreen extends StatefulWidget {
+  @override
+  _PropertyListScreenState createState() => _PropertyListScreenState();
+}
+
+class _PropertyListScreenState extends State<PropertyListScreen> {
+  List<Map<String, dynamic>> _properties = [];
+  List<Map<String, dynamic>> _filteredProperties = [];
+  bool _isLoading = true;
+  bool _isRefreshing = false;
+  String _searchQuery = '';
+  String _selectedFilter = 'All';
+  int _selectedIndex = 1; // Property tab selected
+
+  final List<String> _filterOptions = [
+    'All',
+    'Active',
+    'Inactive',
+    'Maintenance',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProperties();
+  }
+
+  Future<void> _loadProperties() async {
+    if (!_isRefreshing) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
+
+    try {
+      // Get token from shared preferences
+      String? token = await AuthService.getToken();
+      if (token == null) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Please login again!')));
+        setState(() {
+          _isLoading = false;
+          _isRefreshing = false;
+        });
+        return;
+      }
+
+      final properties = await PropertyService.getProperties();
+
+      setState(() {
+        _properties = properties;
+        _filterProperties();
+        _isLoading = false;
+        _isRefreshing = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _isRefreshing = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString().replaceAll('Exception: ', '')}'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+  }
+
+  void _filterProperties() {
+    List<Map<String, dynamic>> filtered = _properties;
+
+    // Apply search filter
+    if (_searchQuery.isNotEmpty) {
+      filtered = filtered.where((property) {
+        final name = property['name'].toString().toLowerCase();
+        final address = property['address'].toString().toLowerCase();
+        final city = property['city'].toString().toLowerCase();
+        final query = _searchQuery.toLowerCase();
+
+        return name.contains(query) ||
+            address.contains(query) ||
+            city.contains(query);
+      }).toList();
+    }
+
+    // Apply status filter
+    if (_selectedFilter != 'All') {
+      filtered = filtered.where((property) {
+        return property['status'] == _selectedFilter.toLowerCase();
+      }).toList();
+    }
+
+    setState(() {
+      _filteredProperties = filtered;
+    });
+  }
+
+  void _onItemTapped(int index) {
+    if (index == 0) {
+      // Navigate to Dashboard
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => DashboardScreen()),
+        (route) => false,
+      );
+    } else if (index == 1) {
+      // Already on Property List, do nothing
+    } else {
+      setState(() {
+        _selectedIndex = index;
+      });
+      // TODO: Navigate to other screens when implemented
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Coming soon!')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        automaticallyImplyLeading: false,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: AppColors.text),
+          onPressed: () {
+            // এই অংশটি পরিবর্তন করুন
+            if (context.canPop()) {
+              context.pop(); // যদি পেছনে যাওয়ার পেইজ থাকে, তাহলে pop করো
+            } else {
+              context.go(
+                '/dashboard',
+              ); // যদি কোনো কারণে পেছনে যাওয়ার পেইজ না থাকে, তাহলে fallback হিসেবে dashboard পেইজে যাও
+            }
+          },
+        ),
+        title: Text(
+          'My Properties',
+          style: TextStyle(color: AppColors.text, fontWeight: FontWeight.bold),
+        ),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.refresh, color: AppColors.primary),
+            onPressed: _isRefreshing
+                ? null
+                : () {
+                    setState(() {
+                      _isRefreshing = true;
+                    });
+                    _loadProperties();
+                  },
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // Search and Filter Section
+          Container(
+            padding: EdgeInsets.all(16),
+            child: Column(
+              children: [
+                // Search Bar
+                TextField(
+                  onChanged: (value) {
+                    setState(() {
+                      _searchQuery = value;
+                    });
+                    _filterProperties();
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'Search properties...',
+                    prefixIcon: Icon(Icons.search, color: AppColors.hint),
+                    filled: true,
+                    fillColor: AppColors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 16,
+                    ),
+                  ),
+                ),
+                SizedBox(height: 12),
+                // Filter Chips
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: _filterOptions.map((filter) {
+                      return Padding(
+                        padding: EdgeInsets.only(right: 8),
+                        child: FilterChip(
+                          label: Text(filter),
+                          selected: _selectedFilter == filter,
+                          onSelected: (selected) {
+                            setState(() {
+                              _selectedFilter = filter;
+                            });
+                            _filterProperties();
+                          },
+                          backgroundColor: AppColors.white,
+                          selectedColor: AppColors.primary.withOpacity(0.2),
+                          labelStyle: TextStyle(
+                            color: _selectedFilter == filter
+                                ? AppColors.primary
+                                : AppColors.textSecondary,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Properties List
+          Expanded(
+            child: _isLoading
+                ? Center(
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        AppColors.primary,
+                      ),
+                    ),
+                  )
+                : _filteredProperties.isEmpty
+                ? _buildEmptyState()
+                : RefreshIndicator(
+                    onRefresh: _loadProperties,
+                    child: ListView.builder(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: _filteredProperties.length,
+                      itemBuilder: (context, index) {
+                        final property = _filteredProperties[index];
+                        return _buildPropertyCard(property);
+                      },
+                    ),
+                  ),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          final result = await context.push('/property-entry');
+
+          // Refresh the list if a new property was added
+          if (result == true) {
+            _loadProperties();
+          }
+        },
+        backgroundColor: AppColors.primary,
+        child: Icon(Icons.add, color: AppColors.white),
+      ),
+      bottomNavigationBar: CustomBottomNav(
+        currentIndex: 1, // Properties tab
+        onTap: (index) {
+          print('DEBUG: Bottom nav tapped - index: $index');
+          if (index == 1) return; // Already on properties
+
+          switch (index) {
+            case 0:
+              print('DEBUG: Navigating to dashboard');
+              context.go('/dashboard');
+              break;
+            case 2:
+              print('DEBUG: Navigating to units');
+              context.go('/units');
+              break;
+            case 3:
+              print('DEBUG: Navigating to tenants');
+              context.go('/tenants');
+              break;
+            case 4:
+              print('DEBUG: Navigating to billing');
+              context.go('/billing');
+              break;
+            case 5:
+              print('DEBUG: Navigating to reports');
+              context.go('/reports');
+              break;
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.home_outlined, size: 80, color: AppColors.textSecondary),
+          SizedBox(height: 16),
+          Text(
+            'No properties found',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Add your first property to get started',
+            style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+          ),
+          SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: () async {
+              final result = await context.push('/property-entry');
+
+              if (result == true) {
+                _loadProperties();
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: Text(
+              'Add Property',
+              style: TextStyle(color: AppColors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPropertyCard(Map<String, dynamic> property) {
+    return Dismissible(
+      key: ValueKey(property['id'] ?? property.hashCode),
+      direction: DismissDirection.endToStart,
+      background: _slideRightBackground(),
+      confirmDismiss: (direction) async {
+        // Show confirmation dialog before remove
+        final confirm = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text('Remove Property'),
+            content: Text('Are you sure you want to remove this property?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: Text('Remove', style: TextStyle(color: AppColors.error)),
+              ),
+            ],
+          ),
+        );
+        if (confirm == true) {
+          try {
+            String? token = await AuthService.getToken();
+            if (token == null) throw Exception('Not authenticated');
+            await PropertyService.deleteProperty(property['id']);
+            setState(() {
+              _properties.removeWhere((p) => p['id'] == property['id']);
+              _filterProperties();
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Property deleted successfully!')),
+            );
+            return true;
+          } catch (e) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Delete failed: ${e.toString()}')),
+            );
+            return false;
+          }
+        }
+        return false;
+      },
+      child: Container(
+        margin: EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () async {
+              // Open edit form with property id
+              final result = await context.push('/property-entry');
+              if (result == true) {
+                _loadProperties();
+              }
+            },
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              property['name'] ?? 'Unnamed Property',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.text,
+                              ),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              property['property_type'] ?? 'Unknown Type',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      _buildStatusChip(property['status'] ?? 'active'),
+                    ],
+                  ),
+                  SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Icon(Icons.location_on, size: 16, color: AppColors.hint),
+                      SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          '${property['address'] ?? ''}, ${property['city'] ?? ''}',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: AppColors.textSecondary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(Icons.apartment, size: 16, color: AppColors.hint),
+                      SizedBox(width: 4),
+                      Text(
+                        '${property['total_units'] ?? 0} units',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      Spacer(),
+                      Text(
+                        'Added ${_formatDate(property['created_at'])}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _slideRightBackground() {
+    return Container(
+      alignment: Alignment.centerRight,
+      padding: EdgeInsets.symmetric(horizontal: 24),
+      decoration: BoxDecoration(
+        color: AppColors.error.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Icon(Icons.delete, color: AppColors.error, size: 28),
+    );
+  }
+
+  Widget _buildStatusChip(String status) {
+    Color color;
+    String label;
+
+    switch (status.toLowerCase()) {
+      case 'active':
+        color = AppColors.success;
+        label = 'Active';
+        break;
+      case 'inactive':
+        color = AppColors.error;
+        label = 'Inactive';
+        break;
+      case 'maintenance':
+        color = AppColors.warning;
+        label = 'Maintenance';
+        break;
+      default:
+        color = AppColors.textSecondary;
+        label = 'Unknown';
+    }
+
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: color,
+        ),
+      ),
+    );
+  }
+
+  String _formatDate(String? dateString) {
+    if (dateString == null) return 'Unknown';
+
+    try {
+      final date = DateTime.parse(dateString);
+      final now = DateTime.now();
+      final difference = now.difference(date);
+
+      if (difference.inDays == 0) {
+        return 'Today';
+      } else if (difference.inDays == 1) {
+        return 'Yesterday';
+      } else if (difference.inDays < 7) {
+        return '${difference.inDays} days ago';
+      } else if (difference.inDays < 30) {
+        final weeks = (difference.inDays / 7).floor();
+        return '$weeks week${weeks > 1 ? 's' : ''} ago';
+      } else {
+        return '${date.day}/${date.month}/${date.year}';
+      }
+    } catch (e) {
+      return 'Unknown';
+    }
+  }
+}
