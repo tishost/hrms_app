@@ -99,13 +99,13 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
         children: [
           // Filter Buttons
           Container(
-            padding: EdgeInsets.all(16),
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               children: [
                 Expanded(child: _buildFilterButton('all', 'All')),
-                SizedBox(width: 8),
+                SizedBox(width: 6),
                 Expanded(child: _buildFilterButton('unpaid', 'Unpaid')),
-                SizedBox(width: 8),
+                SizedBox(width: 6),
                 Expanded(child: _buildFilterButton('paid', 'Paid')),
               ],
             ),
@@ -131,7 +131,7 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
                 : RefreshIndicator(
                     onRefresh: _fetchInvoices,
                     child: ListView.builder(
-                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      padding: EdgeInsets.symmetric(horizontal: 12),
                       itemCount: _filteredInvoices.length,
                       itemBuilder: (context, index) {
                         final invoice = _filteredInvoices[index];
@@ -141,133 +141,207 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: ListTile(
-                            contentPadding: EdgeInsets.all(16),
-                            leading: CircleAvatar(
-                              backgroundColor: _getInvoiceTypeColor(
-                                invoice['invoice_type'],
-                              ),
-                              child: Icon(
-                                _getInvoiceTypeIcon(invoice['invoice_type']),
-                                color: Colors.white,
-                              ),
-                            ),
-                            title: Text(
-                              invoice['description'] ?? 'Invoice',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                SizedBox(height: 4),
-                                Text(
-                                  '👤 ${invoice['tenant_name'] ?? 'N/A'}',
-                                  style: TextStyle(fontSize: 14),
-                                ),
-                                Text(
-                                  '🏠 ${invoice['unit_name'] ?? 'N/A'}',
-                                  style: TextStyle(fontSize: 14),
-                                ),
-                                Text(
-                                  '📅 Due: ${_formatDate(invoice['due_date'])}',
-                                  style: TextStyle(fontSize: 14),
-                                ),
-                                // Fees breakdown
-                                if (invoice['breakdown'] != null &&
-                                    (invoice['breakdown'] as List)
-                                        .isNotEmpty) ...[
-                                  SizedBox(height: 8),
-                                  Container(
-                                    padding: EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          '💰 Fees Breakdown:',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold,
-                                            color: AppColors.primary,
-                                          ),
+                          child: InkWell(
+                            onTap: () => _showPaymentOptions(invoice),
+                            borderRadius: BorderRadius.circular(12),
+                            child: Padding(
+                              padding: EdgeInsets.all(12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Header Row
+                                  Row(
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 20,
+                                        backgroundColor: _getInvoiceTypeColor(
+                                          invoice['invoice_type'],
                                         ),
-                                        SizedBox(height: 4),
-                                        ...(invoice['breakdown'] as List).map<
-                                          Widget
-                                        >((fee) {
-                                          return Padding(
-                                            padding: EdgeInsets.only(bottom: 2),
-                                            child: Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment
-                                                      .spaceBetween,
-                                              children: [
-                                                Text(
-                                                  '• ${fee['name'] ?? 'Fee'}',
-                                                  style: TextStyle(
-                                                    fontSize: 11,
-                                                  ),
-                                                ),
-                                                Text(
-                                                  '৳${fee['amount'] ?? '0'}',
-                                                  style: TextStyle(
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.w500,
-                                                  ),
-                                                ),
-                                              ],
+                                        child: Icon(
+                                          _getInvoiceTypeIcon(
+                                            invoice['invoice_type'],
+                                          ),
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                      ),
+                                      SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              invoice['description'] ??
+                                                  'Invoice',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 16,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
                                             ),
-                                          );
-                                        }).toList(),
-                                      ],
-                                    ),
+                                            SizedBox(height: 4),
+                                            Text(
+                                              '👤 ${invoice['tenant_name'] ?? 'N/A'}',
+                                              style: TextStyle(fontSize: 13),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.end,
+                                        children: [
+                                          Text(
+                                            '${invoice['amount'] ?? '0'} BDT',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16,
+                                              color: AppColors.primary,
+                                            ),
+                                          ),
+                                          SizedBox(height: 4),
+                                          Container(
+                                            padding: EdgeInsets.symmetric(
+                                              horizontal: 6,
+                                              vertical: 2,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: _getStatusColor(
+                                                invoice['status'],
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: Text(
+                                              _getStatusText(invoice['status']),
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
+                                  SizedBox(height: 8),
+                                  // Details Row
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          '🏠 ${invoice['unit_name'] ?? 'N/A'}',
+                                          style: TextStyle(fontSize: 12),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      Text(
+                                        '📅 ${_formatDate(invoice['due_date'])}',
+                                        style: TextStyle(fontSize: 12),
+                                      ),
+                                    ],
+                                  ),
+                                  // Fees breakdown (collapsible)
+                                  if (invoice['breakdown'] != null &&
+                                      (invoice['breakdown'] as List)
+                                          .isNotEmpty) ...[
+                                    SizedBox(height: 8),
+                                    Container(
+                                      padding: EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Text(
+                                                '💰 Fees:',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: AppColors.primary,
+                                                ),
+                                              ),
+                                              Spacer(),
+                                              Text(
+                                                '${(invoice['breakdown'] as List).length} items',
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  color: Colors.grey,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          SizedBox(height: 4),
+                                          // Show only first 2 items on small screens
+                                          ...(invoice['breakdown'] as List)
+                                              .take(2)
+                                              .map<Widget>((fee) {
+                                                return Padding(
+                                                  padding: EdgeInsets.only(
+                                                    bottom: 2,
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .spaceBetween,
+                                                    children: [
+                                                      Expanded(
+                                                        child: Text(
+                                                          '• ${fee['name'] ?? 'Fee'}',
+                                                          style: TextStyle(
+                                                            fontSize: 10,
+                                                          ),
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                        ),
+                                                      ),
+                                                      Text(
+                                                        '৳${fee['amount'] ?? '0'}',
+                                                        style: TextStyle(
+                                                          fontSize: 10,
+                                                          fontWeight:
+                                                              FontWeight.w500,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+                                              })
+                                              .toList(),
+                                          // Show "more" indicator if there are more items
+                                          if ((invoice['breakdown'] as List)
+                                                  .length >
+                                              2)
+                                            Padding(
+                                              padding: EdgeInsets.only(top: 4),
+                                              child: Text(
+                                                '+${(invoice['breakdown'] as List).length - 2} more items',
+                                                style: TextStyle(
+                                                  fontSize: 9,
+                                                  color: Colors.grey,
+                                                  fontStyle: FontStyle.italic,
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ],
-                              ],
+                              ),
                             ),
-                            trailing: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  '${invoice['amount'] ?? '0'} BDT',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                    color: AppColors.primary,
-                                  ),
-                                ),
-                                Container(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: _getStatusColor(invoice['status']),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    _getStatusText(invoice['status']),
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            onTap: () {
-                              // Show payment options
-                              _showPaymentOptions(invoice);
-                            },
                           ),
                         );
                       },
@@ -316,12 +390,13 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
         setState(() => _selectedFilter = filter);
       },
       child: Container(
-        padding: EdgeInsets.symmetric(vertical: 8),
+        padding: EdgeInsets.symmetric(vertical: 6),
         decoration: BoxDecoration(
           color: isSelected ? AppColors.primary : Colors.white,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(6),
           border: Border.all(
             color: isSelected ? AppColors.primary : Colors.grey,
+            width: 1,
           ),
         ),
         child: Text(
@@ -329,7 +404,8 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
           textAlign: TextAlign.center,
           style: TextStyle(
             color: isSelected ? Colors.white : Colors.grey,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w600,
+            fontSize: 12,
           ),
         ),
       ),

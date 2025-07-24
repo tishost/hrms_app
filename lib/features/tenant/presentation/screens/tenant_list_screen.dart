@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hrms_app/features/auth/data/services/auth_service.dart';
 import 'package:hrms_app/core/utils/api_config.dart';
@@ -52,21 +53,9 @@ class _TenantListScreenState extends State<TenantListScreen> {
         final data = json.decode(response.body);
         final tenants = List<Map<String, dynamic>>.from(data['tenants'] ?? []);
 
-        // Debug print first tenant data
+        // Debug print first tenant data (reduced for performance)
         if (tenants.isNotEmpty) {
-          print('DEBUG: First tenant from API:');
-          print('DEBUG: tenant = ${tenants.first}');
-          print('DEBUG: first_name = ${tenants.first['first_name']}');
-          print('DEBUG: last_name = ${tenants.first['last_name']}');
-          print('DEBUG: name = ${tenants.first['name']}');
-          print('DEBUG: mobile = ${tenants.first['mobile']}');
-          print('DEBUG: gender = ${tenants.first['gender']}');
-          print('DEBUG: occupation = ${tenants.first['occupation']}');
-          print('DEBUG: company_name = ${tenants.first['company_name']}');
-          print('DEBUG: family_types = ${tenants.first['family_types']}');
-          print(
-            'DEBUG: family_types type = ${tenants.first['family_types'].runtimeType}',
-          );
+          print('DEBUG: Loaded ${tenants.length} tenants');
         }
 
         setState(() {
@@ -150,6 +139,15 @@ class _TenantListScreenState extends State<TenantListScreen> {
               }
             },
           ),
+          // Test button for debugging
+          if (_tenants.isNotEmpty && kDebugMode)
+            IconButton(
+              icon: Icon(Icons.bug_report, color: Colors.orange),
+              onPressed: () {
+                print('DEBUG: Test button pressed');
+                context.push('/tenant-details', extra: _tenants.first);
+              },
+            ),
         ],
       ),
       body: Column(
@@ -382,7 +380,13 @@ class _TenantListScreenState extends State<TenantListScreen> {
                               ],
                             ),
                             onTap: () {
-                              context.push('/tenant-details', extra: tenant);
+                              if (kDebugMode) {
+                                print(
+                                  'DEBUG: Tenant tapped: ${tenant['name'] ?? 'Unknown'}',
+                                );
+                              }
+                              // Don't navigate to tenant details, just show popup menu
+                              // context.push('/tenant-details', extra: tenant);
                             },
                           ),
                         );
@@ -393,30 +397,33 @@ class _TenantListScreenState extends State<TenantListScreen> {
         ],
       ),
       bottomNavigationBar: CustomBottomNav(
-        currentIndex: 3, // Tenants tab
+        currentIndex:
+            3, // Tenants tab (Dashboard=0, Properties=1, Units=2, Tenants=3, Billing=4, Reports=5)
         onTap: (index) {
-          print('DEBUG: Bottom nav tapped - index: $index');
+          if (kDebugMode) {
+            print('DEBUG: Bottom nav tapped - index: $index');
+          }
           if (index == 3) return; // Already on tenants
 
           switch (index) {
             case 0:
-              print('DEBUG: Navigating to dashboard');
+              if (kDebugMode) print('DEBUG: Navigating to dashboard');
               context.go('/dashboard');
               break;
             case 1:
-              print('DEBUG: Navigating to properties');
+              if (kDebugMode) print('DEBUG: Navigating to properties');
               context.go('/properties');
               break;
             case 2:
-              print('DEBUG: Navigating to units');
+              if (kDebugMode) print('DEBUG: Navigating to units');
               context.go('/units');
               break;
             case 4:
-              print('DEBUG: Navigating to billing');
+              if (kDebugMode) print('DEBUG: Navigating to billing');
               context.go('/billing');
               break;
             case 5:
-              print('DEBUG: Navigating to reports');
+              if (kDebugMode) print('DEBUG: Navigating to reports');
               context.go('/reports');
               break;
           }

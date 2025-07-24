@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hrms_app/features/auth/data/services/auth_service.dart';
 import 'package:hrms_app/core/utils/api_config.dart';
 import 'package:hrms_app/core/utils/app_colors.dart';
@@ -238,17 +240,26 @@ class _TenantProfileScreenState extends State<TenantProfileScreen> {
               ),
             ),
       bottomNavigationBar: TenantBottomNav(
-        currentIndex: 2, // Profile tab
+        currentIndex:
+            3, // Profile tab (Dashboard=0, Tenants=1, Billing=2, Profile=3)
         onTap: (index) {
+          if (kDebugMode) {
+            print('DEBUG: Bottom nav tapped - index: $index');
+          }
+          if (index == 3) return; // Already on profile
+
           switch (index) {
             case 0:
-              Navigator.pushReplacementNamed(context, '/tenant-dashboard');
+              if (kDebugMode) print('DEBUG: Navigating to dashboard');
+              context.go('/dashboard');
               break;
             case 1:
-              Navigator.pushReplacementNamed(context, '/tenant-billing');
+              if (kDebugMode) print('DEBUG: Navigating to tenants');
+              context.go('/tenants');
               break;
             case 2:
-              // Already on profile screen
+              if (kDebugMode) print('DEBUG: Navigating to billing');
+              context.go('/billing');
               break;
           }
         },

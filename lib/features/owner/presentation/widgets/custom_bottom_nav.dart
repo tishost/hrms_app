@@ -26,14 +26,15 @@ class CustomBottomNav extends StatelessWidget {
       unselectedItemColor: Colors.grey,
       backgroundColor: Colors.white,
       elevation: 8,
-      iconSize: 24,
-      selectedLabelStyle: TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+      iconSize: 18,
+      selectedLabelStyle: TextStyle(fontWeight: FontWeight.w600, fontSize: 9),
       unselectedLabelStyle: TextStyle(
         fontWeight: FontWeight.normal,
-        fontSize: 12,
+        fontSize: 9,
       ),
       showSelectedLabels: showLabels,
-      showUnselectedLabels: showLabels,
+      showUnselectedLabels:
+          showLabels, // Show unselected labels only if showLabels is true
       items: items,
     );
   }
@@ -46,7 +47,7 @@ class CustomBottomNav extends StatelessWidget {
       ),
       BottomNavigationBarItem(
         icon: Icon(Icons.business, semanticLabel: 'Properties'),
-        label: 'Properties',
+        label: 'Property',
       ),
       BottomNavigationBarItem(
         icon: Icon(Icons.home, semanticLabel: 'Units'),
@@ -54,15 +55,15 @@ class CustomBottomNav extends StatelessWidget {
       ),
       BottomNavigationBarItem(
         icon: Icon(Icons.people, semanticLabel: 'Tenants'),
-        label: 'Tenants',
+        label: 'Tenant',
       ),
       BottomNavigationBarItem(
         icon: Icon(Icons.receipt_long, semanticLabel: 'Billing'),
-        label: 'Billing',
+        label: 'Bill',
       ),
       BottomNavigationBarItem(
         icon: Icon(Icons.assessment, semanticLabel: 'Reports'),
-        label: 'Reports',
+        label: 'Report',
       ),
     ];
   }

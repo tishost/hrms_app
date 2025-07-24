@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +8,7 @@ import 'package:internet_connection_checker/internet_connection_checker.dart';
 
 // Core
 import 'core/constants/app_constants.dart';
+import 'core/utils/performance_config.dart';
 import 'core/theme/app_theme.dart';
 import 'core/providers/app_providers.dart';
 import 'core/services/api_service.dart';
@@ -33,6 +35,18 @@ void main() async {
   // Initialize connectivity state
   final initialConnectivity = await Connectivity().checkConnectivity();
   final hasInternet = await InternetConnectionChecker().hasConnection;
+
+  // Performance optimizations
+  if (kDebugMode) {
+    // Disable debug prints for better performance
+    debugPrintRebuildDirtyWidgets = PerformanceConfig.enableWidgetRebuildLogs;
+    debugPrint = (String? message, {int? wrapWidth}) {
+      // Use performance config for debug prints
+      if (message != null && message.contains('DEBUG:')) {
+        PerformanceConfig.debugPrint(message);
+      }
+    };
+  }
 
   runApp(ProviderScope(child: MyApp()));
 }
@@ -110,7 +124,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/property-entry',
-        builder: (context, state) => PropertyEntryScreen(),
+        builder: (context, state) =>
+            PropertyEntryScreen(property: state.extra as Map<String, dynamic>?),
       ),
       GoRoute(path: '/units', builder: (context, state) => UnitListScreen()),
       GoRoute(
@@ -165,6 +180,17 @@ final routerProvider = Provider<GoRouter>((ref) {
           state.matchedLocation != '/') {
         print('DEBUG: Redirecting to login');
         return '/login';
+      }
+
+      // Allow property-entry route to pass through with extra data
+      if (state.matchedLocation == '/property-entry') {
+        print('DEBUG: Property-entry route detected, extra: ${state.extra}');
+        if (state.extra != null) {
+          print(
+            'DEBUG: Allowing property-entry with extra data: ${state.extra}',
+          );
+          return null;
+        }
       }
 
       // If authenticated and on login page, redirect to dashboard

@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:dropdown_search/dropdown_search.dart';
+import '../../../../core/utils/country_helper.dart';
+import '../../../../core/utils/api_config.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class TenantEntryScreen extends StatefulWidget {
   final Map<String, dynamic>? tenant;
@@ -54,6 +59,12 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
   String? _selectedFrequency; // frequency
   final _remarksController = TextEditingController();
 
+  // API Data Lists
+  List<Map<String, dynamic>> _properties = [];
+  List<Map<String, dynamic>> _units = [];
+  bool _isLoadingProperties = false;
+  bool _isLoadingUnits = false;
+
   int _currentStep = 0;
   final int _totalSteps = 4;
   bool _isLoading = false;
@@ -68,6 +79,9 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
     _selectedStatus = 'Active';
     _familyMemberController.text = '1';
     _countryController.text = 'Bangladesh';
+
+    // Load properties on init
+    _loadProperties();
   }
 
   void _populateForm() {
@@ -120,6 +134,67 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
     _remarksController.text = tenant['remarks']?.toString() ?? '';
   }
 
+  // API Methods
+  Future<void> _loadProperties() async {
+    setState(() {
+      _isLoadingProperties = true;
+    });
+
+    try {
+      final response = await http.get(
+        Uri.parse(ApiConfig.getApiUrl('/properties')),
+        headers: ApiConfig.getHeaders(),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          _properties = List<Map<String, dynamic>>.from(
+            data['properties'] ?? [],
+          );
+        });
+      } else {
+        print('Error loading properties: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Exception loading properties: $e');
+    } finally {
+      setState(() {
+        _isLoadingProperties = false;
+      });
+    }
+  }
+
+  Future<void> _loadUnits(String propertyId) async {
+    setState(() {
+      _isLoadingUnits = true;
+      _units = [];
+      _selectedUnitId = null;
+    });
+
+    try {
+      final response = await http.get(
+        Uri.parse(ApiConfig.getApiUrl('/properties/$propertyId/units')),
+        headers: ApiConfig.getHeaders(),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          _units = List<Map<String, dynamic>>.from(data['units'] ?? []);
+        });
+      } else {
+        print('Error loading units: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Exception loading units: $e');
+    } finally {
+      setState(() {
+        _isLoadingUnits = false;
+      });
+    }
+  }
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -149,7 +224,36 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
       body: Column(
         children: [
           _buildStepHeader(),
-          Expanded(child: _buildFormContent()),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.all(16),
+              child: Container(
+                padding: EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 6,
+                      offset: Offset(0, 1),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    switch (_currentStep) {
+                      0 => _buildPersonalInfoForm(),
+                      1 => _buildWorkFamilyForm(),
+                      2 => _buildAddressDriverForm(),
+                      3 => _buildPropertyLeaseForm(),
+                      _ => _buildPersonalInfoForm(),
+                    },
+                  ],
+                ),
+              ),
+            ),
+          ),
         ],
       ),
       bottomNavigationBar: _buildBottomNavigation(),
@@ -197,14 +301,14 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
   Widget _buildStepHeader() {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(20),
+      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: Offset(0, 2),
+            blurRadius: 6,
+            offset: Offset(0, 1),
           ),
         ],
       ),
@@ -220,13 +324,13 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
                 child: Row(
                   children: [
                     Container(
-                      width: 32,
-                      height: 32,
+                      width: 24,
+                      height: 24,
                       decoration: BoxDecoration(
                         color: isActive ? Colors.blue[600] : Colors.grey[300],
                         shape: BoxShape.circle,
                         border: isCurrent
-                            ? Border.all(color: Colors.blue[800]!, width: 2)
+                            ? Border.all(color: Colors.blue[800]!, width: 1.5)
                             : null,
                       ),
                       child: Center(
@@ -236,13 +340,14 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
                                     ? Icons.check
                                     : Icons.circle,
                                 color: Colors.white,
-                                size: 16,
+                                size: 12,
                               )
                             : Text(
                                 '${index + 1}',
                                 style: TextStyle(
                                   color: Colors.grey[600],
                                   fontWeight: FontWeight.w600,
+                                  fontSize: 11,
                                 ),
                               ),
                       ),
@@ -260,22 +365,22 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
             }),
           ),
 
-          SizedBox(height: 16),
+          SizedBox(height: 10),
 
           Text(
             _getStepTitle(_currentStep),
             style: TextStyle(
-              fontSize: 22,
+              fontSize: 18,
               fontWeight: FontWeight.bold,
               color: Colors.black87,
             ),
           ),
 
-          SizedBox(height: 4),
+          SizedBox(height: 2),
 
           Text(
             _getStepSubtitle(_currentStep),
-            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
           ),
         ],
       ),
@@ -284,16 +389,16 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
 
   Widget _buildFormContent() {
     return Container(
-      margin: EdgeInsets.all(16),
-      padding: EdgeInsets.all(20),
+      margin: EdgeInsets.all(12),
+      padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: Offset(0, 2),
+            blurRadius: 6,
+            offset: Offset(0, 1),
           ),
         ],
       ),
@@ -332,9 +437,10 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
           hint: 'Enter your full name',
           icon: Icons.person_outline,
           isRequired: true,
+          floatingLabelBehavior: FloatingLabelBehavior.always,
         ),
 
-        SizedBox(height: 16),
+        SizedBox(height: 20),
 
         _buildDropdownField(
           value: _genderController.text.isEmpty ? null : _genderController.text,
@@ -344,9 +450,10 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
           items: ['Male', 'Female', 'Other'],
           onChanged: (value) => _genderController.text = value ?? '',
           isRequired: true,
+          floatingLabelBehavior: FloatingLabelBehavior.always,
         ),
 
-        SizedBox(height: 16),
+        SizedBox(height: 20),
 
         _buildTextField(
           controller: _phoneController,
@@ -355,9 +462,10 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
           icon: Icons.phone_outlined,
           isRequired: true,
           keyboardType: TextInputType.phone,
+          floatingLabelBehavior: FloatingLabelBehavior.always,
         ),
 
-        SizedBox(height: 16),
+        SizedBox(height: 20),
 
         _buildTextField(
           controller: _altPhoneController,
@@ -365,9 +473,10 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
           hint: 'Enter alternative mobile number',
           icon: Icons.phone_outlined,
           keyboardType: TextInputType.phone,
+          floatingLabelBehavior: FloatingLabelBehavior.always,
         ),
 
-        SizedBox(height: 16),
+        SizedBox(height: 20),
 
         _buildTextField(
           controller: _emailController,
@@ -375,9 +484,10 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
           hint: 'Enter your email address',
           icon: Icons.email_outlined,
           keyboardType: TextInputType.emailAddress,
+          floatingLabelBehavior: FloatingLabelBehavior.always,
         ),
 
-        SizedBox(height: 16),
+        SizedBox(height: 20),
 
         _buildTextField(
           controller: _nidController,
@@ -385,6 +495,7 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
           hint: 'Enter your National ID number',
           icon: Icons.credit_card_outlined,
           isRequired: true,
+          floatingLabelBehavior: FloatingLabelBehavior.always,
         ),
       ],
     );
@@ -397,43 +508,66 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
         _buildSectionTitle('Work Information', Icons.work),
         SizedBox(height: 20),
 
-        _buildTextField(
-          controller: _occupationController,
+        _buildDropdownField(
+          value: _occupationController.text.isEmpty
+              ? null
+              : _occupationController.text,
           label: 'Occupation',
-          hint: 'Enter your occupation',
+          hint: 'Select your occupation',
           icon: Icons.work_outline,
+          items: ['Service', 'Student', 'Business'],
+          onChanged: (value) {
+            setState(() {
+              _occupationController.text = value ?? '';
+              // Clear previous values when occupation changes
+              _companyName = '';
+              _collegeUniversity = '';
+              _businessName = '';
+            });
+          },
           isRequired: true,
+          floatingLabelBehavior: FloatingLabelBehavior.always,
         ),
 
-        SizedBox(height: 16),
+        // Conditional fields based on occupation
+        if (_occupationController.text == 'Service') ...[
+          SizedBox(height: 16),
+          _buildCustomTextField(
+            label: 'Company Name',
+            hint: 'Enter your company name',
+            icon: Icons.business_outlined,
+            value: _companyName,
+            onChanged: (value) => setState(() => _companyName = value),
+            isRequired: true,
+            floatingLabelBehavior: FloatingLabelBehavior.always,
+          ),
+        ],
 
-        _buildCustomTextField(
-          label: 'Company Name',
-          hint: 'Enter your company name',
-          icon: Icons.business_outlined,
-          value: _companyName,
-          onChanged: (value) => setState(() => _companyName = value),
-        ),
+        if (_occupationController.text == 'Student') ...[
+          SizedBox(height: 16),
+          _buildCustomTextField(
+            label: 'University/School',
+            hint: 'Enter your university or school name',
+            icon: Icons.school_outlined,
+            value: _collegeUniversity,
+            onChanged: (value) => setState(() => _collegeUniversity = value),
+            isRequired: true,
+            floatingLabelBehavior: FloatingLabelBehavior.always,
+          ),
+        ],
 
-        SizedBox(height: 16),
-
-        _buildCustomTextField(
-          label: 'College/University',
-          hint: 'Enter your educational institution',
-          icon: Icons.school_outlined,
-          value: _collegeUniversity,
-          onChanged: (value) => setState(() => _collegeUniversity = value),
-        ),
-
-        SizedBox(height: 16),
-
-        _buildCustomTextField(
-          label: 'Business Name',
-          hint: 'Enter business name (if applicable)',
-          icon: Icons.store_outlined,
-          value: _businessName,
-          onChanged: (value) => setState(() => _businessName = value),
-        ),
+        if (_occupationController.text == 'Business') ...[
+          SizedBox(height: 16),
+          _buildCustomTextField(
+            label: 'Business Name',
+            hint: 'Enter your business name',
+            icon: Icons.store_outlined,
+            value: _businessName,
+            onChanged: (value) => setState(() => _businessName = value),
+            isRequired: true,
+            floatingLabelBehavior: FloatingLabelBehavior.always,
+          ),
+        ],
 
         SizedBox(height: 32),
 
@@ -447,16 +581,7 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
           icon: Icons.people_outline,
           keyboardType: TextInputType.number,
           isRequired: true,
-        ),
-
-        SizedBox(height: 16),
-
-        _buildNumberField(
-          label: 'Number of Children',
-          hint: 'Enter number of children',
-          icon: Icons.child_care_outlined,
-          value: _childQty,
-          onChanged: (value) => setState(() => _childQty = value),
+          floatingLabelBehavior: FloatingLabelBehavior.always,
         ),
 
         SizedBox(height: 16),
@@ -479,6 +604,7 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
           hint: 'Enter your complete street address',
           icon: Icons.location_on_outlined,
           maxLines: 3,
+          floatingLabelBehavior: FloatingLabelBehavior.always,
         ),
 
         SizedBox(height: 16),
@@ -488,6 +614,7 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
           label: 'City',
           hint: 'Enter your city',
           icon: Icons.location_city_outlined,
+          floatingLabelBehavior: FloatingLabelBehavior.always,
         ),
 
         SizedBox(height: 16),
@@ -497,6 +624,7 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
           label: 'State/Division',
           hint: 'Enter your state or division',
           icon: Icons.map_outlined,
+          floatingLabelBehavior: FloatingLabelBehavior.always,
         ),
 
         SizedBox(height: 16),
@@ -507,16 +635,12 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
           hint: 'Enter ZIP or postal code',
           icon: Icons.local_post_office_outlined,
           keyboardType: TextInputType.number,
+          floatingLabelBehavior: FloatingLabelBehavior.always,
         ),
 
         SizedBox(height: 16),
 
-        _buildTextField(
-          controller: _countryController,
-          label: 'Country',
-          hint: 'Enter your country',
-          icon: Icons.flag_outlined,
-        ),
+        _buildSearchableCountryField(),
 
         SizedBox(height: 32),
 
@@ -529,6 +653,7 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
           icon: Icons.person_pin_outlined,
           value: _isDriver,
           onChanged: (value) => setState(() => _isDriver = value),
+          floatingLabelBehavior: FloatingLabelBehavior.always,
         ),
 
         SizedBox(height: 16),
@@ -539,6 +664,7 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
             label: 'Driver Name',
             hint: 'Enter driver\'s name',
             icon: Icons.person_outline,
+            floatingLabelBehavior: FloatingLabelBehavior.always,
           ),
         ],
       ],
@@ -557,9 +683,19 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
           label: 'Select Property',
           hint: 'Choose a property',
           icon: Icons.apartment_outlined,
-          items: ['1', '2', '3', '4'], // These should be loaded from API
-          onChanged: (value) => setState(() => _selectedPropertyId = value),
+          items: _properties
+              .map((property) => '${property['id']} - ${property['name']}')
+              .toList(),
+          onChanged: (value) {
+            setState(() => _selectedPropertyId = value);
+            if (value != null) {
+              String propertyId = value.split(' - ')[0];
+              _loadUnits(propertyId);
+            }
+          },
+          isLoading: _isLoadingProperties,
           isRequired: true,
+          floatingLabelBehavior: FloatingLabelBehavior.always,
         ),
 
         SizedBox(height: 16),
@@ -569,16 +705,16 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
           label: 'Select Unit',
           hint: 'Choose a unit',
           icon: Icons.door_front_door_outlined,
-          items: [
-            '1',
-            '2',
-            '3',
-            '4',
-            '5',
-            '6',
-          ], // These should be loaded from API
+          items: _units
+              .map(
+                (unit) =>
+                    '${unit['id']} - ${unit['name']} (Floor ${unit['floor']})',
+              )
+              .toList(),
           onChanged: (value) => setState(() => _selectedUnitId = value),
+          isLoading: _isLoadingUnits,
           isRequired: true,
+          floatingLabelBehavior: FloatingLabelBehavior.always,
         ),
 
         SizedBox(height: 16),
@@ -591,6 +727,7 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
           items: ['Active', 'Inactive', 'Checked Out'],
           onChanged: (value) => setState(() => _selectedStatus = value),
           isRequired: true,
+          floatingLabelBehavior: FloatingLabelBehavior.always,
         ),
 
         SizedBox(height: 16),
@@ -601,6 +738,7 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
           hint: 'Enter advance amount',
           icon: Icons.attach_money_outlined,
           keyboardType: TextInputType.number,
+          floatingLabelBehavior: FloatingLabelBehavior.always,
         ),
 
         SizedBox(height: 16),
@@ -611,6 +749,7 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
           icon: Icons.calendar_today_outlined,
           value: _startMonth,
           onChanged: (date) => setState(() => _startMonth = date),
+          floatingLabelBehavior: FloatingLabelBehavior.always,
         ),
 
         SizedBox(height: 16),
@@ -622,6 +761,7 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
           icon: Icons.schedule_outlined,
           items: ['Monthly', 'Quarterly', 'Half-Yearly', 'Yearly'],
           onChanged: (value) => setState(() => _selectedFrequency = value),
+          floatingLabelBehavior: FloatingLabelBehavior.always,
         ),
 
         SizedBox(height: 16),
@@ -632,6 +772,7 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
           hint: 'Enter any additional notes',
           icon: Icons.note_outlined,
           maxLines: 3,
+          floatingLabelBehavior: FloatingLabelBehavior.always,
         ),
       ],
     );
@@ -669,39 +810,53 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
     bool isRequired = false,
     TextInputType? keyboardType,
     int maxLines = 1,
+    FloatingLabelBehavior? floatingLabelBehavior,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
-              ),
-            ),
-            if (isRequired)
+        if (floatingLabelBehavior == null) ...[
+          Row(
+            children: [
               Text(
-                ' *',
+                label,
                 style: TextStyle(
-                  color: Colors.red,
                   fontSize: 14,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
                 ),
               ),
-          ],
-        ),
-        SizedBox(height: 8),
+              if (isRequired)
+                Text(
+                  ' *',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+            ],
+          ),
+          SizedBox(height: 6),
+        ],
         TextFormField(
           controller: controller,
           keyboardType: keyboardType,
           maxLines: maxLines,
           decoration: InputDecoration(
+            labelText: floatingLabelBehavior != null
+                ? (isRequired ? '$label *' : label)
+                : null,
+            labelStyle: floatingLabelBehavior != null
+                ? TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  )
+                : null,
             hintText: hint,
             prefixIcon: Icon(icon, color: Colors.grey[600]),
+            floatingLabelBehavior: floatingLabelBehavior,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(color: Colors.grey[300]!),
@@ -716,7 +871,7 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
             ),
             filled: true,
             fillColor: Colors.grey[50],
-            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),
           validator: isRequired
               ? (value) => value?.isEmpty == true ? '$label is required' : null
@@ -733,40 +888,56 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
     required String value,
     required Function(String) onChanged,
     bool isRequired = false,
-    int maxLines = 1,
+    TextInputType? keyboardType,
+    FloatingLabelBehavior? floatingLabelBehavior,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
-              ),
-            ),
-            if (isRequired)
+        if (floatingLabelBehavior == null) ...[
+          Row(
+            children: [
               Text(
-                ' *',
+                label,
                 style: TextStyle(
-                  color: Colors.red,
                   fontSize: 14,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
                 ),
               ),
-          ],
-        ),
-        SizedBox(height: 8),
+              if (isRequired)
+                Text(
+                  ' *',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+            ],
+          ),
+          SizedBox(height: 6),
+        ],
         TextFormField(
           initialValue: value,
-          onChanged: onChanged,
-          maxLines: maxLines,
+          keyboardType: keyboardType,
+          onChanged: (newValue) {
+            onChanged(newValue);
+          },
           decoration: InputDecoration(
+            labelText: floatingLabelBehavior != null
+                ? (isRequired ? '$label *' : label)
+                : null,
+            labelStyle: floatingLabelBehavior != null
+                ? TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  )
+                : null,
             hintText: hint,
             prefixIcon: Icon(icon, color: Colors.grey[600]),
+            floatingLabelBehavior: floatingLabelBehavior,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(color: Colors.grey[300]!),
@@ -781,7 +952,7 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
             ),
             filled: true,
             fillColor: Colors.grey[50],
-            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),
           validator: isRequired
               ? (value) => value?.isEmpty == true ? '$label is required' : null
@@ -799,37 +970,58 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
     required List<String> items,
     required Function(String?) onChanged,
     bool isRequired = false,
+    bool isLoading = false,
+    FloatingLabelBehavior? floatingLabelBehavior,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
-              ),
-            ),
-            if (isRequired)
+        if (floatingLabelBehavior == null) ...[
+          Row(
+            children: [
               Text(
-                ' *',
+                label,
                 style: TextStyle(
-                  color: Colors.red,
                   fontSize: 14,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
                 ),
               ),
-          ],
-        ),
-        SizedBox(height: 8),
+              if (isRequired)
+                Text(
+                  ' *',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+            ],
+          ),
+          SizedBox(height: 6),
+        ],
         DropdownButtonFormField<String>(
           value: value,
           decoration: InputDecoration(
+            labelText: floatingLabelBehavior != null
+                ? (isRequired ? '$label *' : label)
+                : null,
+            labelStyle: floatingLabelBehavior != null
+                ? TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  )
+                : null,
             hintText: hint,
-            prefixIcon: Icon(icon, color: Colors.grey[600]),
+            prefixIcon: isLoading
+                ? SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(icon, color: Colors.grey[600]),
+            floatingLabelBehavior: floatingLabelBehavior,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(color: Colors.grey[300]!),
@@ -844,7 +1036,7 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
             ),
             filled: true,
             fillColor: Colors.grey[50],
-            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),
           items: items.map((String item) {
             return DropdownMenuItem<String>(value: item, child: Text(item));
@@ -862,45 +1054,56 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
     required String label,
     required String hint,
     required IconData icon,
-    required int value,
-    required Function(int) onChanged,
+    required String value,
+    required Function(String) onChanged,
     bool isRequired = false,
+    FloatingLabelBehavior? floatingLabelBehavior,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
-              ),
-            ),
-            if (isRequired)
+        if (floatingLabelBehavior == null) ...[
+          Row(
+            children: [
               Text(
-                ' *',
+                label,
                 style: TextStyle(
-                  color: Colors.red,
                   fontSize: 14,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
                 ),
               ),
-          ],
-        ),
-        SizedBox(height: 8),
+              if (isRequired)
+                Text(
+                  ' *',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+            ],
+          ),
+          SizedBox(height: 6),
+        ],
         TextFormField(
-          initialValue: value.toString(),
+          initialValue: value,
           keyboardType: TextInputType.number,
-          onChanged: (val) {
-            int? numValue = int.tryParse(val);
-            if (numValue != null) onChanged(numValue);
-          },
+          onChanged: onChanged,
           decoration: InputDecoration(
+            labelText: floatingLabelBehavior != null
+                ? (isRequired ? '$label *' : label)
+                : null,
+            labelStyle: floatingLabelBehavior != null
+                ? TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  )
+                : null,
             hintText: hint,
             prefixIcon: Icon(icon, color: Colors.grey[600]),
+            floatingLabelBehavior: floatingLabelBehavior,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(color: Colors.grey[300]!),
@@ -915,7 +1118,7 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
             ),
             filled: true,
             fillColor: Colors.grey[50],
-            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),
         ),
       ],
@@ -928,24 +1131,52 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
     required IconData icon,
     required bool value,
     required Function(bool) onChanged,
+    bool isRequired = false,
+    FloatingLabelBehavior? floatingLabelBehavior,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: Colors.black87,
+        if (floatingLabelBehavior == null) ...[
+          Row(
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+              ),
+              if (isRequired)
+                Text(
+                  ' *',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+            ],
           ),
-        ),
-        SizedBox(height: 8),
+          SizedBox(height: 6),
+        ],
         DropdownButtonFormField<bool>(
           value: value,
           decoration: InputDecoration(
+            labelText: floatingLabelBehavior != null
+                ? (isRequired ? '$label *' : label)
+                : null,
+            labelStyle: floatingLabelBehavior != null
+                ? TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  )
+                : null,
             hintText: hint,
             prefixIcon: Icon(icon, color: Colors.grey[600]),
+            floatingLabelBehavior: floatingLabelBehavior,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(color: Colors.grey[300]!),
@@ -960,7 +1191,7 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
             ),
             filled: true,
             fillColor: Colors.grey[50],
-            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),
           items: [
             DropdownMenuItem<bool>(value: true, child: Text('Yes')),
@@ -1001,14 +1232,13 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
                 runSpacing: 8,
                 children:
                     [
-                      'Father',
-                      'Mother',
+                      'Child',
+                      'Parents',
                       'Spouse',
-                      'Son',
-                      'Daughter',
-                      'Brother',
+                      'Siblings',
                       'Sister',
-                      'Other',
+                      'Brother',
+                      'Others',
                     ].map((type) {
                       bool isSelected = _familyTypes.contains(type);
                       return FilterChip(
@@ -1020,6 +1250,10 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
                               _familyTypes.add(type);
                             } else {
                               _familyTypes.remove(type);
+                              // Reset child quantity if Child is deselected
+                              if (type == 'Child') {
+                                _childQty = 0;
+                              }
                             }
                           });
                         },
@@ -1035,8 +1269,197 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
                   style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                 ),
               ],
+
+              // Show child quantity field if "Child" is selected
+              if (_familyTypes.contains('Child')) ...[
+                SizedBox(height: 16),
+                Divider(color: Colors.grey[300]),
+                SizedBox(height: 16),
+                Text(
+                  'Child Quantity',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+                SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Decrease button
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: _childQty > 0
+                            ? Colors.blue[600]
+                            : Colors.grey[300],
+                        shape: BoxShape.circle,
+                      ),
+                      child: IconButton(
+                        padding: EdgeInsets.zero,
+                        constraints: BoxConstraints(),
+                        onPressed: _childQty > 0
+                            ? () {
+                                setState(() {
+                                  _childQty--;
+                                });
+                              }
+                            : null,
+                        icon: Icon(Icons.remove, color: Colors.white, size: 14),
+                      ),
+                    ),
+
+                    SizedBox(width: 12),
+
+                    // Quantity display
+                    Container(
+                      width: 45,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: Colors.blue[600]!,
+                          width: 1.5,
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                        color: Colors.white,
+                      ),
+                      child: Center(
+                        child: Text(
+                          _childQty.toString(),
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue[600],
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    SizedBox(width: 12),
+
+                    // Increase button
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: _childQty < 10
+                            ? Colors.blue[600]
+                            : Colors.grey[300],
+                        shape: BoxShape.circle,
+                      ),
+                      child: IconButton(
+                        padding: EdgeInsets.zero,
+                        constraints: BoxConstraints(),
+                        onPressed: _childQty < 10
+                            ? () {
+                                setState(() {
+                                  _childQty++;
+                                });
+                              }
+                            : null,
+                        icon: Icon(Icons.add, color: Colors.white, size: 14),
+                      ),
+                    ),
+                  ],
+                ),
+
+                SizedBox(height: 8),
+
+                Text(
+                  'Maximum 10 children allowed',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey[500],
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
             ],
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSearchableCountryField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(height: 6),
+        DropdownSearch<String>(
+          items: CountryHelper.getCountries(),
+          selectedItem: _countryController.text.isEmpty
+              ? null
+              : _countryController.text,
+          onChanged: (value) =>
+              setState(() => _countryController.text = value ?? ''),
+          dropdownDecoratorProps: DropDownDecoratorProps(
+            dropdownSearchDecoration: InputDecoration(
+              labelText: 'Country *',
+              labelStyle: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+              hintText: 'Search and select your country',
+              prefixIcon: Icon(Icons.flag_outlined, color: Colors.grey[600]),
+              floatingLabelBehavior: FloatingLabelBehavior.always,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey[300]!),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey[300]!),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.blue[600]!, width: 2),
+              ),
+              filled: true,
+              fillColor: Colors.grey[50],
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
+            ),
+          ),
+          popupProps: PopupProps.menu(
+            showSearchBox: true,
+            searchFieldProps: TextFieldProps(
+              decoration: InputDecoration(
+                hintText: 'Search country...',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+            menuProps: MenuProps(
+              borderRadius: BorderRadius.circular(12),
+              elevation: 8,
+            ),
+            itemBuilder: (context, item, isSelected) {
+              return Container(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.flag_outlined,
+                      size: 20,
+                      color: Colors.grey[600],
+                    ),
+                    SizedBox(width: 8),
+                    Text(item),
+                  ],
+                ),
+              );
+            },
+          ),
+          validator: (value) =>
+              value?.isEmpty == true ? 'Country is required' : null,
         ),
       ],
     );
@@ -1049,38 +1472,51 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
     required DateTime? value,
     required Function(DateTime?) onChanged,
     bool isRequired = false,
+    FloatingLabelBehavior? floatingLabelBehavior,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
-              ),
-            ),
-            if (isRequired)
+        if (floatingLabelBehavior == null) ...[
+          Row(
+            children: [
               Text(
-                ' *',
+                label,
                 style: TextStyle(
-                  color: Colors.red,
                   fontSize: 14,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
                 ),
               ),
-          ],
-        ),
-        SizedBox(height: 8),
+              if (isRequired)
+                Text(
+                  ' *',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+            ],
+          ),
+          SizedBox(height: 6),
+        ],
         TextFormField(
           readOnly: true,
           decoration: InputDecoration(
+            labelText: floatingLabelBehavior != null
+                ? (isRequired ? '$label *' : label)
+                : null,
+            labelStyle: floatingLabelBehavior != null
+                ? TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  )
+                : null,
             hintText: hint,
             prefixIcon: Icon(icon, color: Colors.grey[600]),
-            suffixIcon: Icon(Icons.calendar_today, color: Colors.grey[600]),
+            floatingLabelBehavior: floatingLabelBehavior,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(color: Colors.grey[300]!),
@@ -1095,7 +1531,7 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
             ),
             filled: true,
             fillColor: Colors.grey[50],
-            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),
           controller: TextEditingController(
             text: value != null
@@ -1121,75 +1557,118 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
 
   Widget _buildBottomNavigation() {
     return Container(
-      padding: EdgeInsets.all(20),
+      height: 60,
+      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: Offset(0, -2),
+            blurRadius: 8,
+            offset: Offset(0, -1),
           ),
         ],
       ),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          if (_currentStep > 0)
-            Expanded(
-              child: OutlinedButton(
-                onPressed: () {
-                  setState(() {
-                    _currentStep--;
-                  });
-                },
-                style: OutlinedButton.styleFrom(
-                  padding: EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  side: BorderSide(color: Colors.grey[400]!),
-                ),
-                child: Text(
-                  'Previous',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey[700],
-                  ),
-                ),
+          // Left Side - Previous Button or Spacer
+          SizedBox(
+            width: 100,
+            child: _currentStep > 0
+                ? TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _currentStep--;
+                      });
+                    },
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.arrow_back_ios,
+                          size: 14,
+                          color: Colors.grey[600],
+                        ),
+                        SizedBox(width: 4),
+                        Text(
+                          'Previous',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : SizedBox(), // Empty space when no previous button
+          ),
+
+          // Center - Step Indicator
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.blue[50],
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Text(
+              '${_currentStep + 1} / $_totalSteps',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.blue[600],
               ),
             ),
+          ),
 
-          if (_currentStep > 0) SizedBox(width: 16),
-
-          Expanded(
-            flex: _currentStep == 0 ? 1 : 1,
-            child: ElevatedButton(
+          // Right Side - Next/Submit Button
+          SizedBox(
+            width: 100,
+            child: TextButton(
               onPressed: _isLoading ? null : _handleNextStep,
-              style: ElevatedButton.styleFrom(
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 backgroundColor: Colors.blue[600],
-                padding: EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                elevation: 0,
               ),
               child: _isLoading
                   ? SizedBox(
-                      height: 20,
-                      width: 20,
+                      height: 14,
+                      width: 14,
                       child: CircularProgressIndicator(
                         color: Colors.white,
                         strokeWidth: 2,
                       ),
                     )
-                  : Text(
-                      _currentStep == _totalSteps - 1 ? 'Submit' : 'Next',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _currentStep == _totalSteps - 1 ? 'Submit' : 'Next',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white,
+                          ),
+                        ),
+                        if (_currentStep < _totalSteps - 1) ...[
+                          SizedBox(width: 4),
+                          Icon(
+                            Icons.arrow_forward_ios,
+                            size: 14,
+                            color: Colors.white,
+                          ),
+                        ],
+                      ],
                     ),
             ),
           ),
@@ -1250,9 +1729,33 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
         return false;
       }
     } else if (_currentStep == 1) {
-      if (_occupationController.text.isEmpty ||
-          _familyMemberController.text.isEmpty) {
-        _showErrorMessage('Please fill occupation and family information');
+      if (_occupationController.text.isEmpty) {
+        _showErrorMessage('Please select an occupation');
+        return false;
+      }
+      if (_occupationController.text == 'Service' && _companyName.isEmpty) {
+        _showErrorMessage('Company name is required for Service occupation');
+        return false;
+      }
+      if (_occupationController.text == 'Student' &&
+          _collegeUniversity.isEmpty) {
+        _showErrorMessage(
+          'College/University is required for Student occupation',
+        );
+        return false;
+      }
+      if (_occupationController.text == 'Business' && _businessName.isEmpty) {
+        _showErrorMessage('Business name is required for Business occupation');
+        return false;
+      }
+      if (_familyMemberController.text.isEmpty) {
+        _showErrorMessage('Please fill total family members');
+        return false;
+      }
+      if (_familyTypes.contains('Child') && _childQty == 0) {
+        _showErrorMessage(
+          'Please specify number of children when Child is selected in family types',
+        );
         return false;
       }
     } else if (_currentStep == 3) {
@@ -1311,8 +1814,8 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
         'total_family_member': _familyMemberController.text,
         'family_types': _familyTypes.join(','),
         'child_qty': _childQty.toString(),
-        'property_id': _selectedPropertyId ?? '',
-        'unit_id': _selectedUnitId ?? '',
+        'property_id': _selectedPropertyId?.split(' - ')[0] ?? '',
+        'unit_id': _selectedUnitId?.split(' - ')[0] ?? '',
         'status': _selectedStatus ?? 'Active',
         'advance_amount': _advanceAmountController.text,
         'start_month': _startMonth?.toIso8601String() ?? '',
@@ -1320,9 +1823,20 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
         'remarks': _remarksController.text,
       };
 
-      // TODO: Call actual API here
-      print('Tenant Data: $tenantData');
-      await Future.delayed(Duration(seconds: 2));
+      // Call actual API
+      final response = await http.post(
+        Uri.parse(ApiConfig.getApiUrl('/tenants')),
+        headers: ApiConfig.getHeaders(),
+        body: json.encode(tenantData),
+      );
+
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        print('Tenant saved successfully');
+      } else {
+        print('Error saving tenant: ${response.statusCode}');
+        print('Response: ${response.body}');
+        throw Exception('Failed to save tenant');
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -1,18 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hrms_app/core/utils/app_colors.dart';
 import 'package:hrms_app/core/utils/api_config.dart';
 import 'package:hrms_app/features/auth/data/services/auth_service.dart';
+import 'package:hrms_app/core/providers/app_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-class TenantRegistrationScreen extends StatefulWidget {
+class TenantRegistrationScreen extends ConsumerStatefulWidget {
   @override
-  _TenantRegistrationScreenState createState() =>
+  ConsumerState<TenantRegistrationScreen> createState() =>
       _TenantRegistrationScreenState();
 }
 
-class _TenantRegistrationScreenState extends State<TenantRegistrationScreen> {
+class _TenantRegistrationScreenState
+    extends ConsumerState<TenantRegistrationScreen> {
   final _formKey = GlobalKey<FormState>();
   final _mobileController = TextEditingController();
   final _otpController = TextEditingController();
@@ -25,12 +29,32 @@ class _TenantRegistrationScreenState extends State<TenantRegistrationScreen> {
   Map<String, dynamic>? _tenantInfo;
 
   @override
+  void dispose() {
+    _mobileController.dispose();
+    _otpController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text('Tenant Registration'),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/');
+            }
+          },
+        ),
       ),
       body: SingleChildScrollView(
         padding: EdgeInsets.all(16),
@@ -75,12 +99,19 @@ class _TenantRegistrationScreenState extends State<TenantRegistrationScreen> {
                 decoration: InputDecoration(
                   labelText: 'Mobile Number',
                   prefixIcon: Icon(Icons.phone),
-                  border: OutlineInputBorder(),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  filled: true,
+                  fillColor: AppColors.inputBackground,
                 ),
                 keyboardType: TextInputType.phone,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter mobile number';
+                  }
+                  if (value.length < 10) {
+                    return 'Please enter a valid mobile number';
                   }
                   return null;
                 },
@@ -95,6 +126,9 @@ class _TenantRegistrationScreenState extends State<TenantRegistrationScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     padding: EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                   child: _isLoading
                       ? CircularProgressIndicator(color: Colors.white)
@@ -115,7 +149,11 @@ class _TenantRegistrationScreenState extends State<TenantRegistrationScreen> {
                   decoration: InputDecoration(
                     labelText: 'Enter OTP',
                     prefixIcon: Icon(Icons.security),
-                    border: OutlineInputBorder(),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    filled: true,
+                    fillColor: AppColors.inputBackground,
                     hintText: '6 digit OTP',
                   ),
                   keyboardType: TextInputType.number,
@@ -139,6 +177,9 @@ class _TenantRegistrationScreenState extends State<TenantRegistrationScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.orange,
                       padding: EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                     child: _isLoading
                         ? CircularProgressIndicator(color: Colors.white)
@@ -201,7 +242,11 @@ class _TenantRegistrationScreenState extends State<TenantRegistrationScreen> {
                     decoration: InputDecoration(
                       labelText: 'Create Password',
                       prefixIcon: Icon(Icons.lock),
-                      border: OutlineInputBorder(),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      filled: true,
+                      fillColor: AppColors.inputBackground,
                     ),
                     obscureText: true,
                     validator: (value) {
@@ -221,7 +266,11 @@ class _TenantRegistrationScreenState extends State<TenantRegistrationScreen> {
                     decoration: InputDecoration(
                       labelText: 'Confirm Password',
                       prefixIcon: Icon(Icons.lock_outline),
-                      border: OutlineInputBorder(),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      filled: true,
+                      fillColor: AppColors.inputBackground,
                     ),
                     obscureText: true,
                     validator: (value) {
@@ -242,6 +291,9 @@ class _TenantRegistrationScreenState extends State<TenantRegistrationScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
                       padding: EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                     child: _isLoading
                         ? CircularProgressIndicator(color: Colors.white)
@@ -399,6 +451,10 @@ class _TenantRegistrationScreenState extends State<TenantRegistrationScreen> {
     });
 
     try {
+      print(
+        'DEBUG: Completing registration for mobile: ${_mobileController.text}',
+      );
+
       final response = await http.post(
         Uri.parse(ApiConfig.getApiUrl('/tenant/register')),
         headers: {
@@ -412,11 +468,19 @@ class _TenantRegistrationScreenState extends State<TenantRegistrationScreen> {
         }),
       );
 
+      print('DEBUG: Registration response status: ${response.statusCode}');
+      print('DEBUG: Registration response body: ${response.body}');
+
       final data = json.decode(response.body);
 
       if (response.statusCode == 200) {
         // Save token
         await AuthService.saveToken(data['token']);
+
+        // Update authentication state
+        await ref
+            .read(authStateProvider.notifier)
+            .login(data['token'], 'tenant');
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -426,8 +490,9 @@ class _TenantRegistrationScreenState extends State<TenantRegistrationScreen> {
         );
 
         // Navigate to tenant dashboard
-        Navigator.pushReplacementNamed(context, '/tenant-dashboard');
+        context.go('/tenant-dashboard');
       } else {
+        print('DEBUG: Registration error: $data');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(data['error'] ?? 'Failed to complete registration'),
@@ -436,6 +501,7 @@ class _TenantRegistrationScreenState extends State<TenantRegistrationScreen> {
         );
       }
     } catch (e) {
+      print('DEBUG: Exception in _completeRegistration: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Network error: $e'),

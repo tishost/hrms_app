@@ -34,11 +34,14 @@ class _PropertyEntryScreenState extends State<PropertyEntryScreen> {
   String _selectedCountry = 'Bangladesh';
   int _totalUnits = 1;
   bool _isLoading = false;
-  List<Map<String, String>> _countries = [];
+  List<String> _countries = [];
 
   @override
   void initState() {
     super.initState();
+    print(
+      'DEBUG: PropertyEntryScreen initState - property: ${widget.property}',
+    );
     _loadCountries();
     if (widget.property != null) {
       _loadPropertyData();
@@ -51,6 +54,8 @@ class _PropertyEntryScreenState extends State<PropertyEntryScreen> {
 
   void _loadPropertyData() {
     final property = widget.property!;
+    print('DEBUG: Loading property data: $property');
+
     _nameController.text = property['name'] ?? '';
     _addressController.text = property['address'] ?? '';
     _cityController.text = property['city'] ?? '';
@@ -60,6 +65,10 @@ class _PropertyEntryScreenState extends State<PropertyEntryScreen> {
     _selectedPropertyType = property['property_type'] ?? 'Apartment';
     _selectedCountry = property['country'] ?? 'Bangladesh';
     _totalUnits = property['total_units'] ?? 1;
+
+    print(
+      'DEBUG: Loaded data - Name: ${_nameController.text}, Address: ${_addressController.text}',
+    );
   }
 
   @override
@@ -239,8 +248,8 @@ class _PropertyEntryScreenState extends State<PropertyEntryScreen> {
                     items: _countries
                         .map(
                           (country) => DropdownMenuItem(
-                            value: country['name'],
-                            child: Text(country['name']!),
+                            value: country,
+                            child: Text(country),
                           ),
                         )
                         .toList(),
@@ -381,15 +390,17 @@ class _PropertyEntryScreenState extends State<PropertyEntryScreen> {
           ? ApiConfig.getApiUrl('/properties/${widget.property!['id']}')
           : ApiConfig.getApiUrl('/properties');
 
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: json.encode(propertyData),
-      );
+      final method = widget.property != null ? 'PUT' : 'POST';
+      final request = http.Request(method, Uri.parse(url));
+      request.headers.addAll({
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      });
+      request.body = json.encode(propertyData);
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         ScaffoldMessenger.of(context).showSnackBar(

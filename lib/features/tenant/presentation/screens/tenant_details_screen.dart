@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hrms_app/core/utils/app_colors.dart';
 import 'package:hrms_app/features/tenant/presentation/widgets/custom_bottom_nav.dart';
@@ -11,8 +12,90 @@ class TenantDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Reduced debug prints for better performance
+    if (kDebugMode) {
+      print(
+        'DEBUG: TenantDetailsScreen building for: ${tenant['name'] ?? 'Unknown'}',
+      );
+    }
+
+    // Handle null or empty tenant data
+    if (tenant.isEmpty) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          title: Text(
+            'Tenant Details',
+            style: TextStyle(color: AppColors.text),
+          ),
+          backgroundColor: Colors.white,
+          elevation: 0,
+          iconTheme: IconThemeData(color: AppColors.primary),
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back, color: AppColors.primary),
+            onPressed: () {
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go('/dashboard');
+              }
+            },
+          ),
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 64, color: Colors.grey),
+              SizedBox(height: 16),
+              Text(
+                'No tenant data found',
+                style: TextStyle(fontSize: 18, color: Colors.grey),
+              ),
+              SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go('/dashboard');
+                  }
+                },
+                child: Text('Go Back'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
+      bottomNavigationBar: CustomBottomNav(
+        currentIndex:
+            1, // Tenants tab (Dashboard=0, Tenants=1, Billing=2, Profile=3)
+        onTap: (index) {
+          if (kDebugMode) {
+            print('DEBUG: Bottom nav tapped - index: $index');
+          }
+          if (index == 1) return; // Already on tenants
+
+          switch (index) {
+            case 0:
+              if (kDebugMode) print('DEBUG: Navigating to dashboard');
+              context.go('/dashboard');
+              break;
+            case 2:
+              if (kDebugMode) print('DEBUG: Navigating to billing');
+              context.go('/billing');
+              break;
+            case 3:
+              if (kDebugMode) print('DEBUG: Navigating to profile');
+              context.go('/profile');
+              break;
+          }
+        },
+      ),
       body: SafeArea(
         child: Column(
           children: [
@@ -32,8 +115,13 @@ class TenantDetailsScreen extends StatelessWidget {
               child: Row(
                 children: [
                   GestureDetector(
-                    onTap: () =>
-                        Navigator.pushReplacementNamed(context, '/dashboard'),
+                    onTap: () {
+                      if (context.canPop()) {
+                        context.pop();
+                      } else {
+                        context.go('/dashboard');
+                      }
+                    },
                     child: Container(
                       padding: EdgeInsets.all(8),
                       decoration: BoxDecoration(
@@ -99,13 +187,13 @@ class TenantDetailsScreen extends StatelessWidget {
                           children: [
                             CircleAvatar(
                               radius: 40,
-                              backgroundColor: Colors.white,
+                              backgroundColor: Colors.white.withOpacity(0.2),
                               child: Text(
-                                (tenant['name'] ?? 'T')[0].toUpperCase(),
+                                _getInitials(tenant['name'] ?? ''),
                                 style: TextStyle(
                                   fontSize: 24,
                                   fontWeight: FontWeight.bold,
-                                  color: AppColors.primary,
+                                  color: Colors.white,
                                 ),
                               ),
                             ),
@@ -123,19 +211,28 @@ class TenantDetailsScreen extends StatelessWidget {
                                     ),
                                   ),
                                   SizedBox(height: 4),
+                                  Text(
+                                    tenant['occupation'] ?? 'N/A',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: Colors.white.withOpacity(0.9),
+                                    ),
+                                  ),
+                                  SizedBox(height: 8),
                                   Container(
                                     padding: EdgeInsets.symmetric(
                                       horizontal: 12,
                                       vertical: 4,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.2),
-                                      borderRadius: BorderRadius.circular(20),
+                                      color: _getStatusColor(tenant['status']),
+                                      borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: Text(
                                       _getStatusText(tenant['status']),
                                       style: TextStyle(
                                         color: Colors.white,
+                                        fontSize: 12,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
@@ -147,271 +244,191 @@ class TenantDetailsScreen extends StatelessWidget {
                         ),
                       ),
                     ),
-                    SizedBox(height: 20),
-
-                    // Quick Actions
-                    _buildSectionCard(
-                      title: 'Quick Actions',
-                      icon: Icons.flash_on,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildActionButton(
-                                icon: Icons.phone,
-                                label: 'Call',
-                                color: AppColors.green,
-                                onTap: () {
-                                  // TODO: Implement call functionality
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        'Call feature coming soon!',
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                            SizedBox(width: 12),
-                            Expanded(
-                              child: _buildActionButton(
-                                icon: Icons.message,
-                                label: 'Message',
-                                color: AppColors.primary,
-                                onTap: () {
-                                  // TODO: Implement message functionality
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        'Message feature coming soon!',
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                            SizedBox(width: 12),
-                            Expanded(
-                              child: _buildActionButton(
-                                icon: Icons.receipt,
-                                label: 'Invoices',
-                                color: AppColors.orange,
-                                onTap: () {
-                                  // TODO: Navigate to tenant invoices
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        'Invoices feature coming soon!',
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildActionButton(
-                                icon: Icons.payment,
-                                label: 'Payment',
-                                color: AppColors.darkBlue,
-                                onTap: () {
-                                  // TODO: Navigate to tenant payments
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        'Payment feature coming soon!',
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                            SizedBox(width: 12),
-                            Expanded(
-                              child: _buildActionButton(
-                                icon: Icons.edit,
-                                label: 'Edit',
-                                color: AppColors.yellow,
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          TenantEntryScreen(tenant: tenant),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                            SizedBox(width: 12),
-                            Expanded(
-                              child: _buildActionButton(
-                                icon: Icons.logout,
-                                label: 'Checkout',
-                                color: AppColors.red,
-                                onTap: () {
-                                  // TODO: Navigate to checkout
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        'Checkout feature coming soon!',
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-
+                    SizedBox(height: 24),
                     // Personal Information
-                    _buildSectionCard(
-                      title: 'Personal Information',
-                      icon: Icons.person,
-                      children: [
-                        _buildInfoRow('Name', tenant['name'] ?? 'N/A'),
-                        _buildInfoRow('Gender', tenant['gender'] ?? 'N/A'),
-                        _buildInfoRow(
-                          'NID Number',
-                          tenant['nid_number'] ?? 'N/A',
-                        ),
-                        _buildInfoRow(
-                          'Total Family Members',
-                          '${tenant['total_family_member'] ?? 'N/A'}',
-                        ),
-                        if (tenant['family_types'] != null &&
-                            tenant['family_types'].toString().isNotEmpty)
-                          _buildInfoRow(
-                            'Family Types',
-                            _formatFamilyTypes(tenant['family_types']),
-                          ),
-                        if (tenant['child_qty'] != null &&
-                            tenant['child_qty'] > 0)
-                          _buildInfoRow('Children', '${tenant['child_qty']}'),
-                      ],
-                    ),
-
-                    // Contact Information
-                    _buildSectionCard(
-                      title: 'Contact Information',
-                      icon: Icons.phone,
-                      children: [
-                        _buildInfoRow('Mobile', tenant['mobile'] ?? 'N/A'),
-                        if (tenant['alt_mobile'] != null &&
-                            tenant['alt_mobile'].toString().isNotEmpty)
-                          _buildInfoRow(
-                            'Alternative Mobile',
-                            tenant['alt_mobile'],
-                          ),
-                        if (tenant['email'] != null &&
-                            tenant['email'].toString().isNotEmpty)
-                          _buildInfoRow('Email', tenant['email']),
-                      ],
-                    ),
-
+                    _buildSectionCard('Personal Information', Icons.person, [
+                      _buildInfoRow('Full Name', tenant['name'] ?? 'N/A'),
+                      _buildInfoRow('Gender', tenant['gender'] ?? 'N/A'),
+                      _buildInfoRow('Mobile', tenant['mobile'] ?? 'N/A'),
+                      _buildInfoRow(
+                        'Alt Mobile',
+                        tenant['alt_mobile'] ?? 'N/A',
+                      ),
+                      _buildInfoRow('Email', tenant['email'] ?? 'N/A'),
+                      _buildInfoRow(
+                        'NID Number',
+                        tenant['nid_number'] ?? 'N/A',
+                      ),
+                    ]),
+                    SizedBox(height: 16),
                     // Address Information
                     _buildSectionCard(
-                      title: 'Address Information',
-                      icon: Icons.location_on,
-                      children: [
-                        _buildInfoRow(
-                          'Street Address',
-                          tenant['address'] ?? 'N/A',
-                        ),
-                        if (tenant['city'] != null &&
-                            tenant['city'].toString().isNotEmpty)
-                          _buildInfoRow('City', tenant['city']),
-                        if (tenant['state'] != null &&
-                            tenant['state'].toString().isNotEmpty)
-                          _buildInfoRow('State', tenant['state']),
-                        if (tenant['zip'] != null &&
-                            tenant['zip'].toString().isNotEmpty)
-                          _buildInfoRow('ZIP Code', tenant['zip']),
+                      'Address Information',
+                      Icons.location_on,
+                      [
+                        _buildInfoRow('Address', tenant['address'] ?? 'N/A'),
+                        _buildInfoRow('City', tenant['city'] ?? 'N/A'),
+                        _buildInfoRow('State', tenant['state'] ?? 'N/A'),
+                        _buildInfoRow('ZIP Code', tenant['zip'] ?? 'N/A'),
                         _buildInfoRow('Country', tenant['country'] ?? 'N/A'),
                       ],
                     ),
-
-                    // Occupation Information
+                    SizedBox(height: 16),
+                    // Work Information
+                    _buildSectionCard('Work Information', Icons.work, [
+                      _buildInfoRow(
+                        'Occupation',
+                        tenant['occupation'] ?? 'N/A',
+                      ),
+                      if (tenant['occupation']?.toString().toLowerCase() ==
+                          'service')
+                        _buildInfoRow(
+                          'Company Name',
+                          tenant['company_name'] ?? 'N/A',
+                        ),
+                      if (tenant['occupation']?.toString().toLowerCase() ==
+                          'student')
+                        _buildInfoRow(
+                          'University/School',
+                          tenant['college_university'] ?? 'N/A',
+                        ),
+                      if (tenant['occupation']?.toString().toLowerCase() ==
+                          'business')
+                        _buildInfoRow(
+                          'Business Name',
+                          tenant['business_name'] ?? 'N/A',
+                        ),
+                    ]),
+                    SizedBox(height: 16),
+                    // Family Information
                     _buildSectionCard(
-                      title: 'Occupation Information',
-                      icon: Icons.work,
-                      children: [
+                      'Family Information',
+                      Icons.family_restroom,
+                      [
                         _buildInfoRow(
-                          'Occupation',
-                          tenant['occupation'] ?? 'N/A',
+                          'Total Family Members',
+                          tenant['total_family_member']?.toString() ?? 'N/A',
                         ),
-                        if (tenant['company_name'] != null &&
-                            tenant['company_name'].toString().isNotEmpty)
-                          _buildInfoRow('Company Name', tenant['company_name']),
-                        if (tenant['college_university'] != null &&
-                            tenant['college_university'].toString().isNotEmpty)
-                          _buildInfoRow(
-                            'College/University',
-                            tenant['college_university'],
-                          ),
-                        if (tenant['business_name'] != null &&
-                            tenant['business_name'].toString().isNotEmpty)
-                          _buildInfoRow(
-                            'Business Name',
-                            tenant['business_name'],
-                          ),
                         _buildInfoRow(
-                          'Is Driver',
-                          tenant['is_driver'] == true ? 'Yes' : 'No',
+                          'Family Types',
+                          _formatFamilyTypes(tenant['family_types']),
                         ),
-                        if (tenant['driver_name'] != null &&
-                            tenant['driver_name'].toString().isNotEmpty)
-                          _buildInfoRow('Driver Name', tenant['driver_name']),
+                        if (tenant['family_types'] != null &&
+                            tenant['family_types']
+                                .toString()
+                                .toLowerCase()
+                                .contains('child'))
+                          _buildInfoRow(
+                            'Child Quantity',
+                            tenant['child_qty']?.toString() ?? 'N/A',
+                          ),
                       ],
                     ),
-
-                    // Unit Information
+                    SizedBox(height: 16),
+                    // Property Information
+                    _buildSectionCard('Property Information', Icons.home, [
+                      _buildInfoRow(
+                        'Property',
+                        tenant['property_name'] ?? 'N/A',
+                      ),
+                      _buildInfoRow('Unit', tenant['unit_name'] ?? 'N/A'),
+                      _buildInfoRow(
+                        'Check-in Date',
+                        _formatDate(tenant['check_in_date']),
+                      ),
+                      _buildInfoRow('Frequency', tenant['frequency'] ?? 'N/A'),
+                    ]),
+                    SizedBox(height: 16),
+                    // Financial Information
                     _buildSectionCard(
-                      title: 'Unit Information',
-                      icon: Icons.home,
-                      children: [
-                        _buildInfoRow(
-                          'Property',
-                          tenant['property_name'] ?? 'N/A',
-                        ),
-                        _buildInfoRow('Unit', tenant['unit_name'] ?? 'N/A'),
-                        _buildInfoRow(
-                          'Check-in Date',
-                          _formatDate(tenant['check_in_date']),
-                        ),
-                        if (tenant['check_out_date'] != null)
-                          _buildInfoRow(
-                            'Check-out Date',
-                            _formatDate(tenant['check_out_date']),
-                          ),
+                      'Financial Information',
+                      Icons.attach_money,
+                      [
                         _buildInfoRow(
                           'Security Deposit',
-                          '${tenant['security_deposit'] ?? '0'} BDT',
+                          '৳${tenant['security_deposit'] ?? '0'}',
                         ),
                         _buildInfoRow(
-                          'Rent Frequency',
-                          tenant['frequency'] ?? 'N/A',
+                          'Cleaning Charges',
+                          '৳${tenant['cleaning_charges'] ?? '0'}',
+                        ),
+                        _buildInfoRow(
+                          'Other Charges',
+                          '৳${tenant['other_charges'] ?? '0'}',
                         ),
                       ],
                     ),
-
+                    SizedBox(height: 16),
                     // Additional Information
-                    if (tenant['remarks'] != null &&
-                        tenant['remarks'].toString().isNotEmpty)
-                      _buildSectionCard(
-                        title: 'Additional Information',
-                        icon: Icons.note,
-                        children: [_buildInfoRow('Remarks', tenant['remarks'])],
+                    _buildSectionCard('Additional Information', Icons.info, [
+                      _buildInfoRow(
+                        'Driver',
+                        tenant['is_driver'] == '1' ? 'Yes' : 'No',
                       ),
-
-                    SizedBox(height: 20),
+                      if (tenant['is_driver'] == '1')
+                        _buildInfoRow(
+                          'Driver Name',
+                          tenant['driver_name'] ?? 'N/A',
+                        ),
+                      _buildInfoRow('Remarks', tenant['remarks'] ?? 'N/A'),
+                    ]),
+                    SizedBox(height: 24),
+                    // Action Buttons
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () async {
+                              final result = await context.push(
+                                '/tenant-entry',
+                                extra: tenant,
+                              );
+                              if (result == true) {
+                                // Refresh or go back
+                                if (context.canPop()) {
+                                  context.pop();
+                                }
+                              }
+                            },
+                            icon: Icon(Icons.edit),
+                            label: Text('Edit Tenant'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              padding: EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              // Show payment history or billing info
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Payment history feature coming soon!',
+                                  ),
+                                ),
+                              );
+                            },
+                            icon: Icon(Icons.payment),
+                            label: Text('Payment History'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.primary,
+                              side: BorderSide(color: AppColors.primary),
+                              padding: EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -419,44 +436,10 @@ class TenantDetailsScreen extends StatelessWidget {
           ],
         ),
       ),
-      bottomNavigationBar: CustomBottomNav(
-        currentIndex: 3, // Tenants tab
-        onTap: (index) {
-          print('DEBUG: Bottom nav tapped - index: $index');
-          if (index == 3) return; // Already on tenants
-
-          switch (index) {
-            case 0:
-              print('DEBUG: Navigating to dashboard');
-              context.go('/dashboard');
-              break;
-            case 1:
-              print('DEBUG: Navigating to properties');
-              context.go('/properties');
-              break;
-            case 2:
-              print('DEBUG: Navigating to units');
-              context.go('/units');
-              break;
-            case 4:
-              print('DEBUG: Navigating to billing');
-              context.go('/billing');
-              break;
-            case 5:
-              print('DEBUG: Navigating to reports');
-              context.go('/reports');
-              break;
-          }
-        },
-      ),
     );
   }
 
-  Widget _buildSectionCard({
-    required String title,
-    required IconData icon,
-    required List<Widget> children,
-  }) {
+  Widget _buildSectionCard(String title, IconData icon, List<Widget> children) {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -472,51 +455,16 @@ class TenantDetailsScreen extends StatelessWidget {
                 Text(
                   title,
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: AppColors.text,
                   ),
                 ),
               ],
             ),
-            SizedBox(height: 12),
+            SizedBox(height: 16),
             ...children,
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionButton({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Column(
-            children: [
-              Icon(icon, color: color, size: 24),
-              SizedBox(height: 4),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: color,
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
@@ -550,6 +498,15 @@ class TenantDetailsScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _getInitials(String name) {
+    if (name.isEmpty) return '?';
+    final parts = name.trim().split(' ');
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return name[0].toUpperCase();
   }
 
   String _formatFamilyTypes(dynamic familyTypes) {

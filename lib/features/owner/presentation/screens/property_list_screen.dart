@@ -420,8 +420,14 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
           child: InkWell(
             borderRadius: BorderRadius.circular(12),
             onTap: () async {
-              // Open edit form with property id
-              final result = await context.push('/property-entry');
+              // Open edit form with property data
+              print('DEBUG: Property tapped for edit: $property');
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => PropertyEntryScreen(property: property),
+                ),
+              );
               if (result == true) {
                 _loadProperties();
               }

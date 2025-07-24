@@ -163,25 +163,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        // Menu button for endDrawer
-                        GestureDetector(
-                          onTap: () {
-                            Scaffold.of(context).openEndDrawer();
-                          },
-                          child: Container(
-                            padding: EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: AppColors.lightGray,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(
-                              Icons.menu,
-                              color: AppColors.gray,
-                              size: 24,
-                            ),
-                          ),
-                        ),
-                        SizedBox(width: 12),
                         GestureDetector(
                           onTap: () {
                             context.push('/profile').then((_) {

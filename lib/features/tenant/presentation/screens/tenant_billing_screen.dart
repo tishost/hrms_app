@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hrms_app/features/auth/data/services/auth_service.dart';
 import 'package:hrms_app/core/utils/api_config.dart';
 import 'package:hrms_app/core/utils/app_colors.dart';
@@ -118,17 +120,26 @@ class _TenantBillingScreenState extends State<TenantBillingScreen> {
                     ),
             ),
       bottomNavigationBar: TenantBottomNav(
-        currentIndex: 1, // Billing tab
+        currentIndex:
+            2, // Billing tab (Dashboard=0, Tenants=1, Billing=2, Profile=3)
         onTap: (index) {
+          if (kDebugMode) {
+            print('DEBUG: Bottom nav tapped - index: $index');
+          }
+          if (index == 2) return; // Already on billing
+
           switch (index) {
             case 0:
-              Navigator.pushReplacementNamed(context, '/tenant-dashboard');
+              if (kDebugMode) print('DEBUG: Navigating to dashboard');
+              context.go('/dashboard');
               break;
             case 1:
-              // Already on billing screen
+              if (kDebugMode) print('DEBUG: Navigating to tenants');
+              context.go('/tenants');
               break;
-            case 2:
-              Navigator.pushReplacementNamed(context, '/tenant-profile');
+            case 3:
+              if (kDebugMode) print('DEBUG: Navigating to profile');
+              context.go('/profile');
               break;
           }
         },
