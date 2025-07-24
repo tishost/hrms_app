@@ -57,6 +57,7 @@ class _UnitEntryScreenState extends State<UnitEntryScreen> {
   }
 
   Future<void> _loadUnitData(int id) async {
+    print('DEBUG: Loading unit data for ID: $id');
     setState(() {
       _isLoading = true;
     });
@@ -64,6 +65,7 @@ class _UnitEntryScreenState extends State<UnitEntryScreen> {
       String? token = await AuthService.getToken();
       if (token == null) return;
       final unit = await UnitService.getUnitById(id);
+      print('DEBUG: Unit data loaded: $unit');
       setState(() {
         _nameController.text = unit['name'] ?? '';
         _rentController.text = unit['rent']?.toString() ?? '';
@@ -71,7 +73,11 @@ class _UnitEntryScreenState extends State<UnitEntryScreen> {
         _selectedPropertyId = unit['property_id']?.toString();
         _isLoading = false;
       });
+      print(
+        'DEBUG: Form filled - Name: ${_nameController.text}, Rent: ${_rentController.text}',
+      );
     } catch (e) {
+      print('DEBUG: Error loading unit data: $e');
       setState(() {
         _isLoading = false;
       });
