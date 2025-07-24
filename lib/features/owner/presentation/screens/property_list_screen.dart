@@ -7,7 +7,7 @@ import 'package:hrms_app/features/owner/data/services/property_service.dart';
 import 'package:hrms_app/features/owner/presentation/widgets/custom_bottom_nav.dart';
 import 'package:hrms_app/features/owner/presentation/widgets/custom_drawer.dart';
 import 'package:hrms_app/features/owner/presentation/screens/unit_list_screen.dart';
-import 'package:hrms_app/features/tenant/presentation/screens/tenant_list_screen.dart';
+import 'package:hrms_app/features/owner/presentation/screens/owner_tenant_list_screen.dart';
 import 'package:hrms_app/features/owner/presentation/screens/profile_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;

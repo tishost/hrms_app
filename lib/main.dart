@@ -20,7 +20,7 @@ import 'features/auth/presentation/screens/login_screen.dart';
 import 'features/owner/presentation/screens/dashboard_screen.dart';
 import 'features/owner/presentation/screens/property_list_screen.dart';
 import 'features/owner/presentation/screens/unit_list_screen.dart';
-import 'features/tenant/presentation/screens/tenant_list_screen.dart';
+import 'features/owner/presentation/screens/owner_tenant_list_screen.dart';
 import 'features/owner/presentation/screens/invoice_list_screen.dart';
 import 'features/owner/presentation/screens/reports_screen.dart';
 import 'features/owner/presentation/screens/profile_screen.dart';
@@ -130,7 +130,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/units', builder: (context, state) => UnitListScreen()),
       GoRoute(
         path: '/tenants',
-        builder: (context, state) => TenantListScreen(),
+        builder: (context, state) => OwnerTenantListScreen(),
       ),
       GoRoute(
         path: '/tenant-entry',

@@ -7,7 +7,7 @@ import 'package:hrms_app/features/owner/presentation/widgets/custom_bottom_nav.d
 import 'package:hrms_app/features/owner/presentation/widgets/custom_drawer.dart';
 import 'package:hrms_app/features/owner/presentation/screens/profile_screen.dart';
 import 'package:hrms_app/features/owner/presentation/screens/unit_list_screen.dart';
-import 'package:hrms_app/features/tenant/presentation/screens/tenant_list_screen.dart';
+import 'package:hrms_app/features/owner/presentation/screens/owner_tenant_list_screen.dart';
 import 'package:hrms_app/features/owner/data/services/dashboard_service.dart';
 import 'package:hrms_app/features/auth/data/services/auth_service.dart';
 import 'package:hrms_app/core/utils/api_config.dart';
