@@ -24,6 +24,9 @@ import 'features/owner/presentation/screens/profile_screen.dart';
 import 'features/owner/presentation/screens/property_entry_screen.dart';
 import 'features/owner/presentation/screens/tenant_entry_screen.dart';
 import 'features/owner/presentation/screens/tenant_entry_simple.dart';
+import 'features/owner/presentation/screens/checkout_form_screen.dart';
+import 'features/owner/presentation/screens/checkout_list_screen.dart';
+import 'features/owner/presentation/screens/checkout_details_screen.dart';
 import 'features/tenant/presentation/screens/tenant_dashboard_screen.dart';
 
 import 'features/tenant/presentation/screens/tenant_details_screen.dart';
@@ -141,6 +144,35 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
+        path: '/checkout',
+        builder: (context, state) {
+          print('DEBUG: Building checkout route, extra: ${state.extra}');
+          final tenant = state.extra as Map<String, dynamic>?;
+          return CheckoutFormScreen(
+            tenant: tenant,
+            unit: tenant?['unit'],
+            property: tenant?['property'],
+          );
+        },
+      ),
+      GoRoute(
+        path: '/checkout/:id',
+        builder: (context, state) {
+          print(
+            'DEBUG: Building checkout details route, id: ${state.pathParameters['id']}',
+          );
+          final checkoutId = state.pathParameters['id'] ?? '';
+          return CheckoutDetailsScreen(checkoutId: checkoutId);
+        },
+      ),
+      GoRoute(
+        path: '/checkouts',
+        builder: (context, state) {
+          print('DEBUG: Building checkouts route');
+          return CheckoutListScreen();
+        },
+      ),
+      GoRoute(
         path: '/tenant-details',
         builder: (context, state) =>
             TenantDetailsScreen(tenant: state.extra as Map<String, dynamic>),
@@ -219,6 +251,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (state.matchedLocation == '/tenant-entry') {
         print('DEBUG: Tenant-entry route detected, extra: ${state.extra}');
         print('DEBUG: Allowing tenant-entry with extra data: ${state.extra}');
+        return null;
+      }
+
+      // Allow checkout route to pass through with extra data
+      if (state.matchedLocation == '/checkout') {
+        print('DEBUG: Checkout route detected, extra: ${state.extra}');
+        print('DEBUG: Allowing checkout with extra data: ${state.extra}');
         return null;
       }
 

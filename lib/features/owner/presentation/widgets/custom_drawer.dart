@@ -8,7 +8,7 @@ import 'package:hrms_app/core/providers/app_providers.dart';
 class CustomDrawer extends ConsumerWidget {
   final Function()? onLogout;
 
-  const CustomDrawer({Key? key, this.onLogout}) : super(key: key);
+  const CustomDrawer({super.key, this.onLogout});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -54,7 +54,63 @@ class CustomDrawer extends ConsumerWidget {
             Expanded(
               child: ListView(
                 children: [
-                  _drawerItem(Icons.home, 'Home', onTap: () {}),
+                  _drawerItem(
+                    Icons.home,
+                    'Home',
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      context.go('/dashboard');
+                    },
+                  ),
+                  _drawerItem(
+                    Icons.business,
+                    'Properties',
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      context.go('/properties');
+                    },
+                  ),
+                  _drawerItem(
+                    Icons.home_work,
+                    'Units',
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      context.go('/units');
+                    },
+                  ),
+                  _drawerItem(
+                    Icons.people,
+                    'Tenants',
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      context.go('/tenants');
+                    },
+                  ),
+                  _drawerItem(
+                    Icons.receipt_long,
+                    'Checkout Records',
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      context.go('/checkouts');
+                    },
+                  ),
+                  _drawerItem(
+                    Icons.attach_money,
+                    'Billing',
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      context.go('/billing');
+                    },
+                  ),
+                  _drawerItem(
+                    Icons.assessment,
+                    'Reports',
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      context.go('/reports');
+                    },
+                  ),
+                  Divider(),
                   _drawerItem(
                     Icons.stacked_bar_chart,
                     'Statements',
@@ -80,14 +136,6 @@ class CustomDrawer extends ConsumerWidget {
                   _drawerItem(Icons.map, 'Map', onTap: () {}),
                   _drawerItem(Icons.explore, 'Discover', onTap: () {}),
                   _drawerItem(Icons.settings, 'Settings', onTap: () {}),
-                  _drawerItem(
-                    Icons.person,
-                    'Profile',
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      context.push('/profile');
-                    },
-                  ),
                   _drawerItem(Icons.support_agent, 'Support', onTap: () {}),
                 ],
               ),

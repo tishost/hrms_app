@@ -11,6 +11,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:hrms_app/features/tenant/presentation/screens/tenant_details_screen.dart';
 import 'tenant_entry_screen.dart';
+import 'checkout_form_screen.dart';
 
 class OwnerTenantListScreen extends StatefulWidget {
   const OwnerTenantListScreen({super.key});
@@ -498,6 +499,9 @@ class _OwnerTenantListScreenState extends State<OwnerTenantListScreen> {
                         case 'billing':
                           context.push('/billing', extra: tenant);
                           break;
+                        case 'checkout':
+                          context.push('/checkout', extra: tenant);
+                          break;
                         case 'delete':
                           _showDeleteConfirmation(tenant);
                           break;
@@ -550,6 +554,23 @@ class _OwnerTenantListScreenState extends State<OwnerTenantListScreen> {
                             SizedBox(width: 8),
                             Text(
                               'Billing',
+                              style: TextStyle(color: AppColors.text),
+                            ),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'checkout',
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.exit_to_app,
+                              size: 16,
+                              color: AppColors.primary,
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              'Checkout',
                               style: TextStyle(color: AppColors.text),
                             ),
                           ],

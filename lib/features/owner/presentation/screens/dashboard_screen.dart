@@ -17,6 +17,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
 class DashboardScreen extends ConsumerStatefulWidget {
+  const DashboardScreen({super.key});
+
   @override
   ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
 }
@@ -346,6 +348,37 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                 ),
                               ],
                             ),
+                            SizedBox(height: 6),
+                            // Third Row - 2 cards for checkouts
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _SummaryCard(
+                                    title: 'Pending Checkouts',
+                                    value:
+                                        '${_dashboardStats['pending_checkouts'] ?? 0}',
+                                    icon: Icons.exit_to_app,
+                                    color: AppColors.red,
+                                    onTap: () {
+                                      context.push('/tenants');
+                                    },
+                                  ),
+                                ),
+                                SizedBox(width: 6),
+                                Expanded(
+                                  child: _SummaryCard(
+                                    title: 'Checkout Records',
+                                    value:
+                                        '${_dashboardStats['total_checkouts'] ?? 0}',
+                                    icon: Icons.receipt_long,
+                                    color: AppColors.purple,
+                                    onTap: () {
+                                      context.push('/checkouts');
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
                           ],
                         ),
                 ),
@@ -393,7 +426,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         ],
                       ),
                       SizedBox(height: 12),
-                      Container(
+                      SizedBox(
                         height: 130,
                         child: ListView(
                           scrollDirection: Axis.horizontal,
@@ -482,7 +515,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         ],
                       ),
                       SizedBox(height: 12),
-                      Container(
+                      SizedBox(
                         height: 170,
                         child: ListView(
                           scrollDirection: Axis.horizontal,
@@ -603,7 +636,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                 ),
                               ),
                             )
-                          : Container(
+                          : SizedBox(
                               height: 200, // Fixed height for transactions
                               child: ListView.builder(
                                 itemCount: _recentTransactions.length,
@@ -730,22 +763,20 @@ class _SummaryCard extends StatelessWidget {
   final String value;
   final IconData icon;
   final Color color;
+  final VoidCallback? onTap;
 
   const _SummaryCard({
     required this.title,
     required this.value,
     required this.icon,
     required this.color,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        // Handle card tap for ads/actions
-        print('Card tapped: $title');
-        // You can add navigation or ad logic here
-      },
+      onTap: onTap,
       child: Container(
         padding: EdgeInsets.all(12),
         decoration: BoxDecoration(
