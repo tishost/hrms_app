@@ -32,9 +32,16 @@ class _TenantBillingScreenState extends State<TenantBillingScreen> {
       });
 
       final token = await AuthService.getToken();
+      print('DEBUG: Token: $token');
+      print('DEBUG: Token length: ${token?.length}');
+
       if (token == null) {
         throw Exception('No authentication token found');
       }
+
+      // Get user info for debugging
+      final userInfo = await AuthService.getUserInfo();
+      print('DEBUG: User Info: $userInfo');
 
       final response = await http.get(
         Uri.parse(ApiConfig.getApiUrl('/tenant/invoices')),
@@ -44,16 +51,36 @@ class _TenantBillingScreenState extends State<TenantBillingScreen> {
         },
       );
 
+      print('DEBUG: API URL: ${ApiConfig.getApiUrl('/tenant/invoices')}');
+      print('DEBUG: Response Status: ${response.statusCode}');
+      print('DEBUG: Response Headers: ${response.headers}');
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
+        print('DEBUG: API Response: $data');
+        print('DEBUG: Invoices count: ${data['invoices']?.length ?? 0}');
+
+        if (data['invoices'] != null) {
+          for (int i = 0; i < data['invoices'].length; i++) {
+            final invoice = data['invoices'][i];
+            print(
+              'DEBUG: Invoice $i - ID: ${invoice['id']}, Status: ${invoice['status']}, Amount: ${invoice['amount']}',
+            );
+          }
+        }
+
         setState(() {
           _invoices = data['invoices'] ?? [];
           _isLoading = false;
         });
       } else {
+        print(
+          'DEBUG: API Error - Status: ${response.statusCode}, Body: ${response.body}',
+        );
         throw Exception('Failed to load invoices');
       }
     } catch (e) {
+      print('DEBUG: Exception: $e');
       setState(() {
         _isLoading = false;
       });
@@ -148,6 +175,10 @@ class _TenantBillingScreenState extends State<TenantBillingScreen> {
   }
 
   Widget _buildInvoiceCard(Map<String, dynamic> invoice) {
+    print(
+      'DEBUG: Building invoice card - ID: ${invoice['id']}, Status: ${invoice['status']}',
+    );
+
     return Card(
       margin: EdgeInsets.only(bottom: 12),
       elevation: 2,

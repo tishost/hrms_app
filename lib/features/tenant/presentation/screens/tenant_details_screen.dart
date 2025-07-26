@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hrms_app/core/utils/app_colors.dart';
 import 'package:hrms_app/features/tenant/presentation/widgets/custom_bottom_nav.dart';
-import 'tenant_entry_screen.dart';
 
 class TenantDetailsScreen extends StatelessWidget {
   final Map<String, dynamic> tenant;

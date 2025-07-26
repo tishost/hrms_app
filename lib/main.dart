@@ -11,9 +11,6 @@ import 'core/constants/app_constants.dart';
 import 'core/utils/performance_config.dart';
 import 'core/theme/app_theme.dart';
 import 'core/providers/app_providers.dart';
-import 'core/services/api_service.dart';
-import 'core/services/security_service.dart';
-import 'core/models/user_model.dart';
 
 // Features
 import 'features/auth/presentation/screens/login_screen.dart';
@@ -25,8 +22,10 @@ import 'features/owner/presentation/screens/invoice_list_screen.dart';
 import 'features/owner/presentation/screens/reports_screen.dart';
 import 'features/owner/presentation/screens/profile_screen.dart';
 import 'features/owner/presentation/screens/property_entry_screen.dart';
+import 'features/owner/presentation/screens/tenant_entry_screen.dart';
+import 'features/owner/presentation/screens/tenant_entry_simple.dart';
 import 'features/tenant/presentation/screens/tenant_dashboard_screen.dart';
-import 'features/tenant/presentation/screens/tenant_entry_screen.dart';
+
 import 'features/tenant/presentation/screens/tenant_details_screen.dart';
 
 void main() async {
@@ -134,7 +133,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/tenant-entry',
-        builder: (context, state) => TenantEntryScreen(),
+        builder: (context, state) {
+          print('DEBUG: Building tenant-entry route, extra: ${state.extra}');
+          return TenantEntryScreen(
+            tenant: state.extra as Map<String, dynamic>?,
+          );
+        },
       ),
       GoRoute(
         path: '/tenant-details',
@@ -146,6 +150,24 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => InvoiceListScreen(),
       ),
       GoRoute(path: '/reports', builder: (context, state) => ReportsScreen()),
+      GoRoute(
+        path: '/test-tenant',
+        builder: (context, state) => Scaffold(
+          appBar: AppBar(title: Text('Test Tenant')),
+          body: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('Test Tenant Route Working!'),
+                ElevatedButton(
+                  onPressed: () => context.go('/dashboard'),
+                  child: Text('Go to Dashboard'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     ],
     redirect: (context, state) {
       final isAuthLoading = authState.isLoading;
@@ -191,6 +213,13 @@ final routerProvider = Provider<GoRouter>((ref) {
           );
           return null;
         }
+      }
+
+      // Allow tenant-entry route to pass through with extra data
+      if (state.matchedLocation == '/tenant-entry') {
+        print('DEBUG: Tenant-entry route detected, extra: ${state.extra}');
+        print('DEBUG: Allowing tenant-entry with extra data: ${state.extra}');
+        return null;
       }
 
       // If authenticated and on login page, redirect to dashboard

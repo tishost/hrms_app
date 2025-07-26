@@ -440,6 +440,8 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
         return Colors.green;
       case 'unpaid':
         return Colors.red;
+      case 'due':
+        return Colors.orange;
       case 'partial':
         return Colors.orange;
       default:
@@ -453,6 +455,8 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
         return 'Paid';
       case 'unpaid':
         return 'Unpaid';
+      case 'due':
+        return 'Due';
       case 'partial':
         return 'Partial';
       default:
@@ -543,10 +547,8 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => InvoicePdfScreen(
-                            invoiceId: invoice['id'],
-                            invoiceNumber: invoice['invoice_number'] ?? 'N/A',
-                          ),
+                          builder: (context) =>
+                              InvoicePdfScreen(invoiceId: invoice['id']),
                         ),
                       );
                     },
