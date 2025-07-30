@@ -135,7 +135,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         ),
       );
     } else if (index == 2) {
+      context.go('/units');
+    } else if (index == 3) {
       context.go('/tenants');
+    } else if (index == 4) {
+      context.go('/billing');
     } else {
       setState(() {
         _selectedIndex = index;
@@ -149,524 +153,457 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       backgroundColor: AppColors.background,
       endDrawer: CustomDrawer(),
       body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _refreshDashboard,
-          color: AppColors.primary,
-          backgroundColor: AppColors.background,
-          child: SingleChildScrollView(
-            physics: AlwaysScrollableScrollPhysics(),
-            child: Column(
-              children: [
-                // Custom Header (with menu icon that opens endDrawer)
-                Builder(
-                  builder: (context) => Container(
-                    color: AppColors.background,
-                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        GestureDetector(
-                          onTap: () {
-                            context.push('/profile').then((_) {
-                              // Refresh user info when returning from profile
-                              _loadUserInfo();
-                            });
-                          },
-                          child: CircleAvatar(
-                            radius: 28,
-                            backgroundColor: AppColors.lightGray,
-                            child: Icon(
-                              Icons.person,
-                              color: AppColors.gray,
-                              size: 36,
-                            ),
-                          ),
+        child: Column(
+          children: [
+            // Fixed Header (with menu icon that opens endDrawer)
+            Builder(
+              builder: (context) => Container(
+                color: AppColors.background,
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        context.push('/profile').then((_) {
+                          // Refresh user info when returning from profile
+                          _loadUserInfo();
+                        });
+                      },
+                      child: CircleAvatar(
+                        radius: 28,
+                        backgroundColor: AppColors.lightGray,
+                        child: Icon(
+                          Icons.person,
+                          color: AppColors.gray,
+                          size: 36,
                         ),
-                        SizedBox(width: 14),
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () {
-                              context.push('/profile').then((_) {
-                                // Refresh user info when returning from profile
-                                _loadUserInfo();
-                              });
-                            },
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                      ),
+                    ),
+                    SizedBox(width: 14),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          context.push('/profile').then((_) {
+                            // Refresh user info when returning from profile
+                            _loadUserInfo();
+                          });
+                        },
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              userName,
+                              style: TextStyle(
+                                color: AppColors.text,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                              ),
+                            ),
+                            Row(
                               children: [
                                 Text(
-                                  userName,
+                                  userMobile,
                                   style: TextStyle(
-                                    color: AppColors.text,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 18,
+                                    color: AppColors.gray,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
-                                Row(
+                                if (userPhoneVerified == true)
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 4.0),
+                                    child: Icon(
+                                      Icons.verified,
+                                      color: Colors.green,
+                                      size: 18,
+                                    ),
+                                  ),
+                                SizedBox(width: 4),
+                                Icon(
+                                  Icons.arrow_forward_ios,
+                                  size: 16,
+                                  color: AppColors.red,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(
+                        Icons.notifications_none,
+                        color: AppColors.red,
+                      ),
+                      onPressed: () {},
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.menu, color: AppColors.red),
+                      onPressed: () {
+                        Scaffold.of(context).openEndDrawer();
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Scrollable Content
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: _refreshDashboard,
+                color: AppColors.primary,
+                backgroundColor: AppColors.background,
+                child: SingleChildScrollView(
+                  physics: AlwaysScrollableScrollPhysics(),
+                  child: Column(
+                    children: [
+                      // Summary Cards (Compact Grid)
+                      Container(
+                        margin: EdgeInsets.only(top: 16),
+                        padding: EdgeInsets.symmetric(horizontal: 16),
+                        child: _isLoading
+                            ? Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Text(
-                                      userMobile,
-                                      style: TextStyle(
-                                        color: AppColors.gray,
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w500,
+                                    CircularProgressIndicator(
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        AppColors.primary,
                                       ),
                                     ),
-                                    if (userPhoneVerified == true)
-                                      Padding(
-                                        padding: const EdgeInsets.only(
-                                          left: 4.0,
-                                        ),
-                                        child: Icon(
-                                          Icons.verified,
-                                          color: Colors.green,
-                                          size: 18,
-                                        ),
+                                    SizedBox(height: 8),
+                                    Text(
+                                      'Loading dashboard...',
+                                      style: TextStyle(
+                                        color: AppColors.textSecondary,
+                                        fontSize: 12,
                                       ),
-                                    SizedBox(width: 4),
-                                    Icon(
-                                      Icons.arrow_forward_ios,
-                                      size: 16,
-                                      color: AppColors.red,
                                     ),
                                   ],
                                 ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          icon: Icon(
-                            Icons.notifications_none,
-                            color: AppColors.red,
-                          ),
-                          onPressed: () {},
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.menu, color: AppColors.red),
-                          onPressed: () {
-                            Scaffold.of(context).openEndDrawer();
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                // Summary Cards (Compact Grid)
-                Container(
-                  margin: EdgeInsets.only(top: 16),
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: _isLoading
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              CircularProgressIndicator(
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  AppColors.primary,
-                                ),
-                              ),
-                              SizedBox(height: 8),
-                              Text(
-                                'Loading dashboard...',
-                                style: TextStyle(
-                                  color: AppColors.textSecondary,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      : Column(
-                          children: [
-                            // First Row - 3 cards
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _SummaryCard(
-                                    title: 'Tenants',
-                                    value:
-                                        '${_dashboardStats['total_tenants'] ?? 0}',
-                                    icon: Icons.people,
-                                    color: AppColors.primary,
-                                  ),
-                                ),
-                                SizedBox(width: 6),
-                                Expanded(
-                                  child: _SummaryCard(
-                                    title: 'Units',
-                                    value:
-                                        '${_dashboardStats['total_units'] ?? 0}',
-                                    icon: Icons.home_work,
-                                    color: AppColors.darkBlue,
-                                  ),
-                                ),
-                                SizedBox(width: 6),
-                                Expanded(
-                                  child: _SummaryCard(
-                                    title: 'Properties',
-                                    value:
-                                        '${_dashboardStats['total_properties'] ?? 0}',
-                                    icon: Icons.business,
-                                    color: AppColors.orange,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            SizedBox(height: 6),
-                            // Second Row - 3 cards
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _SummaryCard(
-                                    title: 'Rent Collected',
-                                    value:
-                                        '\u09F3 ${_dashboardStats['rent_collected'] ?? 0}',
-                                    icon: Icons.attach_money,
-                                    color: AppColors.green,
-                                  ),
-                                ),
-                                SizedBox(width: 6),
-                                Expanded(
-                                  child: _SummaryCard(
-                                    title: 'Dues',
-                                    value:
-                                        '\u09F3 ${_dashboardStats['total_dues'] ?? 0}',
-                                    icon: Icons.warning_amber_rounded,
-                                    color: AppColors.yellow,
-                                  ),
-                                ),
-                                SizedBox(width: 6),
-                                Expanded(
-                                  child: _SummaryCard(
-                                    title: 'Vacant Units',
-                                    value:
-                                        '${_dashboardStats['vacant_units'] ?? 0}',
-                                    icon: Icons.home_outlined,
-                                    color: AppColors.gray,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            SizedBox(height: 6),
-                            // Third Row - 2 cards for checkouts
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _SummaryCard(
-                                    title: 'Pending Checkouts',
-                                    value:
-                                        '${_dashboardStats['pending_checkouts'] ?? 0}',
-                                    icon: Icons.exit_to_app,
-                                    color: AppColors.red,
-                                    onTap: () {
-                                      context.push('/tenants');
-                                    },
-                                  ),
-                                ),
-                                SizedBox(width: 6),
-                                Expanded(
-                                  child: _SummaryCard(
-                                    title: 'Checkout Records',
-                                    value:
-                                        '${_dashboardStats['total_checkouts'] ?? 0}',
-                                    icon: Icons.receipt_long,
-                                    color: AppColors.purple,
-                                    onTap: () {
-                                      context.push('/checkouts');
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                ),
-                // Reports Section
-                Container(
-                  margin: EdgeInsets.only(top: 20),
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Reports',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.text,
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: () {
-                              Navigator.pushNamed(context, '/reports');
-                            },
-                            child: Container(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppColors.primary.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                'View All',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.primary,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 12),
-                      SizedBox(
-                        height: 130,
-                        child: ListView(
-                          scrollDirection: Axis.horizontal,
-                          children: [
-                            _ReportCard(
-                              title: 'Financial Report',
-                              subtitle: 'Revenue & Payments',
-                              icon: Icons.attach_money,
-                              color: AppColors.green,
-                              onTap: () {
-                                context.push('/reports');
-                              },
-                            ),
-                            SizedBox(width: 12),
-                            _ReportCard(
-                              title: 'Occupancy Report',
-                              subtitle: 'Property Status',
-                              icon: Icons.home,
-                              color: AppColors.blue,
-                              onTap: () {
-                                context.push('/reports');
-                              },
-                            ),
-                            SizedBox(width: 12),
-                            _ReportCard(
-                              title: 'Tenant Report',
-                              subtitle: 'Tenant Information',
-                              icon: Icons.people,
-                              color: AppColors.orange,
-                              onTap: () {
-                                context.push('/reports');
-                              },
-                            ),
-                            SizedBox(width: 12),
-                            _ReportCard(
-                              title: 'Transaction Report',
-                              subtitle: 'Detailed Ledger',
-                              icon: Icons.receipt_long,
-                              color: AppColors.purple,
-                              onTap: () {
-                                context.go('/reports');
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // Just For You - Banner Ads Section
-                Container(
-                  margin: EdgeInsets.only(top: 20),
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Just For You',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.text,
-                            ),
-                          ),
-                          Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              'বিশেষ অফার',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 12),
-                      SizedBox(
-                        height: 170,
-                        child: ListView(
-                          scrollDirection: Axis.horizontal,
-                          children: [
-                            _BannerAdCard(
-                              title: 'সুপার ফ্যামিলি প্যাক',
-                              subtitle: '৩ জনের জন্য',
-                              price: '৳ ৫০০',
-                              details: '৩০ জিবি + এসএমএস\nমেয়াদ ৩০ দিন',
-                              buttonText: 'ট্যাপ করুন',
-                              color: AppColors.primary,
-                              icon: Icons.family_restroom,
-                            ),
-                            SizedBox(width: 12),
-                            _BannerAdCard(
-                              title: 'ডেটা প্যাক',
-                              subtitle: 'হাই স্পিড',
-                              price: '৳ ১৯৯',
-                              details: '১৫ জিবি + ফ্রি হোইচোই\nমেয়াদ ৭ দিন',
-                              buttonText: 'ট্যাপ করুন',
-                              color: AppColors.green,
-                              icon: Icons.wifi,
-                            ),
-                            SizedBox(width: 12),
-                            _BannerAdCard(
-                              title: 'মিনিট প্যাক',
-                              subtitle: 'আনলিমিটেড',
-                              price: '৳ ২৯০',
-                              details: '৪০০ মিনিট\nমেয়াদ ৩০ দিন',
-                              buttonText: 'ট্যাপ করুন',
-                              color: AppColors.orange,
-                              icon: Icons.phone,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // Recent Transactions
-                Container(
-                  margin: EdgeInsets.only(top: 20),
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(24),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black12,
-                        blurRadius: 8,
-                        offset: Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Recent Transactions',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.text,
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: _refreshDashboard,
-                            child: Container(
-                              padding: EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: AppColors.primary.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Icon(
-                                Icons.refresh,
-                                color: AppColors.primary,
-                                size: 20,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 12),
-                      _isLoading
-                          ? Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
+                              )
+                            : Column(
                                 children: [
-                                  CircularProgressIndicator(
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      AppColors.primary,
-                                    ),
+                                  // First Row - 3 cards
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: _SummaryCard(
+                                          title: 'Tenants',
+                                          value:
+                                              '${_dashboardStats['total_tenants'] ?? 0}',
+                                          icon: Icons.people,
+                                          color: AppColors.primary,
+                                        ),
+                                      ),
+                                      SizedBox(width: 6),
+                                      Expanded(
+                                        child: _SummaryCard(
+                                          title: 'Units',
+                                          value:
+                                              '${_dashboardStats['total_units'] ?? 0}',
+                                          icon: Icons.home_work,
+                                          color: AppColors.orange,
+                                        ),
+                                      ),
+                                      SizedBox(width: 6),
+                                      Expanded(
+                                        child: _SummaryCard(
+                                          title: 'Properties',
+                                          value:
+                                              '${_dashboardStats['total_properties'] ?? 0}',
+                                          icon: Icons.business,
+                                          color: AppColors.green,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  SizedBox(height: 8),
-                                  Text(
-                                    'Loading transactions...',
-                                    style: TextStyle(
-                                      color: AppColors.textSecondary,
-                                      fontSize: 12,
-                                    ),
+                                  SizedBox(height: 6),
+                                  // Second Row - 3 cards
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: _SummaryCard(
+                                          title: 'Rent Collected',
+                                          value:
+                                              '৳${_dashboardStats['rent_collected'] ?? 0}',
+                                          icon: Icons.attach_money,
+                                          color: AppColors.green,
+                                        ),
+                                      ),
+                                      SizedBox(width: 6),
+                                      Expanded(
+                                        child: _SummaryCard(
+                                          title: 'Total Dues',
+                                          value:
+                                              '৳${_dashboardStats['total_dues'] ?? 0}',
+                                          icon: Icons.warning,
+                                          color: AppColors.red,
+                                        ),
+                                      ),
+                                      SizedBox(width: 6),
+                                      Expanded(
+                                        child: _SummaryCard(
+                                          title: 'Vacant Units',
+                                          value:
+                                              '${_dashboardStats['vacant_units'] ?? 0}',
+                                          icon: Icons.home_outlined,
+                                          color: AppColors.gray,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
-                            )
-                          : _recentTransactions.isEmpty
-                          ? Center(
-                              child: Padding(
-                                padding: EdgeInsets.all(20),
-                                child: Text(
-                                  'No recent transactions',
-                                  style: TextStyle(color: AppColors.gray),
-                                ),
-                              ),
-                            )
-                          : SizedBox(
-                              height: 200, // Fixed height for transactions
-                              child: ListView.builder(
-                                itemCount: _recentTransactions.length,
-                                itemBuilder: (context, index) {
-                                  final transaction =
-                                      _recentTransactions[index];
-                                  return _TransactionTile(
-                                    name:
-                                        transaction['tenant_name'] ?? 'Unknown',
-                                    action:
-                                        transaction['description'] ??
-                                        transaction['type'] ??
-                                        'Transaction',
-                                    amount:
-                                        '${transaction['is_credit'] ? '+' : '-'}${transaction['amount']}',
-                                    date: transaction['date'] ?? '',
-                                    color: transaction['is_credit']
-                                        ? AppColors.green
-                                        : AppColors.yellow,
-                                  );
-                                },
+                      ),
+                      SizedBox(height: 24),
+                      // Quick Actions Section
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Quick Actions',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.text,
                               ),
                             ),
-                      SizedBox(height: 16),
+                            SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _QuickActionCard(
+                                    title: 'Add Property',
+                                    subtitle: 'Create new property',
+                                    icon: Icons.business,
+                                    color: AppColors.primary,
+                                    onTap: () {
+                                      context.push('/property-entry');
+                                    },
+                                  ),
+                                ),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: _QuickActionCard(
+                                    title: 'Add Tenant',
+                                    subtitle: 'Register new tenant',
+                                    icon: Icons.person_add,
+                                    color: AppColors.green,
+                                    onTap: () {
+                                      context.push('/tenant-entry');
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _QuickActionCard(
+                                    title: 'Checkout',
+                                    subtitle: 'Process checkout',
+                                    icon: Icons.logout,
+                                    color: AppColors.orange,
+                                    onTap: () {
+                                      context.push('/checkout');
+                                    },
+                                  ),
+                                ),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: _QuickActionCard(
+                                    title: 'Reports',
+                                    subtitle: 'View analytics',
+                                    icon: Icons.assessment,
+                                    color: AppColors.purple,
+                                    onTap: () {
+                                      context.push('/reports');
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(height: 24),
+                      // Just For You - Banner Ads Section
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Just For You',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.text,
+                                  ),
+                                ),
+                                Container(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    'বিশেষ অফার',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: 12),
+                            SizedBox(
+                              height: 170,
+                              child: ListView(
+                                scrollDirection: Axis.horizontal,
+                                children: [
+                                  _BannerAdCard(
+                                    title: 'সুপার ফ্যামিলি প্যাক',
+                                    subtitle: '৩ জনের জন্য',
+                                    price: '৳ ৫০০',
+                                    details: '৩০ জিবি + এসএমএস\nমেয়াদ ৩০ দিন',
+                                    buttonText: 'ট্যাপ করুন',
+                                    color: AppColors.primary,
+                                    icon: Icons.family_restroom,
+                                  ),
+                                  SizedBox(width: 12),
+                                  _BannerAdCard(
+                                    title: 'ডেটা প্যাক',
+                                    subtitle: 'হাই স্পিড',
+                                    price: '৳ ১৯৯',
+                                    details:
+                                        '১৫ জিবি + ফ্রি হোইচোই\nমেয়াদ ৭ দিন',
+                                    buttonText: 'ট্যাপ করুন',
+                                    color: AppColors.green,
+                                    icon: Icons.wifi,
+                                  ),
+                                  SizedBox(width: 12),
+                                  _BannerAdCard(
+                                    title: 'মিনিট প্যাক',
+                                    subtitle: 'আনলিমিটেড',
+                                    price: '৳ ২৯০',
+                                    details: '৪০০ মিনিট\nমেয়াদ ৩০ দিন',
+                                    buttonText: 'ট্যাপ করুন',
+                                    color: AppColors.orange,
+                                    icon: Icons.phone,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(height: 24),
+                      // Recent Transactions Section
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Recent Transactions',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.text,
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: () {
+                                    context.push('/billing');
+                                  },
+                                  child: Text(
+                                    'View All',
+                                    style: TextStyle(
+                                      color: AppColors.primary,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: 8),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: AppColors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.05),
+                                    blurRadius: 10,
+                                    offset: Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: _recentTransactions.isEmpty
+                                  ? Padding(
+                                      padding: EdgeInsets.all(20),
+                                      child: Center(
+                                        child: Text(
+                                          'No recent transactions',
+                                          style: TextStyle(
+                                            color: AppColors.textSecondary,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                  : ListView.builder(
+                                      shrinkWrap: true,
+                                      physics: NeverScrollableScrollPhysics(),
+                                      itemCount: _recentTransactions.length,
+                                      itemBuilder: (context, index) {
+                                        final transaction =
+                                            _recentTransactions[index];
+                                        return _TransactionTile(
+                                          name:
+                                              transaction['tenant_name'] ??
+                                              'Unknown',
+                                          action:
+                                              transaction['description'] ??
+                                              transaction['type'] ??
+                                              'Transaction',
+                                          amount:
+                                              '${transaction['is_credit'] ? '+' : '-'}${transaction['amount']}',
+                                          date: transaction['date'] ?? '',
+                                          color: transaction['is_credit']
+                                              ? AppColors.green
+                                              : AppColors.yellow,
+                                        );
+                                      },
+                                    ),
+                            ),
+                            SizedBox(height: 16),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
       bottomNavigationBar: CustomBottomNav(
@@ -691,10 +628,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             case 4:
               print('DEBUG: Navigating to billing');
               context.go('/billing');
-              break;
-            case 5:
-              print('DEBUG: Navigating to reports');
-              context.go('/reports');
               break;
           }
         },
@@ -1040,6 +973,79 @@ class _ReportCard extends StatelessWidget {
       child: Container(
         width: 130,
         padding: EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [color.withOpacity(0.15), color.withOpacity(0.05)],
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withOpacity(0.3), width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.1),
+              blurRadius: 8,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            SizedBox(height: 8),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: AppColors.text,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            SizedBox(height: 2),
+            Text(
+              subtitle,
+              style: TextStyle(fontSize: 11, color: AppColors.gray),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickActionCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _QuickActionCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.all(16),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,

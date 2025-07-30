@@ -39,17 +39,7 @@ class CustomDrawer extends ConsumerWidget {
             ),
             Divider(),
             // Profile menu item
-            ListTile(
-              leading: Icon(Icons.person, color: AppColors.primary),
-              title: Text(
-                'Profile',
-                style: TextStyle(fontWeight: FontWeight.w500),
-              ),
-              onTap: () {
-                Navigator.of(context).pop();
-                context.push('/profile');
-              },
-            ),
+
             // Menu items
             Expanded(
               child: ListView(
@@ -110,33 +100,6 @@ class CustomDrawer extends ConsumerWidget {
                       context.go('/reports');
                     },
                   ),
-                  Divider(),
-                  _drawerItem(
-                    Icons.stacked_bar_chart,
-                    'Statements',
-                    onTap: () {},
-                  ),
-                  _drawerItem(
-                    Icons.warning_amber_rounded,
-                    'Limits',
-                    onTap: () {},
-                  ),
-                  _drawerItem(Icons.percent, 'Coupons', onTap: () {}),
-                  _drawerItem(
-                    Icons.info_outline,
-                    'Information Update',
-                    onTap: () {},
-                  ),
-                  _drawerItem(
-                    Icons.person_add_alt,
-                    'Nominee Update',
-                    onTap: () {},
-                  ),
-                  _drawerItem(Icons.group, 'Refer App', onTap: () {}),
-                  _drawerItem(Icons.map, 'Map', onTap: () {}),
-                  _drawerItem(Icons.explore, 'Discover', onTap: () {}),
-                  _drawerItem(Icons.settings, 'Settings', onTap: () {}),
-                  _drawerItem(Icons.support_agent, 'Support', onTap: () {}),
                 ],
               ),
             ),

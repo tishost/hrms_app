@@ -10,6 +10,8 @@ import 'invoice_payment_screen.dart';
 import 'invoice_pdf_screen.dart';
 
 class InvoiceListScreen extends StatefulWidget {
+  const InvoiceListScreen({super.key});
+
   @override
   _InvoiceListScreenState createState() => _InvoiceListScreenState();
 }
@@ -247,16 +249,20 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
                                       ),
                                     ],
                                   ),
-                                  // Fees breakdown (collapsible)
+                                  // Fees breakdown (expanded)
                                   if (invoice['breakdown'] != null &&
                                       (invoice['breakdown'] as List)
                                           .isNotEmpty) ...[
                                     SizedBox(height: 8),
                                     Container(
-                                      padding: EdgeInsets.all(8),
+                                      padding: EdgeInsets.all(12),
                                       decoration: BoxDecoration(
-                                        color: Colors.grey.withOpacity(0.1),
+                                        color: Colors.blue.withOpacity(0.05),
                                         borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: Colors.blue.withOpacity(0.2),
+                                          width: 1,
+                                        ),
                                       ),
                                       child: Column(
                                         crossAxisAlignment:
@@ -264,77 +270,161 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
                                         children: [
                                           Row(
                                             children: [
+                                              Icon(
+                                                Icons.receipt_long,
+                                                size: 16,
+                                                color: AppColors.primary,
+                                              ),
+                                              SizedBox(width: 6),
                                               Text(
-                                                '💰 Fees:',
+                                                'Invoice Breakdown',
                                                 style: TextStyle(
-                                                  fontSize: 11,
+                                                  fontSize: 12,
                                                   fontWeight: FontWeight.bold,
                                                   color: AppColors.primary,
                                                 ),
                                               ),
                                               Spacer(),
-                                              Text(
-                                                '${(invoice['breakdown'] as List).length} items',
-                                                style: TextStyle(
-                                                  fontSize: 10,
-                                                  color: Colors.grey,
+                                              Container(
+                                                padding: EdgeInsets.symmetric(
+                                                  horizontal: 6,
+                                                  vertical: 2,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: AppColors.primary,
+                                                  borderRadius:
+                                                      BorderRadius.circular(10),
+                                                ),
+                                                child: Text(
+                                                  '${(invoice['breakdown'] as List).length} items',
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    color: Colors.white,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
                                                 ),
                                               ),
                                             ],
                                           ),
-                                          SizedBox(height: 4),
-                                          // Show only first 2 items on small screens
-                                          ...(invoice['breakdown'] as List)
-                                              .take(2)
-                                              .map<Widget>((fee) {
-                                                return Padding(
-                                                  padding: EdgeInsets.only(
-                                                    bottom: 2,
-                                                  ),
-                                                  child: Row(
-                                                    mainAxisAlignment:
-                                                        MainAxisAlignment
-                                                            .spaceBetween,
-                                                    children: [
-                                                      Expanded(
-                                                        child: Text(
-                                                          '• ${fee['name'] ?? 'Fee'}',
-                                                          style: TextStyle(
-                                                            fontSize: 10,
-                                                          ),
-                                                          maxLines: 1,
-                                                          overflow: TextOverflow
-                                                              .ellipsis,
-                                                        ),
-                                                      ),
-                                                      Text(
-                                                        '৳${fee['amount'] ?? '0'}',
-                                                        style: TextStyle(
-                                                          fontSize: 10,
-                                                          fontWeight:
-                                                              FontWeight.w500,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                );
-                                              })
-                                              .toList(),
-                                          // Show "more" indicator if there are more items
-                                          if ((invoice['breakdown'] as List)
-                                                  .length >
-                                              2)
-                                            Padding(
-                                              padding: EdgeInsets.only(top: 4),
-                                              child: Text(
-                                                '+${(invoice['breakdown'] as List).length - 2} more items',
-                                                style: TextStyle(
-                                                  fontSize: 9,
-                                                  color: Colors.grey,
-                                                  fontStyle: FontStyle.italic,
+                                          SizedBox(height: 8),
+                                          // Show all breakdown items
+                                          ...(invoice['breakdown'] as List).map<
+                                            Widget
+                                          >((fee) {
+                                            return Container(
+                                              margin: EdgeInsets.only(
+                                                bottom: 6,
+                                              ),
+                                              padding: EdgeInsets.all(8),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white,
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
+                                                border: Border.all(
+                                                  color: Colors.grey
+                                                      .withOpacity(0.2),
                                                 ),
                                               ),
-                                            ),
+                                              child: Row(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment
+                                                        .spaceBetween,
+                                                children: [
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        Text(
+                                                          fee['name'] ?? 'Fee',
+                                                          style: TextStyle(
+                                                            fontSize: 12,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                            color:
+                                                                Colors.black87,
+                                                          ),
+                                                        ),
+                                                        if (fee['description'] !=
+                                                                null &&
+                                                            fee['description']
+                                                                .toString()
+                                                                .isNotEmpty) ...[
+                                                          SizedBox(height: 4),
+                                                          Container(
+                                                            padding:
+                                                                EdgeInsets.all(
+                                                                  6,
+                                                                ),
+                                                            decoration: BoxDecoration(
+                                                              color: Colors.blue
+                                                                  .withOpacity(
+                                                                    0.1,
+                                                                  ),
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    4,
+                                                                  ),
+                                                              border: Border.all(
+                                                                color: Colors
+                                                                    .blue
+                                                                    .withOpacity(
+                                                                      0.2,
+                                                                    ),
+                                                                width: 1,
+                                                              ),
+                                                            ),
+                                                            child: Row(
+                                                              children: [
+                                                                Icon(
+                                                                  Icons
+                                                                      .info_outline,
+                                                                  color: AppColors
+                                                                      .primary,
+                                                                  size: 12,
+                                                                ),
+                                                                SizedBox(
+                                                                  width: 4,
+                                                                ),
+                                                                Expanded(
+                                                                  child: Text(
+                                                                    fee['description'],
+                                                                    style: TextStyle(
+                                                                      fontSize:
+                                                                          9,
+                                                                      color: Colors
+                                                                          .grey[700],
+                                                                      fontStyle:
+                                                                          FontStyle
+                                                                              .italic,
+                                                                    ),
+                                                                    maxLines: 2,
+                                                                    overflow:
+                                                                        TextOverflow
+                                                                            .ellipsis,
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  Text(
+                                                    '৳${fee['amount'] ?? '0'}',
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color: AppColors.primary,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                          }).toList(),
                                         ],
                                       ),
                                     ),

@@ -9,8 +9,7 @@ import 'package:hrms_app/features/owner/presentation/widgets/custom_bottom_nav.d
 class InvoicePaymentScreen extends StatefulWidget {
   final Map<String, dynamic> invoice;
 
-  const InvoicePaymentScreen({Key? key, required this.invoice})
-    : super(key: key);
+  const InvoicePaymentScreen({super.key, required this.invoice});
 
   @override
   _InvoicePaymentScreenState createState() => _InvoicePaymentScreenState();
@@ -239,48 +238,130 @@ class _InvoicePaymentScreenState extends State<InvoicePaymentScreen> {
                 (widget.invoice['breakdown'] as List).isNotEmpty) ...[
               SizedBox(height: 12),
               Container(
-                padding: EdgeInsets.all(12),
+                padding: EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.white.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.3),
+                    width: 1,
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '💰 Fees Breakdown',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    Row(
+                      children: [
+                        Icon(Icons.receipt_long, color: Colors.white, size: 18),
+                        SizedBox(width: 8),
+                        Text(
+                          'Invoice Breakdown',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Spacer(),
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '${(widget.invoice['breakdown'] as List).length} items',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    SizedBox(height: 8),
+                    SizedBox(height: 12),
                     ...(widget.invoice['breakdown'] as List).map<Widget>((fee) {
-                      return Padding(
-                        padding: EdgeInsets.symmetric(vertical: 2),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      return Container(
+                        margin: EdgeInsets.only(bottom: 8),
+                        padding: EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.2),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              '• ${fee['name'] ?? 'Fee'}',
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.9),
-                                fontSize: 12,
-                              ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    fee['name'] ?? 'Fee',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                                Text(
+                                  '৳${fee['amount'] ?? '0'}',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
                             ),
-                            Text(
-                              '৳${fee['amount'] ?? '0'}',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
+                            if (fee['description'] != null &&
+                                fee['description'].toString().isNotEmpty) ...[
+                              SizedBox(height: 6),
+                              Container(
+                                padding: EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: Colors.white.withOpacity(0.3),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.info_outline,
+                                      color: Colors.white.withOpacity(0.9),
+                                      size: 14,
+                                    ),
+                                    SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        fee['description'],
+                                        style: TextStyle(
+                                          color: Colors.white.withOpacity(0.9),
+                                          fontSize: 11,
+                                          fontStyle: FontStyle.italic,
+                                        ),
+                                        maxLines: 3,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
+                            ],
                           ],
                         ),
                       );
-                    }).toList(),
+                    }),
                   ],
                 ),
               ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hrms_app/core/utils/app_colors.dart';
 import 'package:hrms_app/core/utils/api_config.dart';
@@ -369,9 +370,14 @@ class _UnitListScreenState extends State<UnitListScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: AppColors.background,
         elevation: 0,
         automaticallyImplyLeading: false,
+        systemOverlayStyle: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
+        ),
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: AppColors.text),
           onPressed: () {
@@ -472,8 +478,9 @@ class _UnitListScreenState extends State<UnitListScreen> {
                             if (confirm == true) {
                               try {
                                 String? token = await AuthService.getToken();
-                                if (token == null)
+                                if (token == null) {
                                   throw Exception('Not authenticated');
+                                }
                                 await UnitService.deleteUnit(unit['id']);
                                 setState(() {
                                   _units.removeWhere(

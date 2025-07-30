@@ -8,7 +8,7 @@ import 'package:hrms_app/core/utils/api_config.dart';
 import 'package:hrms_app/features/owner/presentation/widgets/custom_bottom_nav.dart';
 
 class ReportsScreen extends StatefulWidget {
-  const ReportsScreen({Key? key}) : super(key: key);
+  const ReportsScreen({super.key});
 
   @override
   State<ReportsScreen> createState() => _ReportsScreenState();
@@ -340,8 +340,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
 class FinancialReportScreen extends StatefulWidget {
   final Map<String, dynamic> reportType;
 
-  const FinancialReportScreen({Key? key, required this.reportType})
-    : super(key: key);
+  const FinancialReportScreen({super.key, required this.reportType});
 
   @override
   State<FinancialReportScreen> createState() => _FinancialReportScreenState();
@@ -674,8 +673,7 @@ class _FinancialReportScreenState extends State<FinancialReportScreen> {
 class OccupancyReportScreen extends StatefulWidget {
   final Map<String, dynamic> reportType;
 
-  const OccupancyReportScreen({Key? key, required this.reportType})
-    : super(key: key);
+  const OccupancyReportScreen({super.key, required this.reportType});
 
   @override
   State<OccupancyReportScreen> createState() => _OccupancyReportScreenState();
@@ -811,46 +809,40 @@ class _OccupancyReportScreenState extends State<OccupancyReportScreen> {
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
-        ...properties
-            .map(
-              (property) => Card(
-                margin: const EdgeInsets.only(bottom: 12),
-                child: ExpansionTile(
-                  title: Text(
-                    property['property_name'],
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: Text(
-                    '${property['occupied_units']}/${property['total_units']} units occupied (${property['occupancy_rate']}%)',
-                  ),
-                  children: [
-                    ...(property['units'] as List)
-                        .map(
-                          (unit) => ListTile(
-                            leading: Icon(
-                              unit['status'] == 'rented'
-                                  ? Icons.check_circle
-                                  : Icons.cancel,
-                              color: unit['status'] == 'rented'
-                                  ? Colors.green
-                                  : Colors.red,
-                            ),
-                            title: Text(unit['unit_name']),
-                            subtitle: Text(unit['tenant_name']),
-                            trailing: Text(
-                              '\$${unit['rent_amount']}',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                  ],
-                ),
+        ...properties.map(
+          (property) => Card(
+            margin: const EdgeInsets.only(bottom: 12),
+            child: ExpansionTile(
+              title: Text(
+                property['property_name'],
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
-            )
-            .toList(),
+              subtitle: Text(
+                '${property['occupied_units']}/${property['total_units']} units occupied (${property['occupancy_rate']}%)',
+              ),
+              children: [
+                ...(property['units'] as List).map(
+                  (unit) => ListTile(
+                    leading: Icon(
+                      unit['status'] == 'rented'
+                          ? Icons.check_circle
+                          : Icons.cancel,
+                      color: unit['status'] == 'rented'
+                          ? Colors.green
+                          : Colors.red,
+                    ),
+                    title: Text(unit['unit_name']),
+                    subtitle: Text(unit['tenant_name']),
+                    trailing: Text(
+                      '\$${unit['rent']}',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -879,8 +871,7 @@ class _OccupancyReportScreenState extends State<OccupancyReportScreen> {
 class TenantReportScreen extends StatefulWidget {
   final Map<String, dynamic> reportType;
 
-  const TenantReportScreen({Key? key, required this.reportType})
-    : super(key: key);
+  const TenantReportScreen({super.key, required this.reportType});
 
   @override
   State<TenantReportScreen> createState() => _TenantReportScreenState();
@@ -1012,68 +1003,66 @@ class _TenantReportScreenState extends State<TenantReportScreen> {
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
-        ...tenants
-            .map(
-              (tenant) => Card(
-                margin: const EdgeInsets.only(bottom: 12),
-                child: ExpansionTile(
-                  title: Text(
-                    tenant['tenant_name'],
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: Text(
-                    '${tenant['property_name']} - ${tenant['unit_name']}',
-                  ),
-                  children: [
-                    ListTile(
-                      title: const Text('Contact Information'),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Phone: ${tenant['phone']}'),
-                          Text('Email: ${tenant['email']}'),
-                          Text('Move-in Date: ${tenant['move_in_date']}'),
-                          Text('Status: ${tenant['status']}'),
-                        ],
-                      ),
-                    ),
-                    ListTile(
-                      title: const Text('Financial Summary'),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Rent Amount: ${currencyFormat.format(tenant['rent_amount'])}',
-                          ),
-                          Text(
-                            'Total Invoices: ${tenant['invoice_stats']['total_invoices']}',
-                          ),
-                          Text(
-                            'Paid Invoices: ${tenant['invoice_stats']['paid_invoices']}',
-                          ),
-                          Text(
-                            'Unpaid Invoices: ${tenant['invoice_stats']['unpaid_invoices']}',
-                          ),
-                          Text(
-                            'Total Amount: ${currencyFormat.format(tenant['invoice_stats']['total_amount'])}',
-                          ),
-                          Text(
-                            'Paid Amount: ${currencyFormat.format(tenant['invoice_stats']['paid_amount'])}',
-                          ),
-                          Text(
-                            'Outstanding: ${currencyFormat.format(tenant['invoice_stats']['outstanding_amount'])}',
-                          ),
-                          Text(
-                            'Payment Rate: ${tenant['invoice_stats']['payment_rate']}%',
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+        ...tenants.map(
+          (tenant) => Card(
+            margin: const EdgeInsets.only(bottom: 12),
+            child: ExpansionTile(
+              title: Text(
+                tenant['tenant_name'],
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
-            )
-            .toList(),
+              subtitle: Text(
+                '${tenant['property_name']} - ${tenant['unit_name']}',
+              ),
+              children: [
+                ListTile(
+                  title: const Text('Contact Information'),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Phone: ${tenant['phone']}'),
+                      Text('Email: ${tenant['email']}'),
+                      Text('Move-in Date: ${tenant['move_in_date']}'),
+                      Text('Status: ${tenant['status']}'),
+                    ],
+                  ),
+                ),
+                ListTile(
+                  title: const Text('Financial Summary'),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Rent Amount: ${currencyFormat.format(tenant['rent'])}',
+                      ),
+                      Text(
+                        'Total Invoices: ${tenant['invoice_stats']['total_invoices']}',
+                      ),
+                      Text(
+                        'Paid Invoices: ${tenant['invoice_stats']['paid_invoices']}',
+                      ),
+                      Text(
+                        'Unpaid Invoices: ${tenant['invoice_stats']['unpaid_invoices']}',
+                      ),
+                      Text(
+                        'Total Amount: ${currencyFormat.format(tenant['invoice_stats']['total_amount'])}',
+                      ),
+                      Text(
+                        'Paid Amount: ${currencyFormat.format(tenant['invoice_stats']['paid_amount'])}',
+                      ),
+                      Text(
+                        'Outstanding: ${currencyFormat.format(tenant['invoice_stats']['outstanding_amount'])}',
+                      ),
+                      Text(
+                        'Payment Rate: ${tenant['invoice_stats']['payment_rate']}%',
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -1102,8 +1091,7 @@ class _TenantReportScreenState extends State<TenantReportScreen> {
 class TransactionReportScreen extends StatefulWidget {
   final Map<String, dynamic> reportType;
 
-  const TransactionReportScreen({Key? key, required this.reportType})
-    : super(key: key);
+  const TransactionReportScreen({super.key, required this.reportType});
 
   @override
   State<TransactionReportScreen> createState() =>
@@ -1360,59 +1348,57 @@ class _TransactionReportScreenState extends State<TransactionReportScreen> {
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
-        ...transactions
-            .map(
-              (transaction) => Card(
-                margin: const EdgeInsets.only(bottom: 8),
-                child: ListTile(
-                  title: Text(transaction['tenant_name']),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${transaction['property_name']} - ${transaction['unit_name']}',
-                      ),
-                      Text(
-                        '${transaction['transaction_type']} - ${transaction['description']}',
-                      ),
-                      Text('Date: ${transaction['date']}'),
-                    ],
+        ...transactions.map(
+          (transaction) => Card(
+            margin: const EdgeInsets.only(bottom: 8),
+            child: ListTile(
+              title: Text(transaction['tenant_name']),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${transaction['property_name']} - ${transaction['unit_name']}',
                   ),
-                  trailing: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      if (transaction['debit_amount'] > 0)
-                        Text(
-                          '-${currencyFormat.format(transaction['debit_amount'])}',
-                          style: const TextStyle(
-                            color: Colors.red,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      if (transaction['credit_amount'] > 0)
-                        Text(
-                          '+${currencyFormat.format(transaction['credit_amount'])}',
-                          style: const TextStyle(
-                            color: Colors.green,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      Text(
-                        transaction['payment_status'],
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: transaction['payment_status'] == 'paid'
-                              ? Colors.green
-                              : Colors.red,
-                        ),
-                      ),
-                    ],
+                  Text(
+                    '${transaction['transaction_type']} - ${transaction['description']}',
                   ),
-                ),
+                  Text('Date: ${transaction['date']}'),
+                ],
               ),
-            )
-            .toList(),
+              trailing: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  if (transaction['debit_amount'] > 0)
+                    Text(
+                      '-${currencyFormat.format(transaction['debit_amount'])}',
+                      style: const TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  if (transaction['credit_amount'] > 0)
+                    Text(
+                      '+${currencyFormat.format(transaction['credit_amount'])}',
+                      style: const TextStyle(
+                        color: Colors.green,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  Text(
+                    transaction['payment_status'],
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: transaction['payment_status'] == 'paid'
+                          ? Colors.green
+                          : Colors.red,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }

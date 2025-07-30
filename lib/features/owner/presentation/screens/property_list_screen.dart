@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hrms_app/core/utils/app_colors.dart';
 import 'package:hrms_app/core/utils/api_config.dart';
@@ -17,6 +18,8 @@ import 'package:hrms_app/features/owner/presentation/screens/dashboard_screen.da
 import 'package:hrms_app/features/owner/presentation/widgets/custom_bottom_nav.dart';
 
 class PropertyListScreen extends StatefulWidget {
+  const PropertyListScreen({super.key});
+
   @override
   _PropertyListScreenState createState() => _PropertyListScreenState();
 }
@@ -142,9 +145,14 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: AppColors.background,
         elevation: 0,
         automaticallyImplyLeading: false,
+        systemOverlayStyle: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
+        ),
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: AppColors.text),
           onPressed: () {

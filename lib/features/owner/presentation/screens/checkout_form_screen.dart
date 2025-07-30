@@ -47,6 +47,7 @@ class _CheckoutFormScreenState extends State<CheckoutFormScreen> {
   Map<String, dynamic>? _propertyData;
   String _totalOutstanding = '0';
   List<Map<String, dynamic>> _dueBills = [];
+  String _refundAmount = '0'; // For displaying refund amount
 
   bool _isLoading = false;
   bool _isDataLoading = true;
@@ -75,6 +76,38 @@ class _CheckoutFormScreenState extends State<CheckoutFormScreen> {
     if (widget.tenant != null) {
       _advanceAmountController.text =
           widget.tenant!['security_deposit']?.toString() ?? '0';
+    }
+  }
+
+  // Helper method to validate and format amount values
+  String _validateAndFormatAmount(String value) {
+    if (value.isEmpty) return '0';
+
+    // Remove any non-numeric characters except decimal point
+    String cleanValue = value.replaceAll(RegExp(r'[^\d.]'), '');
+
+    // Parse to double and ensure non-negative
+    try {
+      double amount = double.parse(cleanValue);
+      return amount < 0 ? '0' : amount.toString();
+    } catch (e) {
+      return '0';
+    }
+  }
+
+  // Helper method to validate outstanding dues for API (ensure non-negative)
+  String _validateOutstandingDuesForAPI(String value) {
+    if (value.isEmpty) return '0';
+
+    // Remove any non-numeric characters except decimal point and minus sign
+    String cleanValue = value.replaceAll(RegExp(r'[^\d.-]'), '');
+
+    // Parse to double and ensure non-negative for API
+    try {
+      double amount = double.parse(cleanValue);
+      return amount < 0 ? '0' : amount.toString();
+    } catch (e) {
+      return '0';
     }
   }
 
@@ -233,7 +266,16 @@ class _CheckoutFormScreenState extends State<CheckoutFormScreen> {
     final outstandingDues = totalOutstandingWithCharges - advanceAmount;
 
     setState(() {
+      // Store actual calculation result (can be negative for refund display)
       _outstandingDuesController.text = outstandingDues.toString();
+
+      // For display: Calculate refund amount if outstanding dues is negative
+      if (outstandingDues < 0) {
+        _refundAmount = (-outstandingDues)
+            .toString(); // Convert negative to positive
+      } else {
+        _refundAmount = '0';
+      }
     });
   }
 
@@ -635,7 +677,7 @@ class _CheckoutFormScreenState extends State<CheckoutFormScreen> {
 
                         SizedBox(height: 16),
 
-                        // Outstanding Dues (Read Only - Auto Calculated)
+                        // Outstanding Dues or Refund Amount (Read Only - Auto Calculated)
                         _buildReadOnlyField(
                           label: _getOutstandingDuesLabel(),
                           value: _getOutstandingDuesValue(),
@@ -1284,7 +1326,7 @@ class _CheckoutFormScreenState extends State<CheckoutFormScreen> {
         paymentMethod = paymentResult['paymentMethod'];
       }
 
-      // Prepare checkout data
+      // Prepare checkout data with proper validation
       final checkoutData = {
         'tenant_id': _tenantData?['id'],
         'unit_id': _unitData?['id'],
@@ -1292,9 +1334,15 @@ class _CheckoutFormScreenState extends State<CheckoutFormScreen> {
         'checkout_date': _checkoutDateController.text,
         'checkout_reason': _selectedCheckoutReason,
         'advance_amount': _advanceAmountController.text,
-        'outstanding_dues': _outstandingDuesController.text,
-        'cleaning_charges': _cleaningChargesController.text,
-        'damage_charges': _damageChargesController.text,
+        'outstanding_dues': _validateOutstandingDuesForAPI(
+          _outstandingDuesController.text,
+        ),
+        'cleaning_charges': _validateAndFormatAmount(
+          _cleaningChargesController.text,
+        ),
+        'damage_charges': _validateAndFormatAmount(
+          _damageChargesController.text,
+        ),
         'handover_date': _handoverDateController.text,
         'property_condition': _propertyConditionController.text,
         'additional_note': _additionalNoteController.text,

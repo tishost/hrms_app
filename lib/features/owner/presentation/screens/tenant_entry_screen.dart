@@ -3225,15 +3225,19 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
         final data = json.decode(responseBody);
 
         if (data['success'] == true) {
+          // Show success message
           _showSuccessMessage(
             isEditMode
                 ? 'Tenant updated successfully!'
                 : 'Tenant added successfully!',
           );
 
-          // Navigate back to tenant list
+          // Wait a bit for user to see the message
+          await Future.delayed(Duration(milliseconds: 500));
+
+          // Navigate back to tenant list with refresh flag
           if (context.canPop()) {
-            context.pop();
+            context.pop(true); // Pass true to indicate successful save
           } else {
             context.go('/properties');
           }

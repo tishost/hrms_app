@@ -250,27 +250,41 @@ class _CheckoutDetailsScreenState extends State<CheckoutDetailsScreen> {
                       'Settlement Details',
                       Icons.account_balance_wallet,
                       [
-                        _buildInfoRow(
-                          'Advance Amount',
-                          _formatAmount(_checkoutData!['advance_amount']),
+                        _buildInfoRowWithDescription(
+                          'Security Deposit Return',
+                          _formatAmount(_checkoutData!['security_deposit']),
+                          'Original deposit amount to be returned',
                         ),
-                        _buildInfoRow(
-                          'Outstanding Dues',
-                          _formatAmount(_checkoutData!['outstanding_dues']),
+                        _buildInfoRowWithDescription(
+                          'Outstanding Dues Deduction',
+                          '-${_formatAmount(_checkoutData!['outstanding_dues'])}',
+                          'Unpaid rent and invoice amounts',
                         ),
-                        _buildInfoRow(
-                          'Cleaning Charges',
-                          _formatAmount(_checkoutData!['cleaning_charges']),
+                        _buildInfoRowWithDescription(
+                          'Utility Bills Deduction',
+                          '-${_formatAmount(_checkoutData!['utility_bills'])}',
+                          'Pending utility charges (electricity, water, gas)',
                         ),
-                        _buildInfoRow(
-                          'Damage Charges',
-                          _formatAmount(_checkoutData!['damage_charges']),
+                        _buildInfoRowWithDescription(
+                          'Cleaning Charges Deduction',
+                          '-${_formatAmount(_checkoutData!['cleaning_charges'])}',
+                          'Unit cleaning and maintenance costs',
                         ),
-                        _buildInfoRow(
-                          'Final Settlement',
+                        _buildInfoRowWithDescription(
+                          'Other Charges Deduction',
+                          '-${_formatAmount(_checkoutData!['other_charges'])}',
+                          'Additional charges (damages, late fees)',
+                        ),
+                        Divider(height: 20),
+                        _buildInfoRowWithDescription(
+                          'Final Settlement Amount',
                           _formatAmount(
                             _checkoutData!['final_settlement_amount'],
                           ),
+                          _checkoutData!['final_settlement_amount'] >= 0
+                              ? 'Amount to be paid to tenant'
+                              : 'Amount tenant owes to owner',
+                          isTotal: true,
                         ),
                       ],
                     ),
@@ -361,6 +375,60 @@ class _CheckoutDetailsScreenState extends State<CheckoutDetailsScreen> {
                 fontSize: 14,
                 color: Colors.black87,
                 fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRowWithDescription(
+    String label,
+    String value,
+    String description, {
+    bool isTotal = false,
+  }) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 120,
+                child: Text(
+                  '$label:',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: isTotal ? FontWeight.bold : FontWeight.w500,
+                    color: isTotal ? Colors.blue[600] : Colors.grey[600],
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: isTotal ? 16 : 14,
+                    color: isTotal ? Colors.blue[600] : Colors.black87,
+                    fontWeight: isTotal ? FontWeight.bold : FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 4),
+          Padding(
+            padding: EdgeInsets.only(left: 120),
+            child: Text(
+              description,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[500],
+                fontStyle: FontStyle.italic,
               ),
             ),
           ),

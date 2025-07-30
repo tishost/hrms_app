@@ -24,7 +24,7 @@ class _OwnerTenantListScreenState extends State<OwnerTenantListScreen> {
   List<Map<String, dynamic>> _tenants = [];
   bool _isLoading = true;
   String _searchQuery = '';
-  String _selectedStatusFilter = 'All';
+  String _selectedStatusFilter = 'Active';
   String _selectedPropertyFilter = 'All';
   List<Map<String, dynamic>> _filteredTenants = [];
   final List<String> _statusOptions = ['All', 'Active', 'Inactive', 'Pending'];
@@ -61,8 +61,21 @@ class _OwnerTenantListScreenState extends State<OwnerTenantListScreen> {
       );
       print('DEBUG: User info response: ${userResponse.body}');
 
-      final url = ApiConfig.getApiUrl('/tenants');
-      print('DEBUG: API URL: $url');
+      // Build URL with filters
+      final queryParams = <String, String>{};
+
+      if (_selectedStatusFilter != 'All') {
+        queryParams['status'] = _selectedStatusFilter.toLowerCase();
+      }
+
+      if (_selectedPropertyFilter != 'All') {
+        queryParams['property'] = _selectedPropertyFilter;
+      }
+
+      final uri = Uri.parse(
+        ApiConfig.getApiUrl('/tenants'),
+      ).replace(queryParameters: queryParams);
+      print('DEBUG: API URL: $uri');
 
       final headers = {
         'Authorization': 'Bearer $token',
@@ -70,7 +83,7 @@ class _OwnerTenantListScreenState extends State<OwnerTenantListScreen> {
       };
       print('DEBUG: Request headers: $headers');
 
-      final response = await http.get(Uri.parse(url), headers: headers);
+      final response = await http.get(uri, headers: headers);
 
       print('DEBUG: API Response status: ${response.statusCode}');
       print('DEBUG: API Response body: ${response.body}');
@@ -135,7 +148,18 @@ class _OwnerTenantListScreenState extends State<OwnerTenantListScreen> {
     if (_selectedStatusFilter != 'All') {
       filtered = filtered.where((tenant) {
         final status = (tenant['status'] ?? 'active').toString().toLowerCase();
-        return status == _selectedStatusFilter.toLowerCase();
+        final selectedStatus = _selectedStatusFilter.toLowerCase();
+
+        // Handle different status formats
+        if (selectedStatus == 'active') {
+          return status == 'active';
+        } else if (selectedStatus == 'inactive') {
+          return status == 'inactive' || status == 'checked_out';
+        } else if (selectedStatus == 'pending') {
+          return status == 'pending' || status == 'pending_approval';
+        }
+
+        return status == selectedStatus;
       }).toList();
     }
 
@@ -235,8 +259,8 @@ class _OwnerTenantListScreenState extends State<OwnerTenantListScreen> {
                                 onChanged: (value) {
                                   setState(() {
                                     _selectedStatusFilter = value!;
-                                    _applyFilters();
                                   });
+                                  _fetchTenants(); // Refresh data with new filter
                                 },
                               ),
                             ),
@@ -266,8 +290,8 @@ class _OwnerTenantListScreenState extends State<OwnerTenantListScreen> {
                                 onChanged: (value) {
                                   setState(() {
                                     _selectedPropertyFilter = value!;
-                                    _applyFilters();
                                   });
+                                  _fetchTenants(); // Refresh data with new filter
                                 },
                               ),
                             ),
@@ -337,7 +361,16 @@ class _OwnerTenantListScreenState extends State<OwnerTenantListScreen> {
         onPressed: () async {
           final result = await context.push('/tenant-entry');
           if (result == true) {
-            _fetchTenants();
+            // Show loading indicator
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Refreshing tenant list...'),
+                duration: Duration(seconds: 1),
+                backgroundColor: AppColors.primary,
+              ),
+            );
+            // Refresh tenant list
+            await _fetchTenants();
           }
         },
         backgroundColor: AppColors.primary,
@@ -493,7 +526,16 @@ class _OwnerTenantListScreenState extends State<OwnerTenantListScreen> {
                             extra: tenant,
                           );
                           if (result == true) {
-                            _fetchTenants();
+                            // Show loading indicator
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Refreshing tenant list...'),
+                                duration: Duration(seconds: 1),
+                                backgroundColor: AppColors.primary,
+                              ),
+                            );
+                            // Refresh tenant list
+                            await _fetchTenants();
                           }
                           break;
                         case 'billing':

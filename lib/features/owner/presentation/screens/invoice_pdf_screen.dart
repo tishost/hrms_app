@@ -435,8 +435,18 @@ class _InvoicePdfScreenState extends State<InvoicePdfScreen> {
             CircularProgressIndicator(color: AppColors.primary),
             SizedBox(height: 16),
             Text(
-              'Loading PDF...',
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
+              'Generating Invoice PDF...',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Please wait while we prepare your invoice with detailed breakdown',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+              textAlign: TextAlign.center,
             ),
           ],
         ),

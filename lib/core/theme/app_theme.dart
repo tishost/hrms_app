@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../constants/app_constants.dart';
+import '../utils/app_colors.dart';
 
 class AppTheme {
   // Light Theme
@@ -15,12 +17,17 @@ class AppTheme {
       appBarTheme: AppBarTheme(
         elevation: 0,
         centerTitle: true,
-        backgroundColor: Colors.transparent,
+        backgroundColor: AppColors.background,
         foregroundColor: Colors.black87,
         titleTextStyle: TextStyle(
           color: Colors.black87,
           fontSize: 18.sp,
           fontWeight: FontWeight.w600,
+        ),
+        systemOverlayStyle: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
         ),
       ),
       cardTheme: CardThemeData(
@@ -70,12 +77,17 @@ class AppTheme {
       appBarTheme: AppBarTheme(
         elevation: 0,
         centerTitle: true,
-        backgroundColor: Colors.transparent,
+        backgroundColor: AppColors.background,
         foregroundColor: Colors.white,
         titleTextStyle: TextStyle(
           color: Colors.white,
           fontSize: 18.sp,
           fontWeight: FontWeight.w600,
+        ),
+        systemOverlayStyle: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.light,
+          statusBarBrightness: Brightness.dark,
         ),
       ),
       cardTheme: CardThemeData(

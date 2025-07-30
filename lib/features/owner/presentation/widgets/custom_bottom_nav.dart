@@ -7,11 +7,11 @@ class CustomBottomNav extends StatelessWidget {
   final bool showLabels;
 
   const CustomBottomNav({
-    Key? key,
+    super.key,
     required this.currentIndex,
     required this.onTap,
     this.showLabels = true,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -60,10 +60,6 @@ class CustomBottomNav extends StatelessWidget {
       BottomNavigationBarItem(
         icon: Icon(Icons.receipt_long, semanticLabel: 'Billing'),
         label: 'Bill',
-      ),
-      BottomNavigationBarItem(
-        icon: Icon(Icons.assessment, semanticLabel: 'Reports'),
-        label: 'Report',
       ),
     ];
   }

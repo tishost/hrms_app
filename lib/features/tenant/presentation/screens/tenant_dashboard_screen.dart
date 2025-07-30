@@ -10,6 +10,8 @@ import 'package:hrms_app/features/tenant/presentation/screens/debug_screen.dart'
 import 'package:hrms_app/features/tenant/presentation/widgets/tenant_bottom_nav.dart';
 
 class TenantDashboardScreen extends StatefulWidget {
+  const TenantDashboardScreen({super.key});
+
   @override
   _TenantDashboardScreenState createState() => _TenantDashboardScreenState();
 }
@@ -74,7 +76,7 @@ class _TenantDashboardScreenState extends State<TenantDashboardScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Custom Header (same as owner dashboard)
+            // Fixed Header (same as owner dashboard)
             Container(
               color: AppColors.background,
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 18),
@@ -155,7 +157,7 @@ class _TenantDashboardScreenState extends State<TenantDashboardScreen> {
                 ],
               ),
             ),
-            // Dashboard Content
+            // Scrollable Dashboard Content
             Expanded(
               child: _isLoading
                   ? Center(child: CircularProgressIndicator())
