@@ -13,6 +13,10 @@ final dioProvider = Provider((ref) {
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
+        'App-Version': '1.0.0',
+        'User-Agent': 'Flutter/HRMS-App/Android',
+        'X-App-Type': 'mobile',
+        'X-Platform': 'android',
       },
     ),
   );
@@ -81,6 +85,11 @@ class ApiService {
     }
   }
 
+  // Convenience: system status
+  Future<Response> getSystemStatus() {
+    return get('/system/status');
+  }
+
   // POST request
   Future<Response> post(String path, {dynamic data}) async {
     try {
@@ -136,7 +145,33 @@ class ApiService {
         throw Exception('Receive timeout');
       case DioExceptionType.badResponse:
         final statusCode = error.response?.statusCode;
-        final message = error.response?.data?['message'] ?? 'Server error';
+        final responseData = error.response?.data;
+        String message = 'Server error';
+
+        // Parse error message from response
+        if (responseData is Map<String, dynamic>) {
+          // Handle validation errors (422)
+          if (statusCode == 422 && responseData['errors'] != null) {
+            final errors = responseData['errors'] as Map<String, dynamic>;
+            if (errors.isNotEmpty) {
+              final firstError = errors.values.first;
+              if (firstError is List && firstError.isNotEmpty) {
+                message = firstError[0];
+              } else if (firstError is String) {
+                message = firstError;
+              }
+            }
+          } else {
+            message =
+                responseData['error'] ??
+                responseData['message'] ??
+                responseData['detail'] ??
+                'Server error';
+          }
+        } else if (responseData is String) {
+          message = responseData;
+        }
+
         throw Exception('HTTP $statusCode: $message');
       case DioExceptionType.cancel:
         throw Exception('Request cancelled');

@@ -72,26 +72,29 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Invoices', style: TextStyle(color: AppColors.primary)),
-        backgroundColor: Colors.white,
         elevation: 0,
-        iconTheme: IconThemeData(color: AppColors.primary),
+        backgroundColor: Colors.transparent,
+        automaticallyImplyLeading: false,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(gradient: AppColors.primaryGradient),
+        ),
+        title: Text(
+          'Invoices',
+          style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold),
+        ),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: AppColors.primary),
+          icon: Icon(Icons.arrow_back_ios_rounded, color: AppColors.white),
           onPressed: () {
-            // এই অংশটি পরিবর্তন করুন
             if (context.canPop()) {
-              context.pop(); // যদি পেছনে যাওয়ার পেইজ থাকে, তাহলে pop করো
+              context.pop();
             } else {
-              context.go(
-                '/dashboard',
-              ); // যদি কোনো কারণে পেছনে যাওয়ার পেইজ না থাকে, তাহলে fallback হিসেবে dashboard পেইজে যাও
+              context.go('/dashboard');
             }
           },
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.refresh, color: AppColors.primary),
+            icon: Icon(Icons.refresh, color: AppColors.white),
             onPressed: _fetchInvoices,
           ),
         ],
@@ -424,7 +427,7 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
                                                 ],
                                               ),
                                             );
-                                          }).toList(),
+                                          }),
                                         ],
                                       ),
                                     ),

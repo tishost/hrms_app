@@ -4,9 +4,6 @@ import 'package:hrms_app/core/utils/app_colors.dart';
 import 'package:hrms_app/features/owner/data/services/unit_service.dart';
 import 'package:hrms_app/features/auth/data/services/auth_service.dart';
 import 'package:hrms_app/features/owner/data/services/property_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'package:dropdown_search/dropdown_search.dart';
 
 class UnitEntryScreen extends StatefulWidget {
@@ -101,15 +98,11 @@ class _UnitEntryScreenState extends State<UnitEntryScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          widget.unitId != null ? 'Edit Unit' : 'Add Unit',
-          style: TextStyle(color: AppColors.text),
-        ),
-        backgroundColor: Colors.white,
+        title: Text(widget.unitId != null ? 'Edit Unit' : 'Add Unit'),
         elevation: 0,
-        iconTheme: IconThemeData(color: AppColors.primary),
+        iconTheme: IconThemeData(color: Colors.white),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: AppColors.primary),
+          icon: Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () {
             if (context.canPop()) {
               context.pop(); // যদি পেছনে যাওয়ার পেইজ থাকে, তাহলে pop করো
@@ -187,8 +180,9 @@ class _UnitEntryScreenState extends State<UnitEntryScreen> {
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) return 'Rent is required';
-                  if (double.tryParse(value) == null)
+                  if (double.tryParse(value) == null) {
                     return 'Enter a valid number';
+                  }
                   return null;
                 },
               ),
@@ -269,10 +263,12 @@ class _UnitEntryScreenState extends State<UnitEntryScreen> {
                             ),
                             onChanged: (val) => _charges[idx]['amount'] = val,
                             validator: (val) {
-                              if (val == null || val.isEmpty)
+                              if (val == null || val.isEmpty) {
                                 return 'Amount required';
-                              if (double.tryParse(val) == null)
+                              }
+                              if (double.tryParse(val) == null) {
                                 return 'Enter valid number';
+                              }
                               return null;
                             },
                           ),
@@ -286,7 +282,7 @@ class _UnitEntryScreenState extends State<UnitEntryScreen> {
                     SizedBox(height: 12),
                   ],
                 );
-              }).toList(),
+              }),
               SizedBox(height: 12),
               Align(
                 alignment: Alignment.centerLeft,

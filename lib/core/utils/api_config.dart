@@ -2,13 +2,13 @@
 
 class ApiConfig {
   // Base URL for the API
-  static const String baseUrl = 'http://103.98.76.11/api';
+  static const String baseUrl = 'https://barimanager.com/api';
 
   // API Endpoints
-  static const String login = '/auth/login';
-  static const String register = '/auth/register';
-  static const String logout = '/auth/logout';
-  static const String profile = '/auth/profile';
+  static const String login = '/login';
+  static const String register = '/register';
+  static const String logout = '/logout';
+  static const String profile = '/user';
   static const String refresh = '/auth/refresh';
 
   // Owner endpoints
@@ -34,6 +34,14 @@ class ApiConfig {
   static const String countries = '/common/countries';
   static const String charges = '/common/charges';
   static const String upload = '/common/upload';
+
+  // Subscription endpoints
+  static const String subscriptionPlans = '/subscription/plans';
+  static const String subscriptionPurchase = '/subscription/purchase';
+  static const String subscriptionPaymentMethods =
+      '/subscription/payment-methods';
+  static const String subscriptionInvoices = '/subscription/invoices';
+  static const String subscriptionCheckout = '/subscription/checkout';
 
   // Get full API URL
   static String getApiUrl(String endpoint) {

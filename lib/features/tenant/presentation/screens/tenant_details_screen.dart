@@ -7,7 +7,7 @@ import 'package:hrms_app/features/tenant/presentation/widgets/custom_bottom_nav.
 class TenantDetailsScreen extends StatelessWidget {
   final Map<String, dynamic> tenant;
 
-  const TenantDetailsScreen({Key? key, required this.tenant}) : super(key: key);
+  const TenantDetailsScreen({super.key, required this.tenant});
 
   @override
   Widget build(BuildContext context) {

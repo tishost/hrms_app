@@ -2,20 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hrms_app/core/utils/app_colors.dart';
-import 'package:hrms_app/core/utils/api_config.dart';
 import 'package:hrms_app/features/auth/data/services/auth_service.dart';
 import 'package:hrms_app/features/owner/data/services/property_service.dart';
 import 'package:hrms_app/features/owner/presentation/widgets/custom_bottom_nav.dart';
-import 'package:hrms_app/features/owner/presentation/widgets/custom_drawer.dart';
-import 'package:hrms_app/features/owner/presentation/screens/unit_list_screen.dart';
-import 'package:hrms_app/features/owner/presentation/screens/owner_tenant_list_screen.dart';
-import 'package:hrms_app/features/owner/presentation/screens/profile_screen.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'package:hrms_app/features/owner/presentation/screens/property_entry_screen.dart';
 import 'package:hrms_app/features/owner/presentation/screens/dashboard_screen.dart';
-import 'package:hrms_app/features/owner/presentation/widgets/custom_bottom_nav.dart';
 
 class PropertyListScreen extends StatefulWidget {
   const PropertyListScreen({super.key});
@@ -145,34 +136,29 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
         elevation: 0,
+        backgroundColor: Colors.transparent,
         automaticallyImplyLeading: false,
-        systemOverlayStyle: SystemUiOverlayStyle(
-          statusBarColor: Colors.transparent,
-          statusBarIconBrightness: Brightness.dark,
-          statusBarBrightness: Brightness.light,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(gradient: AppColors.primaryGradient),
         ),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: AppColors.text),
+          icon: Icon(Icons.arrow_back_ios_rounded, color: AppColors.white),
           onPressed: () {
-            // এই অংশটি পরিবর্তন করুন
             if (context.canPop()) {
-              context.pop(); // যদি পেছনে যাওয়ার পেইজ থাকে, তাহলে pop করো
+              context.pop();
             } else {
-              context.go(
-                '/dashboard',
-              ); // যদি কোনো কারণে পেছনে যাওয়ার পেইজ না থাকে, তাহলে fallback হিসেবে dashboard পেইজে যাও
+              context.go('/dashboard');
             }
           },
         ),
         title: Text(
           'My Properties',
-          style: TextStyle(color: AppColors.text, fontWeight: FontWeight.bold),
+          style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold),
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.refresh, color: AppColors.primary),
+            icon: Icon(Icons.refresh, color: AppColors.white),
             onPressed: _isRefreshing
                 ? null
                 : () {

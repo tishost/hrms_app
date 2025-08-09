@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../services/security_service.dart';
-import '../constants/app_constants.dart';
+import '../services/api_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 part 'app_providers.g.dart';
 
@@ -10,59 +11,104 @@ part 'app_providers.g.dart';
 class AuthState extends _$AuthState {
   @override
   AuthStateData build() {
+    // Start with loading state and immediately check auth
+    Future.microtask(() => checkAuthStatus());
     return const AuthStateData(
       isAuthenticated: false,
-      isLoading: false,
+      isLoading: true, // Start with loading true
       user: null,
       error: null,
     );
   }
 
-  Future<void> login(String token, String role) async {
-    print('DEBUG: AuthState.login called with token: $token, role: $role');
-    state = state.copyWith(isLoading: true, error: null);
-
+  Future<void> login(
+    String token,
+    String role, {
+    Map<String, dynamic>? userData,
+  }) async {
+    print('🔐 Starting login process...');
     try {
+      // Store JWT token
       await SecurityService.storeJwtToken(token);
-      print('DEBUG: Token stored successfully');
 
-      final newState = state.copyWith(
+      // Extract user info from userData if available
+      String email = userData?['email'] ?? '';
+      String name = userData?['name'] ?? 'User';
+
+      // Store user data for persistence
+      final userDataToStore = {
+        'email': email,
+        'name': name,
+        'role': role,
+        'token': token,
+        'loginTime': DateTime.now().toIso8601String(),
+      };
+      await SecurityService.storeUserData(userDataToStore);
+
+      print('🔐 Auth State Updated - Role: $role, Name: $name, Email: $email');
+
+      // Update state with authentication complete - DO NOT touch isLoading
+      state = state.copyWith(
         isAuthenticated: true,
-        isLoading: false,
-        user: UserData(email: '', name: 'User', role: role),
+        user: UserData(email: email, name: name, role: role),
+        error: null, // Clear any previous errors
       );
 
-      state = newState;
-      print(
-        'DEBUG: Auth state updated - isAuthenticated: ${state.isAuthenticated}, role: ${state.user?.role}',
-      );
+      print('✅ Login process completed successfully');
     } catch (e) {
-      print('DEBUG: Error in login: $e');
-      state = state.copyWith(isLoading: false, error: e.toString());
+      print('❌ Login process failed: $e');
+      state = state.copyWith(isAuthenticated: false, error: e.toString());
     }
   }
 
   Future<void> logout() async {
     await SecurityService.removeJwtToken();
+    await SecurityService.removeUserData();
     state = const AuthStateData(
       isAuthenticated: false,
       isLoading: false,
       user: null,
       error: null,
     );
+    print('🚪 User logged out successfully');
   }
 
   Future<void> checkAuthStatus() async {
+    print('DEBUG: checkAuthStatus called');
+    state = state.copyWith(isLoading: true);
     final token = await SecurityService.getJwtToken();
+    await Future.delayed(const Duration(milliseconds: 500));
+
     if (token != null && SecurityService.isJwtTokenValid(token)) {
-      // For now, assume owner role if token exists
-      // In a real app, you might want to decode the JWT to get role
+      // Try to get stored user data or default to owner
+      final storedUserData = await SecurityService.getStoredUserData();
+      String userRole = storedUserData?['role'] ?? 'owner';
+      String userName = storedUserData?['name'] ?? 'User';
+      String userEmail = storedUserData?['email'] ?? '';
+
+      print('DEBUG: Token found, stored user data: $storedUserData');
+      print(
+        'DEBUG: Extracted - Role: $userRole, Name: $userName, Email: $userEmail',
+      );
+
       state = state.copyWith(
         isAuthenticated: true,
-        user: UserData(email: '', name: 'User', role: 'owner'),
+        isLoading: false,
+        user: UserData(email: userEmail, name: userName, role: userRole),
+      );
+      print(
+        'DEBUG: Auth success, state: '
+        'isAuthenticated: ${state.isAuthenticated}, '
+        'isLoading: ${state.isLoading}, '
+        'user: ${state.user?.name} (${state.user?.role})',
       );
     } else {
-      state = state.copyWith(isAuthenticated: false);
+      state = state.copyWith(isAuthenticated: false, isLoading: false);
+      print(
+        'DEBUG: Auth fail - No valid token found, '
+        'isAuthenticated: ${state.isAuthenticated}, '
+        'isLoading: ${state.isLoading}',
+      );
     }
   }
 }
@@ -107,6 +153,59 @@ class NetworkState extends _$NetworkState {
       connectionType: connectionType,
     );
   }
+}
+
+// Maintenance state
+final maintenanceStateProvider =
+    StateNotifierProvider<MaintenanceNotifier, MaintenanceData>((ref) {
+      return MaintenanceNotifier(ref);
+    });
+
+class MaintenanceNotifier extends StateNotifier<MaintenanceData> {
+  final Ref ref;
+  MaintenanceNotifier(this.ref)
+    : super(
+        const MaintenanceData(
+          isMaintenance: false,
+          message: null,
+          description: null,
+          until: null,
+        ),
+      );
+
+  Future<void> refresh() async {
+    try {
+      final api = ref.read(apiServiceProvider);
+      final res = await api.getSystemStatus();
+      final data = res.data as Map<String, dynamic>;
+      final details = (data['details'] as Map<String, dynamic>?);
+      state = MaintenanceData(
+        isMaintenance: data['maintenance'] == true,
+        message: details?['message'] as String?,
+        description: details?['description'] as String?,
+        until: details?['until'] as String?,
+        companyName: details?['company_name'] as String?,
+      );
+    } catch (_) {
+      // ignore
+    }
+  }
+}
+
+class MaintenanceData {
+  final bool isMaintenance;
+  final String? message;
+  final String? description;
+  final String? until;
+  final String? companyName;
+
+  const MaintenanceData({
+    required this.isMaintenance,
+    this.message,
+    this.description,
+    this.until,
+    this.companyName,
+  });
 }
 
 // Data Classes

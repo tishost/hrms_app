@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:hrms_app/core/utils/api_config.dart';
 import 'package:hrms_app/core/services/api_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -154,6 +153,39 @@ class AuthRepository {
       }
     } catch (e) {
       throw Exception('Registration error: $e');
+    }
+  }
+
+  // Register Owner (specific endpoint)
+  Future<Map<String, dynamic>> registerOwner(
+    Map<String, dynamic> ownerData,
+  ) async {
+    try {
+      print('🔥 API Call: POST /register-owner');
+      print('🔥 Data: $ownerData');
+
+      final response = await _apiService.post(
+        '/register-owner',
+        data: ownerData,
+      );
+
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        final data = response.data;
+        print('✅ Owner Registration Success: $data');
+
+        // Save token if provided
+        if (data['token'] != null) {
+          await AuthService.saveToken(data['token']);
+          print('🔑 Token saved: ${data['token']}');
+        }
+
+        return data;
+      } else {
+        throw Exception('Owner registration failed: ${response.statusMessage}');
+      }
+    } catch (e) {
+      print('❌ Owner Registration Error: $e');
+      throw Exception('Owner registration error: $e');
     }
   }
 

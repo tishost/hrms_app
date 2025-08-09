@@ -2,20 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hrms_app/core/utils/app_colors.dart';
 import 'package:hrms_app/core/utils/api_config.dart';
-import 'package:hrms_app/features/owner/data/services/property_service.dart';
-import 'package:hrms_app/features/owner/presentation/screens/dashboard_screen.dart';
-import 'package:hrms_app/features/owner/presentation/screens/property_list_screen.dart';
 import 'package:hrms_app/features/owner/presentation/widgets/custom_bottom_nav.dart';
 import 'package:hrms_app/features/auth/data/services/auth_service.dart';
 import 'package:hrms_app/core/utils/country_helper.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 class PropertyEntryScreen extends StatefulWidget {
   final Map<String, dynamic>? property;
 
-  const PropertyEntryScreen({Key? key, this.property}) : super(key: key);
+  const PropertyEntryScreen({super.key, this.property});
 
   @override
   _PropertyEntryScreenState createState() => _PropertyEntryScreenState();
@@ -76,8 +72,6 @@ class _PropertyEntryScreenState extends State<PropertyEntryScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.property != null ? 'Edit Property' : 'Add Property'),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
         leading: IconButton(
           icon: Icon(Icons.arrow_back),
           onPressed: () {

@@ -144,25 +144,29 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Reports'),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        automaticallyImplyLeading: false,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(gradient: AppColors.primaryGradient),
+        ),
+        title: Text(
+          'Reports',
+          style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold),
+        ),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.white),
+          icon: Icon(Icons.arrow_back_ios_rounded, color: AppColors.white),
           onPressed: () {
-            // এই অংশটি পরিবর্তন করুন
             if (context.canPop()) {
-              context.pop(); // যদি পেছনে যাওয়ার পেইজ থাকে, তাহলে pop করো
+              context.pop();
             } else {
-              context.go(
-                '/dashboard',
-              ); // যদি কোনো কারণে পেছনে যাওয়ার পেইজ না থাকে, তাহলে fallback হিসেবে dashboard পেইজে যাও
+              context.go('/dashboard');
             }
           },
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.bug_report),
+            icon: Icon(Icons.bug_report, color: AppColors.white),
             onPressed: () async {
               print('Debug: Testing API connection...');
               final token = await AuthService.getToken();
@@ -318,6 +322,31 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 );
               },
             ),
+      bottomNavigationBar: CustomBottomNav(
+        currentIndex: 5, // Reports index
+        onTap: (index) {
+          switch (index) {
+            case 0:
+              context.go('/dashboard');
+              break;
+            case 1:
+              context.go('/properties');
+              break;
+            case 2:
+              context.go('/units');
+              break;
+            case 3:
+              context.go('/tenants');
+              break;
+            case 4:
+              context.go('/billing');
+              break;
+            case 5:
+              // Already on reports screen
+              break;
+          }
+        },
+      ),
     );
   }
 
@@ -360,11 +389,7 @@ class _FinancialReportScreenState extends State<FinancialReportScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.reportType['name']),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-      ),
+      appBar: AppBar(title: Text(widget.reportType['name'])),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -727,8 +752,6 @@ class _OccupancyReportScreenState extends State<OccupancyReportScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.reportType['name']),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),

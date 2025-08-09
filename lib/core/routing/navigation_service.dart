@@ -64,35 +64,35 @@ class NavigationService {
 
   // Specific navigation methods
   static void goToDashboard() {
-    pushNamedAndRemoveUntil(AppRoutes.dashboard, (route) => false);
+    pushNamedAndRemoveUntil(AppRoutes.ownerDashboard, (route) => false);
   }
 
   static void goToLogin() {
     pushReplacementNamed(AppRoutes.login);
   }
 
-  static void goToSignup() {
-    pushReplacementNamed(AppRoutes.signup);
-  }
-
   static void goToTenants() {
-    pushNamed(AppRoutes.tenants);
+    pushNamed(AppRoutes.tenantList);
   }
 
   static void goToProperties() {
-    pushNamed(AppRoutes.properties);
+    pushNamed(AppRoutes.propertyList);
   }
 
   static void goToUnits() {
-    pushNamed(AppRoutes.units);
-  }
-
-  static void goToBilling() {
-    pushNamed(AppRoutes.billing);
+    pushNamed(AppRoutes.unitList);
   }
 
   static void goToProfile() {
-    pushNamed(AppRoutes.profile);
+    pushNamed(AppRoutes.ownerProfile);
+  }
+
+  static void goToForgotPassword() {
+    pushNamed(AppRoutes.forgotPassword);
+  }
+
+  static void goToResetPassword() {
+    pushNamed(AppRoutes.resetPassword);
   }
 
   // Safe back navigation

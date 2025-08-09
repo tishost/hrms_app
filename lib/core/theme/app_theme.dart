@@ -17,16 +17,16 @@ class AppTheme {
       appBarTheme: AppBarTheme(
         elevation: 0,
         centerTitle: true,
-        backgroundColor: AppColors.background,
-        foregroundColor: Colors.black87,
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
         titleTextStyle: TextStyle(
-          color: Colors.black87,
+          color: Colors.white,
           fontSize: 18.sp,
           fontWeight: FontWeight.w600,
         ),
         systemOverlayStyle: SystemUiOverlayStyle(
           statusBarColor: Colors.transparent,
-          statusBarIconBrightness: Brightness.dark,
+          statusBarIconBrightness: Brightness.light,
           statusBarBrightness: Brightness.light,
         ),
       ),
@@ -77,7 +77,7 @@ class AppTheme {
       appBarTheme: AppBarTheme(
         elevation: 0,
         centerTitle: true,
-        backgroundColor: AppColors.background,
+        backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         titleTextStyle: TextStyle(
           color: Colors.white,

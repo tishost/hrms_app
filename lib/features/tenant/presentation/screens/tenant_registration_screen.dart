@@ -5,11 +5,12 @@ import 'package:hrms_app/core/utils/app_colors.dart';
 import 'package:hrms_app/core/utils/api_config.dart';
 import 'package:hrms_app/features/auth/data/services/auth_service.dart';
 import 'package:hrms_app/core/providers/app_providers.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 class TenantRegistrationScreen extends ConsumerStatefulWidget {
+  const TenantRegistrationScreen({super.key});
+
   @override
   ConsumerState<TenantRegistrationScreen> createState() =>
       _TenantRegistrationScreenState();
@@ -43,8 +44,6 @@ class _TenantRegistrationScreenState
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text('Tenant Registration'),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
         leading: IconButton(
           icon: Icon(Icons.arrow_back),
           onPressed: () {

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hrms_app/core/utils/app_colors.dart';
+import 'package:hrms_app/core/providers/language_provider.dart';
+import 'package:hrms_app/core/constants/app_strings.dart';
 
-class TenantBottomNav extends StatelessWidget {
+class TenantBottomNav extends ConsumerWidget {
   final int currentIndex;
   final Function(int) onTap;
 
@@ -12,7 +15,10 @@ class TenantBottomNav extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLanguage = ref.watch(languageProvider);
+    final code = currentLanguage.code;
+
     return BottomNavigationBar(
       currentIndex: currentIndex,
       onTap: onTap,
@@ -24,12 +30,18 @@ class TenantBottomNav extends StatelessWidget {
       unselectedLabelStyle: TextStyle(fontWeight: FontWeight.w400),
       elevation: 8,
       items: [
-        BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Dashboard'),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.home),
+          label: AppStrings.getString('dashboard', code),
+        ),
         BottomNavigationBarItem(
           icon: Icon(Icons.receipt_long),
-          label: 'Billing',
+          label: AppStrings.getString('billing', code),
         ),
-        BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.person),
+          label: AppStrings.getString('profile', code),
+        ),
       ],
     );
   }

@@ -9,8 +9,7 @@ import '../../../auth/data/services/auth_service.dart';
 class CheckoutDetailsScreen extends StatefulWidget {
   final String checkoutId;
 
-  const CheckoutDetailsScreen({Key? key, required this.checkoutId})
-    : super(key: key);
+  const CheckoutDetailsScreen({super.key, required this.checkoutId});
 
   @override
   State<CheckoutDetailsScreen> createState() => _CheckoutDetailsScreenState();
@@ -88,8 +87,6 @@ class _CheckoutDetailsScreenState extends State<CheckoutDetailsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Checkout Details'),
-        backgroundColor: Colors.blue[600],
-        foregroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back),

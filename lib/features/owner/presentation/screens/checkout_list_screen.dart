@@ -5,9 +5,10 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../../../../core/utils/api_config.dart';
 import '../../../auth/data/services/auth_service.dart';
+import '../widgets/custom_bottom_nav.dart';
 
 class CheckoutListScreen extends StatefulWidget {
-  const CheckoutListScreen({Key? key}) : super(key: key);
+  const CheckoutListScreen({super.key});
 
   @override
   State<CheckoutListScreen> createState() => _CheckoutListScreenState();
@@ -104,8 +105,6 @@ class _CheckoutListScreenState extends State<CheckoutListScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Checkout Records'),
-        backgroundColor: Colors.blue[600],
-        foregroundColor: Colors.white,
         elevation: 0,
         actions: [
           IconButton(
@@ -367,6 +366,31 @@ class _CheckoutListScreenState extends State<CheckoutListScreen> {
                   },
                 ),
               ),
+      ),
+      bottomNavigationBar: CustomBottomNav(
+        currentIndex: 2, // Units index (since checkouts are related to units)
+        onTap: (index) {
+          switch (index) {
+            case 0:
+              context.go('/dashboard');
+              break;
+            case 1:
+              context.go('/properties');
+              break;
+            case 2:
+              context.go('/units');
+              break;
+            case 3:
+              context.go('/tenants');
+              break;
+            case 4:
+              context.go('/billing');
+              break;
+            case 5:
+              context.go('/reports');
+              break;
+          }
+        },
       ),
     );
   }

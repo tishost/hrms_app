@@ -3,17 +3,25 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:internet_connection_checker/internet_connection_checker.dart';
+// import 'package:connectivity_plus/connectivity_plus.dart';
+// import 'package:internet_connection_checker/internet_connection_checker.dart';
+import 'dart:io';
 
 // Core
 import 'core/constants/app_constants.dart';
 import 'core/utils/performance_config.dart';
 import 'core/theme/app_theme.dart';
 import 'core/providers/app_providers.dart';
+// import 'core/providers/language_provider.dart';
 
 // Features
 import 'features/auth/presentation/screens/login_screen.dart';
+import 'features/auth/presentation/screens/signup_screen.dart';
+import 'features/auth/presentation/screens/owner_registration_screen.dart';
+import 'features/auth/presentation/screens/tenant_registration_screen.dart';
+import 'features/auth/presentation/screens/mobile_entry_screen.dart';
+import 'features/auth/presentation/screens/forgot_password_screen.dart';
+import 'features/auth/presentation/screens/reset_password_screen.dart';
 import 'features/owner/presentation/screens/dashboard_screen.dart';
 import 'features/owner/presentation/screens/property_list_screen.dart';
 import 'features/owner/presentation/screens/unit_list_screen.dart';
@@ -21,9 +29,14 @@ import 'features/owner/presentation/screens/owner_tenant_list_screen.dart';
 import 'features/owner/presentation/screens/invoice_list_screen.dart';
 import 'features/owner/presentation/screens/reports_screen.dart';
 import 'features/owner/presentation/screens/profile_screen.dart';
+import 'features/owner/presentation/screens/profile_edit_screen.dart';
+import 'features/owner/presentation/screens/subscription_plans_screen.dart';
+import 'features/owner/presentation/screens/subscription_payment_webview.dart';
+import 'features/owner/presentation/screens/subscription_checkout_screen.dart';
+import 'features/owner/presentation/screens/subscription_center_screen.dart';
 import 'features/owner/presentation/screens/property_entry_screen.dart';
 import 'features/owner/presentation/screens/tenant_entry_screen.dart';
-import 'features/owner/presentation/screens/tenant_entry_simple.dart';
+// import 'features/owner/presentation/screens/tenant_entry_simple.dart';
 import 'features/owner/presentation/screens/checkout_form_screen.dart';
 import 'features/owner/presentation/screens/checkout_list_screen.dart';
 import 'features/owner/presentation/screens/checkout_details_screen.dart';
@@ -34,9 +47,9 @@ import 'features/tenant/presentation/screens/tenant_details_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize connectivity state
-  final initialConnectivity = await Connectivity().checkConnectivity();
-  final hasInternet = await InternetConnectionChecker().hasConnection;
+  // Initialize connectivity state (if needed later)
+  // final initialConnectivity = await Connectivity().checkConnectivity();
+  // final hasInternet = await InternetConnectionChecker().hasConnection;
 
   // Performance optimizations
   if (kDebugMode) {
@@ -73,10 +86,55 @@ class MyApp extends ConsumerWidget {
           themeMode: themeMode,
           routerConfig: ref.watch(routerProvider),
           debugShowCheckedModeBanner: false,
-          builder: (context, child) {
-            return Stack(
+        );
+      },
+    );
+  }
+}
+
+// ================== ROUTER CONFIGURATION ==================
+final routerProvider = Provider<GoRouter>((ref) {
+  final authState = ref.watch(authStateProvider);
+  DateTime? _lastBackTime;
+
+  return GoRouter(
+    initialLocation: '/',
+    navigatorBuilder: (context, state, child) {
+      return Consumer(
+        builder: (context, ref, _) {
+          final networkState = ref.watch(networkStateProvider);
+          final maintenance = ref.watch(maintenanceStateProvider);
+
+          return WillPopScope(
+            onWillPop: () async {
+              final router = GoRouter.of(context);
+              final location = state.uri.path;
+
+              if (router.canPop()) {
+                router.pop();
+                return false;
+              }
+
+              if (location == '/dashboard') {
+                final now = DateTime.now();
+                if (_lastBackTime == null ||
+                    now.difference(_lastBackTime!) >
+                        const Duration(seconds: 2)) {
+                  _lastBackTime = now;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Press back again to exit')),
+                  );
+                  return false;
+                }
+                exit(0);
+              }
+
+              router.go('/dashboard');
+              return false;
+            },
+            child: Stack(
               children: [
-                child!,
+                if (maintenance.isMaintenance) _MaintenanceOverlay() else child,
                 if (!networkState.isConnected)
                   Positioned(
                     top: 0,
@@ -93,28 +151,59 @@ class MyApp extends ConsumerWidget {
                     ),
                   ),
               ],
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-// ================== ROUTER CONFIGURATION ==================
-final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authStateProvider);
-
-  return GoRouter(
-    initialLocation: '/',
+            ),
+          );
+        },
+      );
+    },
     routes: [
       GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
       GoRoute(path: '/login', builder: (context, state) => LoginScreen()),
+      GoRoute(path: '/signup', builder: (context, state) => SignupScreen()),
+      GoRoute(
+        path: '/owner-registration',
+        builder: (context, state) {
+          // Extract query parameters
+          final mobile = state.uri.queryParameters['mobile'];
+          final email = state.uri.queryParameters['email'];
+          final name = state.uri.queryParameters['name'];
+          return OwnerRegistrationScreen(
+            initialMobile: mobile,
+            initialEmail: email,
+            initialName: name,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/mobile-entry',
+        builder: (context, state) {
+          final email = state.uri.queryParameters['email'];
+          final name = state.uri.queryParameters['name'];
+          return MobileEntryScreen(initialEmail: email, initialName: name);
+        },
+      ),
+      GoRoute(
+        path: '/tenant-registration',
+        builder: (context, state) => TenantRegistrationScreen(),
+      ),
+      GoRoute(
+        path: '/forgot-password',
+        builder: (context, state) => ForgotPasswordScreen(),
+      ),
+      GoRoute(
+        path: '/reset-password',
+        builder: (context, state) =>
+            ResetPasswordScreen(extra: state.extra as Map<String, dynamic>?),
+      ),
       GoRoute(
         path: '/dashboard',
         builder: (context, state) => DashboardScreen(),
       ),
       GoRoute(path: '/profile', builder: (context, state) => ProfileScreen()),
+      GoRoute(
+        path: '/profile/edit',
+        builder: (context, state) => const ProfileEditScreen(),
+      ),
       GoRoute(
         path: '/tenant-dashboard',
         builder: (context, state) => TenantDashboardScreen(),
@@ -137,7 +226,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/tenant-entry',
         builder: (context, state) {
-          print('DEBUG: Building tenant-entry route, extra: ${state.extra}');
           return TenantEntryScreen(
             tenant: state.extra as Map<String, dynamic>?,
           );
@@ -146,7 +234,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/checkout',
         builder: (context, state) {
-          print('DEBUG: Building checkout route, extra: ${state.extra}');
           final tenant = state.extra as Map<String, dynamic>?;
           return CheckoutFormScreen(
             tenant: tenant,
@@ -158,9 +245,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/checkout/:id',
         builder: (context, state) {
-          print(
-            'DEBUG: Building checkout details route, id: ${state.pathParameters['id']}',
-          );
           final checkoutId = state.pathParameters['id'] ?? '';
           return CheckoutDetailsScreen(checkoutId: checkoutId);
         },
@@ -168,7 +252,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/checkouts',
         builder: (context, state) {
-          print('DEBUG: Building checkouts route');
           return CheckoutListScreen();
         },
       ),
@@ -183,90 +266,111 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/reports', builder: (context, state) => ReportsScreen()),
       GoRoute(
-        path: '/test-tenant',
-        builder: (context, state) => Scaffold(
-          appBar: AppBar(title: Text('Test Tenant')),
-          body: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text('Test Tenant Route Working!'),
-                ElevatedButton(
-                  onPressed: () => context.go('/dashboard'),
-                  child: Text('Go to Dashboard'),
-                ),
-              ],
-            ),
-          ),
-        ),
+        path: '/subscription-plans',
+        builder: (context, state) => const SubscriptionPlansScreen(),
+      ),
+      // Common typo alias (fallback)
+      GoRoute(
+        path: '/subcription-plans',
+        builder: (context, state) => const SubscriptionPlansScreen(),
+      ),
+      GoRoute(
+        path: '/subscription-checkout',
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          final invoice = (extra?['invoice'] ?? {}) as Map<String, dynamic>;
+          return SubscriptionCheckoutScreen(invoice: invoice);
+        },
+      ),
+      GoRoute(
+        path: '/subscription-center',
+        builder: (context, state) => const SubscriptionCenterScreen(),
+      ),
+      // Alias for backward compatibility
+      GoRoute(
+        path: '/subscription',
+        builder: (context, state) => const SubscriptionPlansScreen(),
+      ),
+      GoRoute(
+        path: '/subscription-payment',
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          final url = (extra?['url'] ?? '') as String;
+          return SubscriptionPaymentWebView(url: url);
+        },
       ),
     ],
     redirect: (context, state) {
-      final isAuthLoading = authState.isLoading;
       final isAuthenticated = authState.isAuthenticated;
+      final isLoading = authState.isLoading;
+      final location = state.matchedLocation;
       final userRole = authState.user?.role;
 
       print(
-        'DEBUG: Redirect check - isAuthenticated: $isAuthenticated, location: ${state.matchedLocation}, user: ${authState.user?.role}',
+        'DEBUG: ROUTER REDIRECT - '
+        'isLoading: $isLoading, '
+        'isAuthenticated: $isAuthenticated, '
+        'location: $location, '
+        'userRole: $userRole',
       );
 
-      // If on splash screen, redirect based on auth status
-      if (state.matchedLocation == '/') {
-        if (isAuthenticated) {
-          final role = userRole ?? 'owner';
-          print(
-            'DEBUG: User authenticated, redirecting to dashboard for role: $role',
-          );
-          if (role == 'tenant') {
-            return '/tenant-dashboard';
-          } else {
-            return '/dashboard';
+      // final isGoingToLogin = location == '/login';
+      final isGoingToSplash = location == '/';
+
+      final publicRoutes = [
+        '/login',
+        '/signup',
+        '/owner-registration',
+        '/tenant-registration',
+        '/mobile-entry',
+        '/forgot-password',
+        '/reset-password',
+      ];
+      final isPublicRoute = publicRoutes.contains(location);
+
+      // 1. While app is loading, show splash screen
+      if (isLoading) {
+        return isGoingToSplash ? null : '/';
+      }
+
+      // 2. If authenticated, handle redirects
+      if (isAuthenticated) {
+        // If on a public route (like login/signup), redirect to the correct dashboard
+        if (isPublicRoute) {
+          switch (userRole) {
+            case 'tenant':
+              return '/tenant-dashboard';
+            case 'admin':
+              return '/admin-dashboard';
+            default:
+              return '/dashboard';
           }
-        } else {
-          print('DEBUG: User not authenticated, redirecting to login');
+        }
+        // If on splash, also redirect to dashboard
+        if (isGoingToSplash) {
+          switch (userRole) {
+            case 'tenant':
+              return '/tenant-dashboard';
+            case 'admin':
+              return '/admin-dashboard';
+            default:
+              return '/dashboard';
+          }
+        }
+      }
+      // 3. If not authenticated, handle redirects
+      else {
+        // If trying to access a private route, redirect to login
+        if (!isPublicRoute && !isGoingToSplash) {
+          return '/login';
+        }
+        // If on splash, redirect to login
+        if (isGoingToSplash) {
           return '/login';
         }
       }
 
-      // If not authenticated and not on login page, redirect to login
-      if (!isAuthenticated &&
-          state.matchedLocation != '/login' &&
-          state.matchedLocation != '/') {
-        print('DEBUG: Redirecting to login');
-        return '/login';
-      }
-
-      // Allow property-entry route to pass through with extra data
-      if (state.matchedLocation == '/property-entry') {
-        print('DEBUG: Property-entry route detected, extra: ${state.extra}');
-        if (state.extra != null) {
-          print(
-            'DEBUG: Allowing property-entry with extra data: ${state.extra}',
-          );
-          return null;
-        }
-      }
-
-      // Allow tenant-entry route to pass through with extra data
-      if (state.matchedLocation == '/tenant-entry') {
-        print('DEBUG: Tenant-entry route detected, extra: ${state.extra}');
-        print('DEBUG: Allowing tenant-entry with extra data: ${state.extra}');
-        return null;
-      }
-
-      // Allow checkout route to pass through with extra data
-      if (state.matchedLocation == '/checkout') {
-        print('DEBUG: Checkout route detected, extra: ${state.extra}');
-        print('DEBUG: Allowing checkout with extra data: ${state.extra}');
-        return null;
-      }
-
-      // If authenticated and on login page, redirect to dashboard
-      if (isAuthenticated && state.matchedLocation == '/login') {
-        print('DEBUG: Redirecting to dashboard');
-        return '/dashboard';
-      }
-
+      // 4. No redirection needed
       return null;
     },
   );
@@ -284,47 +388,14 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _initializeApp();
-  }
-
-  Future<void> _initializeApp() async {
-    print('DEBUG: Splash screen starting initialization...');
-
-    try {
-      // Check authentication status
-      await ref.read(authStateProvider.notifier).checkAuthStatus();
-      print('DEBUG: Auth status checked');
-
-      // Initialize connectivity monitoring
-      _setupConnectivityListener();
-
-      // Add a small delay to show splash screen
-      await Future.delayed(Duration(milliseconds: 1500));
-
-      print('DEBUG: Splash screen initialization complete');
-    } catch (e) {
-      print('DEBUG: Error in splash initialization: $e');
-    }
-  }
-
-  void _setupConnectivityListener() {
-    // Monitor connectivity
-    Connectivity().onConnectivityChanged.listen((result) {
-      ref
-          .read(networkStateProvider.notifier)
-          .updateConnectionStatus(
-            result != ConnectivityResult.none,
-            result.name,
-          );
-    });
-
-    // Check internet connection
-    InternetConnectionChecker().onStatusChange.listen((status) {
-      final isConnected = status == InternetConnectionStatus.connected;
-      ref
-          .read(networkStateProvider.notifier)
-          .updateConnectionStatus(isConnected, 'internet');
-    });
+    print(
+      'DEBUG: SplashScreen initState - AuthState provider will handle checkAuthStatus',
+    );
+    // No need to call checkAuthStatus here - AuthState provider handles it
+    // Kick off maintenance check
+    Future.microtask(
+      () => ref.read(maintenanceStateProvider.notifier).refresh(),
+    );
   }
 
   @override
@@ -349,6 +420,70 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ================== MAINTENANCE OVERLAY ==================
+class _MaintenanceOverlay extends ConsumerWidget {
+  const _MaintenanceOverlay();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final data = ref.watch(maintenanceStateProvider);
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const Icon(Icons.build_rounded, size: 64, color: Colors.orange),
+                const SizedBox(height: 4),
+                if ((data.companyName ?? '').isNotEmpty)
+                  Text(
+                    data.companyName!,
+                    style: const TextStyle(fontSize: 14, color: Colors.black54),
+                  ),
+                const SizedBox(height: 12),
+                Text(
+                  data.message ?? 'The system is under maintenance',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if ((data.description ?? '').isNotEmpty)
+                  Text(
+                    data.description!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 14, color: Colors.black54),
+                  ),
+                if ((data.until ?? '').isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Estimated until: ${data.until}',
+                    style: const TextStyle(fontSize: 12, color: Colors.black45),
+                  ),
+                ],
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    // Refresh maintenance state; overlay auto-closes if disabled
+                    ref.read(maintenanceStateProvider.notifier).refresh();
+                  },
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

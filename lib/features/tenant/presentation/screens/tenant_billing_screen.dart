@@ -11,6 +11,8 @@ import 'package:hrms_app/features/tenant/presentation/screens/invoice_payment_sc
 import 'package:hrms_app/features/tenant/presentation/widgets/tenant_bottom_nav.dart';
 
 class TenantBillingScreen extends StatefulWidget {
+  const TenantBillingScreen({super.key});
+
   @override
   _TenantBillingScreenState createState() => _TenantBillingScreenState();
 }
@@ -98,8 +100,6 @@ class _TenantBillingScreenState extends State<TenantBillingScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('My Bills'),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
         actions: [
           IconButton(icon: Icon(Icons.refresh), onPressed: _loadInvoices),
         ],

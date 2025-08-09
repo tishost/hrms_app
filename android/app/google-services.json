@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "663618335262",
+    "project_id": "bari-manager",
+    "storage_bucket": "bari-manager.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:663618335262:android:3b23fc0bf1ae30fb76340f",
+        "android_client_info": {
+          "package_name": "com.barimanager.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "663618335262-kuhdup2kt7f31qjpbl7q8fe7q0nie8id.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.barimanager.app",
+            "certificate_hash": "5be765b4fa05d9d7d0bd39e4708a3446d51570e1"
+          }
+        },
+        {
+          "client_id": "663618335262-mp99bp2o7qic2l9l5m8g7tf3525uf8db.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDVpydcKlPUVEXQcUpDMGYiEGo9XvrIisQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "663618335262-mp99bp2o7qic2l9l5m8g7tf3525uf8db.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "663618335262-m74fkn6t8skhn0qnal8hqkrscan1n10l.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.barimanger.isoapp"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

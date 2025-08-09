@@ -4,12 +4,13 @@ import 'package:go_router/go_router.dart';
 import 'package:hrms_app/features/auth/data/services/auth_service.dart';
 import 'package:hrms_app/core/utils/api_config.dart';
 import 'package:hrms_app/core/utils/app_colors.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../widgets/tenant_bottom_nav.dart';
 
 class TenantProfileScreen extends StatefulWidget {
+  const TenantProfileScreen({super.key});
+
   @override
   _TenantProfileScreenState createState() => _TenantProfileScreenState();
 }
@@ -72,8 +73,6 @@ class _TenantProfileScreenState extends State<TenantProfileScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('My Profile'),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
         actions: [
           IconButton(icon: Icon(Icons.refresh), onPressed: _loadProfile),
         ],

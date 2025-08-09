@@ -9,7 +9,6 @@ import '../../../auth/data/services/auth_service.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:intl/intl.dart';
-import 'package:month_picker_dialog/month_picker_dialog.dart';
 
 class TenantEntryScreen extends StatefulWidget {
   final Map<String, dynamic>? tenant;
@@ -1110,15 +1109,7 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       elevation: 0,
-      backgroundColor: Colors.white,
-      title: Text(
-        widget.tenant != null ? 'Edit Tenant' : 'Add New Tenant',
-        style: TextStyle(
-          color: Colors.black87,
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
+      title: Text(widget.tenant != null ? 'Edit Tenant' : 'Add New Tenant'),
       leading: IconButton(
         icon: Icon(Icons.arrow_back_ios, color: Colors.black87),
         onPressed: () {

@@ -456,11 +456,9 @@ class _CheckoutFormScreenState extends State<CheckoutFormScreen> {
       appBar: AppBar(
         title: Text(
           _tenantData != null
-              ? 'Checkout: ${_tenantData!['first_name'] ?? ''} ${_tenantData!['last_name'] ?? ''}'
+              ? 'Checkout: ${_tenantData!['first_name'] ?? ''} ${_tenantData!['tenant_last_name'] ?? ''}'
               : 'New Checkout',
         ),
-        backgroundColor: Colors.blue[600],
-        foregroundColor: Colors.white,
         elevation: 0,
       ),
       body: _isDataLoading

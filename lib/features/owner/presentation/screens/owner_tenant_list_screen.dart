@@ -4,14 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:hrms_app/features/auth/data/services/auth_service.dart';
 import 'package:hrms_app/core/utils/api_config.dart';
 import 'package:hrms_app/core/utils/app_colors.dart';
-import 'package:hrms_app/core/routing/app_routes.dart';
 import 'package:hrms_app/features/owner/presentation/widgets/custom_bottom_nav.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:hrms_app/features/tenant/presentation/screens/tenant_details_screen.dart';
-import 'tenant_entry_screen.dart';
-import 'checkout_form_screen.dart';
 
 class OwnerTenantListScreen extends StatefulWidget {
   const OwnerTenantListScreen({super.key});
@@ -191,8 +186,14 @@ class _OwnerTenantListScreenState extends State<OwnerTenantListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        automaticallyImplyLeading: false,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(gradient: AppColors.primaryGradient),
+        ),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios, color: Colors.white),
+          icon: Icon(Icons.arrow_back_ios_rounded, color: AppColors.white),
           onPressed: () {
             if (context.canPop()) {
               context.pop();
@@ -203,11 +204,8 @@ class _OwnerTenantListScreenState extends State<OwnerTenantListScreen> {
         ),
         title: Text(
           'Tenants',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold),
         ),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        elevation: 0,
         centerTitle: true,
       ),
       body: Stack(

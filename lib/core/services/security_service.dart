@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:crypto/crypto.dart';
-import '../constants/app_constants.dart';
 
 class SecurityService {
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
@@ -17,6 +16,34 @@ class SecurityService {
 
   static Future<void> removeJwtToken() async {
     await _storage.delete(key: 'jwt_token');
+  }
+
+  // User Data Management
+  static Future<void> storeUserData(Map<String, dynamic> userData) async {
+    final userDataJson = json.encode(userData);
+    await _storage.write(key: 'user_data', value: userDataJson);
+    print('🔐 User data stored: $userData');
+  }
+
+  static Future<Map<String, dynamic>?> getStoredUserData() async {
+    try {
+      final userDataJson = await _storage.read(key: 'user_data');
+      if (userDataJson != null) {
+        final userData = json.decode(userDataJson) as Map<String, dynamic>;
+        print('🔓 User data retrieved: $userData');
+        return userData;
+      }
+      print('🔓 No user data found in storage');
+      return null;
+    } catch (e) {
+      print('❌ Error retrieving user data: $e');
+      return null;
+    }
+  }
+
+  static Future<void> removeUserData() async {
+    await _storage.delete(key: 'user_data');
+    print('🗑️ User data removed from storage');
   }
 
   // Secure Storage for Sensitive Data

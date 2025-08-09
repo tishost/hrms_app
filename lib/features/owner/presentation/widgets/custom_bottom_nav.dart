@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hrms_app/core/utils/app_colors.dart';
+import 'package:hrms_app/core/providers/language_provider.dart';
+import 'package:hrms_app/core/constants/app_strings.dart';
 
-class CustomBottomNav extends StatelessWidget {
+class CustomBottomNav extends ConsumerWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
   final bool showLabels;
@@ -14,53 +17,100 @@ class CustomBottomNav extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final items = _navItems(context);
-    final validIndex = currentIndex.clamp(0, items.length - 1);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLanguage = ref.watch(languageProvider);
+    final code = currentLanguage.code;
 
-    return BottomNavigationBar(
-      type: BottomNavigationBarType.fixed,
-      currentIndex: validIndex,
-      onTap: onTap,
-      selectedItemColor: AppColors.primary,
-      unselectedItemColor: Colors.grey,
-      backgroundColor: Colors.white,
-      elevation: 8,
-      iconSize: 18,
-      selectedLabelStyle: TextStyle(fontWeight: FontWeight.w600, fontSize: 9),
-      unselectedLabelStyle: TextStyle(
-        fontWeight: FontWeight.normal,
-        fontSize: 9,
+    final homeLabel = AppStrings.getString('home', code);
+    final propertiesLabel = AppStrings.getString('properties', code);
+    final unitsLabel = AppStrings.getString('units', code);
+    final tenantsLabel = AppStrings.getString('tenants', code);
+    final billingLabel = AppStrings.getString('billing', code);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: Offset(0, -2),
+            spreadRadius: 0,
+          ),
+        ],
       ),
-      showSelectedLabels: showLabels,
-      showUnselectedLabels:
-          showLabels, // Show unselected labels only if showLabels is true
-      items: items,
+      child: SafeArea(
+        child: Container(
+          height: 60,
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildNavItem(
+                icon: Icons.dashboard_rounded,
+                label: homeLabel,
+                index: 0,
+              ),
+              _buildNavItem(
+                icon: Icons.apartment_rounded,
+                label: propertiesLabel,
+                index: 1,
+              ),
+              _buildNavItem(icon: Icons.home_rounded, label: unitsLabel, index: 2),
+              _buildNavItem(
+                icon: Icons.people_rounded,
+                label: tenantsLabel,
+                index: 3,
+              ),
+              _buildNavItem(
+                icon: Icons.receipt_rounded,
+                label: billingLabel,
+                index: 4,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
-  List<BottomNavigationBarItem> _navItems(BuildContext context) {
-    return [
-      BottomNavigationBarItem(
-        icon: Icon(Icons.dashboard, semanticLabel: 'Home'),
-        label: 'Home',
+  Widget _buildNavItem({
+    required IconData icon,
+    required String label,
+    required int index,
+  }) {
+    bool isSelected = currentIndex == index;
+
+    return GestureDetector(
+      onTap: () => onTap(index),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? AppColors.primary : AppColors.gray,
+              size: isSelected ? 22 : 20,
+            ),
+            if (showLabels) ...[
+              SizedBox(height: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? AppColors.primary : AppColors.gray,
+                  fontSize: isSelected ? 10 : 9,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
-      BottomNavigationBarItem(
-        icon: Icon(Icons.business, semanticLabel: 'Properties'),
-        label: 'Property',
-      ),
-      BottomNavigationBarItem(
-        icon: Icon(Icons.home, semanticLabel: 'Units'),
-        label: 'Units',
-      ),
-      BottomNavigationBarItem(
-        icon: Icon(Icons.people, semanticLabel: 'Tenants'),
-        label: 'Tenant',
-      ),
-      BottomNavigationBarItem(
-        icon: Icon(Icons.receipt_long, semanticLabel: 'Billing'),
-        label: 'Bill',
-      ),
-    ];
+    );
   }
 }

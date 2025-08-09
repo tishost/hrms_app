@@ -1,5 +1,5 @@
 name: hrms_app
-description: "A new Flutter project."
+description: "Bari Manager - Property Management App"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -58,7 +58,9 @@ dependencies:
   shared_preferences: ^2.5.3
   
   # UI/UX
+  flutter_svg: ^2.0.10+1
   image_picker: ^1.0.7
+  flutter_image_compress: ^2.1.0
   dropdown_search: ^5.0.6
   intl: ^0.18.0
   month_picker_dialog: ^2.0.2
@@ -71,6 +73,9 @@ dependencies:
   # Responsive Design
   flutter_screenutil: ^5.9.0
   
+  # Country Picker
+  country_picker: ^2.0.26
+  
   # Loading & Animation
   shimmer: ^3.0.0
   lottie: ^3.0.0
@@ -78,6 +83,7 @@ dependencies:
   # Network & Connectivity
   connectivity_plus: ^5.0.2
   internet_connection_checker: ^1.0.0+1
+  google_sign_in: ^6.2.1
 
 dev_dependencies:
   flutter_test:
@@ -95,6 +101,7 @@ dev_dependencies:
   freezed: ^2.4.6
   json_serializable: ^6.7.1
   riverpod_generator: ^2.3.9
+  change_app_package_name: ^1.5.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -108,9 +115,8 @@ flutter:
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
-  #   - images/a_dot_ham.jpeg
+  assets:
+    - assets/images/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

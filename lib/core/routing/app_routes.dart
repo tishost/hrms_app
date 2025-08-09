@@ -1,9 +1,12 @@
 class AppRoutes {
   // Auth Routes
   static const String login = '/login';
+  static const String signup = '/signup';
   static const String register = '/register';
   static const String tenantRegistration = '/tenant-registration';
   static const String ownerRegistration = '/owner-registration';
+  static const String forgotPassword = '/forgot-password';
+  static const String resetPassword = '/reset-password';
 
   // Owner Routes
   static const String ownerDashboard = '/dashboard';
