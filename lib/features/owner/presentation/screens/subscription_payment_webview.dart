@@ -90,13 +90,28 @@ class _SubscriptionPaymentWebViewState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Complete Payment')),
-      body: Stack(
-        children: [
-          WebViewWidget(controller: _controller),
-          if (_loading) const Center(child: CircularProgressIndicator()),
-        ],
+    return WillPopScope(
+      onWillPop: () async {
+        final now = DateTime.now();
+        if (_lastBack == null ||
+            now.difference(_lastBack!) > const Duration(seconds: 2)) {
+          _lastBack = now;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Press back again to cancel payment')),
+          );
+          return false;
+        }
+        context.go('/subscription-plans');
+        return false;
+      },
+      child: Scaffold(
+        appBar: AppBar(title: const Text('Complete Payment')),
+        body: Stack(
+          children: [
+            WebViewWidget(controller: _controller),
+            if (_loading) const Center(child: CircularProgressIndicator()),
+          ],
+        ),
       ),
     );
   }

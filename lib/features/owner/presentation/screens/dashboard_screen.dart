@@ -15,7 +15,6 @@ import 'package:hrms_app/core/constants/app_strings.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'dart:async';
-import 'dart:io';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({Key? key}) : super(key: key);
@@ -699,15 +698,29 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     // Watch language state to rebuild dashboard on language changes
     ref.watch(languageProvider);
 
-    return Focus(
-      focusNode: _focusNode,
-      child: AnnotatedRegion<SystemUiOverlayStyle>(
-        value: SystemUiOverlayStyle(
-          statusBarColor: Colors.transparent, // Make status bar transparent
-          statusBarIconBrightness:
-              Brightness.light, // White icons on colored background
-        ),
-        child: Scaffold(
+    return WillPopScope(
+      onWillPop: () async {
+        final now = DateTime.now();
+        if (_lastBackTime == null ||
+            now.difference(_lastBackTime!) > const Duration(seconds: 2)) {
+          _lastBackTime = now;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Press back again to exit')),
+          );
+          return false;
+        }
+        SystemNavigator.pop();
+        return false;
+      },
+      child: Focus(
+        focusNode: _focusNode,
+        child: AnnotatedRegion<SystemUiOverlayStyle>(
+          value: SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent, // Make status bar transparent
+            statusBarIconBrightness:
+                Brightness.light, // White icons on colored background
+          ),
+          child: Scaffold(
             backgroundColor: AppColors.background,
             endDrawer: CustomDrawer(),
             drawerScrimColor: Colors.black54,

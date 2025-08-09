@@ -5,7 +5,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 // import 'package:connectivity_plus/connectivity_plus.dart';
 // import 'package:internet_connection_checker/internet_connection_checker.dart';
-import 'dart:io';
 
 // Core
 import 'core/constants/app_constants.dart';
@@ -86,6 +85,48 @@ class MyApp extends ConsumerWidget {
           themeMode: themeMode,
           routerConfig: ref.watch(routerProvider),
           debugShowCheckedModeBanner: false,
+          builder: (context, child) {
+            final maintenance = ref.watch(maintenanceStateProvider);
+            return PopScope(
+              canPop: false,
+              onPopInvoked: (didPop) {
+                if (didPop) return;
+                // Global back behavior: pop if possible, else go to properties (user preference)
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/dashboard');
+                }
+              },
+              child: Stack(
+                children: [
+                  // If maintenance, show maintenance overlay page and block app
+                  if (maintenance.isMaintenance)
+                    _MaintenanceOverlay()
+                  else
+                    child!,
+                  if (!networkState.isConnected)
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      child: Container(
+                        color: Colors.red,
+                        padding: EdgeInsets.symmetric(vertical: 8.h),
+                        child: Text(
+                          'No internet connection',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12.sp,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
         );
       },
     );
@@ -95,67 +136,8 @@ class MyApp extends ConsumerWidget {
 // ================== ROUTER CONFIGURATION ==================
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
-  DateTime? _lastBackTime;
-
   return GoRouter(
     initialLocation: '/',
-    navigatorBuilder: (context, state, child) {
-      return Consumer(
-        builder: (context, ref, _) {
-          final networkState = ref.watch(networkStateProvider);
-          final maintenance = ref.watch(maintenanceStateProvider);
-
-          return WillPopScope(
-            onWillPop: () async {
-              final router = GoRouter.of(context);
-              final location = state.uri.path;
-
-              if (router.canPop()) {
-                router.pop();
-                return false;
-              }
-
-              if (location == '/dashboard') {
-                final now = DateTime.now();
-                if (_lastBackTime == null ||
-                    now.difference(_lastBackTime!) >
-                        const Duration(seconds: 2)) {
-                  _lastBackTime = now;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Press back again to exit')),
-                  );
-                  return false;
-                }
-                exit(0);
-              }
-
-              router.go('/dashboard');
-              return false;
-            },
-            child: Stack(
-              children: [
-                if (maintenance.isMaintenance) _MaintenanceOverlay() else child,
-                if (!networkState.isConnected)
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    child: Container(
-                      color: Colors.red,
-                      padding: EdgeInsets.symmetric(vertical: 8.h),
-                      child: Text(
-                        'No internet connection',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.white, fontSize: 12.sp),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          );
-        },
-      );
-    },
     routes: [
       GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
       GoRoute(path: '/login', builder: (context, state) => LoginScreen()),

@@ -123,46 +123,58 @@ class _SubscriptionPlansScreenState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Subscription Plans')),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [AppColors.primary.withOpacity(0.05), Colors.white],
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) {
+        if (didPop) return;
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/properties');
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(title: const Text('Subscription Plans')),
+        body: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [AppColors.primary.withOpacity(0.05), Colors.white],
+            ),
           ),
-        ),
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : _error != null
-            ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(_error!),
-                    const SizedBox(height: 8),
-                    ElevatedButton(
-                      onPressed: _loadPlans,
-                      child: const Text('Retry'),
-                    ),
-                  ],
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _error != null
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(_error!),
+                      const SizedBox(height: 8),
+                      ElevatedButton(
+                        onPressed: _loadPlans,
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _plans.length,
+                  itemBuilder: (context, index) {
+                    final plan = _plans[index];
+                    final isPopular =
+                        plan['is_popular'] == true ||
+                        index == _plans.length - 1;
+                    return _PlanCard(
+                      plan: plan,
+                      isPopular: isPopular,
+                      onBuy: () => _buyPlan(plan),
+                    );
+                  },
                 ),
-              )
-            : ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: _plans.length,
-                itemBuilder: (context, index) {
-                  final plan = _plans[index];
-                  final isPopular =
-                      plan['is_popular'] == true || index == _plans.length - 1;
-                  return _PlanCard(
-                    plan: plan,
-                    isPopular: isPopular,
-                    onBuy: () => _buyPlan(plan),
-                  );
-                },
-              ),
+        ),
       ),
     );
   }
