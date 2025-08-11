@@ -443,36 +443,6 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
           ),
         ],
       ),
-      bottomNavigationBar: CustomBottomNav(
-        currentIndex: 4, // Billing tab
-        onTap: (index) {
-          print('DEBUG: Bottom nav tapped - index: $index');
-          if (index == 4) return; // Already on billing
-
-          switch (index) {
-            case 0:
-              print('DEBUG: Navigating to dashboard');
-              context.go('/dashboard');
-              break;
-            case 1:
-              print('DEBUG: Navigating to properties');
-              context.go('/properties');
-              break;
-            case 2:
-              print('DEBUG: Navigating to units');
-              context.go('/units');
-              break;
-            case 3:
-              print('DEBUG: Navigating to tenants');
-              context.go('/tenants');
-              break;
-            case 5:
-              print('DEBUG: Navigating to reports');
-              context.go('/reports');
-              break;
-          }
-        },
-      ),
     );
   }
 

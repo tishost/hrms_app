@@ -367,31 +367,6 @@ class _CheckoutListScreenState extends State<CheckoutListScreen> {
                 ),
               ),
       ),
-      bottomNavigationBar: CustomBottomNav(
-        currentIndex: 2, // Units index (since checkouts are related to units)
-        onTap: (index) {
-          switch (index) {
-            case 0:
-              context.go('/dashboard');
-              break;
-            case 1:
-              context.go('/properties');
-              break;
-            case 2:
-              context.go('/units');
-              break;
-            case 3:
-              context.go('/tenants');
-              break;
-            case 4:
-              context.go('/billing');
-              break;
-            case 5:
-              context.go('/reports');
-              break;
-          }
-        },
-      ),
     );
   }
 }

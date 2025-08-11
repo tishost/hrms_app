@@ -24,6 +24,10 @@ class AuthService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
     await prefs.remove(_userInfoKey);
+    await prefs.remove('user_data'); // Clear dashboard user data
+    await prefs.remove('dashboard_stats'); // Clear dashboard stats
+    await prefs.remove('subscription_data'); // Clear subscription data
+    print('DEBUG: All cached data cleared on logout');
   }
 
   // Get user info

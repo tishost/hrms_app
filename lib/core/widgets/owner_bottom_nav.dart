@@ -4,12 +4,12 @@ import 'package:hrms_app/core/utils/app_colors.dart';
 import 'package:hrms_app/core/providers/language_provider.dart';
 import 'package:hrms_app/core/constants/app_strings.dart';
 
-class CustomBottomNav extends ConsumerWidget {
+class OwnerBottomNav extends ConsumerWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
   final bool showLabels;
 
-  const CustomBottomNav({
+  const OwnerBottomNav({
     super.key,
     required this.currentIndex,
     required this.onTap,

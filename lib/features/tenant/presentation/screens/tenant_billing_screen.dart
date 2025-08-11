@@ -146,31 +146,6 @@ class _TenantBillingScreenState extends State<TenantBillingScreen> {
                       },
                     ),
             ),
-      bottomNavigationBar: TenantBottomNav(
-        currentIndex:
-            2, // Billing tab (Dashboard=0, Tenants=1, Billing=2, Profile=3)
-        onTap: (index) {
-          if (kDebugMode) {
-            print('DEBUG: Bottom nav tapped - index: $index');
-          }
-          if (index == 2) return; // Already on billing
-
-          switch (index) {
-            case 0:
-              if (kDebugMode) print('DEBUG: Navigating to dashboard');
-              context.go('/dashboard');
-              break;
-            case 1:
-              if (kDebugMode) print('DEBUG: Navigating to tenants');
-              context.go('/tenants');
-              break;
-            case 3:
-              if (kDebugMode) print('DEBUG: Navigating to profile');
-              context.go('/profile');
-              break;
-          }
-        },
-      ),
     );
   }
 

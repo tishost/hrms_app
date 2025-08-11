@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:hrms_app/core/utils/api_config.dart';
@@ -73,8 +74,7 @@ class _InvoicePaymentScreenState extends State<InvoicePaymentScreen> {
               child: Row(
                 children: [
                   GestureDetector(
-                    onTap: () =>
-                        Navigator.pushReplacementNamed(context, '/dashboard'),
+                    onTap: () => context.go('/dashboard'),
                     child: Container(
                       padding: EdgeInsets.all(8),
                       decoration: BoxDecoration(
@@ -144,26 +144,6 @@ class _InvoicePaymentScreenState extends State<InvoicePaymentScreen> {
             ),
           ],
         ),
-      ),
-      bottomNavigationBar: CustomBottomNav(
-        currentIndex: 4,
-        onTap: (index) {
-          if (index == 4) return; // Already on billing
-          switch (index) {
-            case 0:
-              Navigator.pushReplacementNamed(context, '/dashboard');
-              break;
-            case 1:
-              Navigator.pushReplacementNamed(context, '/properties');
-              break;
-            case 2:
-              Navigator.pushReplacementNamed(context, '/units');
-              break;
-            case 3:
-              Navigator.pushReplacementNamed(context, '/tenants');
-              break;
-          }
-        },
       ),
     );
   }

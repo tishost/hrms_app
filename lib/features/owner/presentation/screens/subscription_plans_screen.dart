@@ -19,6 +19,7 @@ class _SubscriptionPlansScreenState
   bool _isLoading = true;
   String? _error;
   List<Map<String, dynamic>> _plans = [];
+  Map<String, dynamic>? _currentSubscription;
 
   @override
   void initState() {
@@ -26,7 +27,51 @@ class _SubscriptionPlansScreenState
     // Debug: confirm route landed
     // ignore: avoid_print
     print('DEBUG: SubscriptionPlansScreen init');
+    _loadCurrentSubscription();
     _loadPlans();
+  }
+
+  Future<void> _loadCurrentSubscription() async {
+    try {
+      final api = ref.read(apiServiceProvider);
+      final response = await api.get('/owner/subscription');
+      print('DEBUG: Current subscription API response: ${response.data}');
+
+      if (response.data['success'] == true &&
+          response.data['subscription'] != null) {
+        final subscription =
+            response.data['subscription'] as Map<String, dynamic>?;
+
+        // Check if subscription is active (paid and active)
+        final status = subscription!['status']?.toString().toLowerCase();
+        final isActive = status == 'active' || status == 'paid';
+
+        if (isActive) {
+          setState(() {
+            _currentSubscription = subscription;
+          });
+          print('DEBUG: Active subscription loaded: $_currentSubscription');
+        } else {
+          // Subscription exists but not active (pending/unpaid)
+          setState(() {
+            _currentSubscription = null;
+          });
+          print(
+            'DEBUG: Subscription found but not active. Status: $status, defaulting to Free plan',
+          );
+        }
+      } else {
+        setState(() {
+          _currentSubscription = null;
+        });
+        print('DEBUG: No current subscription found');
+      }
+    } catch (e) {
+      print('DEBUG: Failed to load current subscription: $e');
+      setState(() {
+        _currentSubscription = null;
+      });
+    }
   }
 
   Future<void> _loadPlans() async {
@@ -86,13 +131,17 @@ class _SubscriptionPlansScreenState
             payment['payment_url'] != '#') {
           // Open payment webview screen
           if (mounted) {
-            context.push(
+            final result = await context.push(
               '/subscription-payment',
               extra: {
                 'url': payment['payment_url'],
                 'invoice': data['invoice'],
               },
             );
+            // Refresh current subscription when returning from payment
+            if (result == true) {
+              await _loadCurrentSubscription();
+            }
           }
         } else {
           if (mounted) {
@@ -101,6 +150,8 @@ class _SubscriptionPlansScreenState
                 content: Text('Invoice created. Please complete payment.'),
               ),
             );
+            // Refresh current subscription after purchase
+            await _loadCurrentSubscription();
           }
         }
       } else {
@@ -159,20 +210,61 @@ class _SubscriptionPlansScreenState
                     ],
                   ),
                 )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _plans.length,
-                  itemBuilder: (context, index) {
-                    final plan = _plans[index];
-                    final isPopular =
-                        plan['is_popular'] == true ||
-                        index == _plans.length - 1;
-                    return _PlanCard(
-                      plan: plan,
-                      isPopular: isPopular,
-                      onBuy: () => _buyPlan(plan),
-                    );
+              : RefreshIndicator(
+                  onRefresh: () async {
+                    await _loadCurrentSubscription();
+                    await _loadPlans();
                   },
+                  child: ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      // Debug info (remove in production)
+                      if (_currentSubscription != null)
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          margin: const EdgeInsets.only(bottom: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.blue[50],
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.blue[200]!),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Current Subscription:',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue[800],
+                                ),
+                              ),
+                              Text(
+                                'Plan: ${_currentSubscription!['plan_name'] ?? 'N/A'}',
+                                style: TextStyle(color: Colors.blue[700]),
+                              ),
+                              Text(
+                                'Status: ${_currentSubscription!['status'] ?? 'N/A'}',
+                                style: TextStyle(color: Colors.blue[700]),
+                              ),
+                            ],
+                          ),
+                        ),
+                      // Plans list
+                      ...List.generate(_plans.length, (index) {
+                        final plan = _plans[index];
+                        final isPopular =
+                            plan['is_popular'] == true ||
+                            index == _plans.length - 1;
+                        return _PlanCard(
+                          plan: plan,
+                          isPopular: isPopular,
+                          currentSubscription: _currentSubscription,
+                          onBuy: () => _buyPlan(plan),
+                        );
+                      }),
+                    ],
+                  ),
                 ),
         ),
       ),
@@ -185,16 +277,40 @@ class _SubscriptionPlansScreenState
 class _PlanCard extends StatelessWidget {
   final Map<String, dynamic> plan;
   final bool isPopular;
+  final Map<String, dynamic>? currentSubscription;
   final VoidCallback onBuy;
 
   const _PlanCard({
     required this.plan,
     required this.isPopular,
+    this.currentSubscription,
     required this.onBuy,
   });
 
+  bool _isCurrentPlan() {
+    if (currentSubscription == null) return false;
+
+    // Check if this plan matches the current subscription
+    final currentPlanId = currentSubscription!['plan_id']?.toString();
+    final currentPlanName = currentSubscription!['plan_name']
+        ?.toString()
+        .toLowerCase();
+    final planId = plan['id']?.toString();
+    final planName = plan['name']?.toString().toLowerCase();
+
+    // Match by ID or name
+    return (currentPlanId != null &&
+            planId != null &&
+            currentPlanId == planId) ||
+        (currentPlanName != null &&
+            planName != null &&
+            currentPlanName == planName);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isCurrentPlan = _isCurrentPlan();
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -228,6 +344,29 @@ class _PlanCard extends StatelessWidget {
                   'Most Popular',
                   style: TextStyle(
                     color: AppColors.primary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          if (isCurrentPlan)
+            Positioned(
+              top: 10,
+              left: 12,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  'Current Plan',
+                  style: TextStyle(
+                    color: Colors.green[700],
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                   ),
@@ -278,9 +417,11 @@ class _PlanCard extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: onBuy,
+                    onPressed: isCurrentPlan ? null : onBuy,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF7FA7F3),
+                      backgroundColor: isCurrentPlan
+                          ? Colors.grey[400]
+                          : const Color(0xFF7FA7F3),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
@@ -288,8 +429,8 @@ class _PlanCard extends StatelessWidget {
                       ),
                       elevation: 0,
                     ),
-                    child: const Text(
-                      'Buy Now',
+                    child: Text(
+                      isCurrentPlan ? 'Current Plan' : 'Buy Now',
                       style: TextStyle(fontWeight: FontWeight.w700),
                     ),
                   ),

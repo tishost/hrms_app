@@ -374,32 +374,6 @@ class _OwnerTenantListScreenState extends State<OwnerTenantListScreen> {
         backgroundColor: AppColors.primary,
         child: Icon(Icons.add, color: Colors.white),
       ),
-      bottomNavigationBar: CustomBottomNav(
-        currentIndex: 3,
-        onTap: (index) {
-          if (kDebugMode) {
-            print('DEBUG: Bottom nav tapped - index: $index');
-          }
-          if (index == 3) return;
-          switch (index) {
-            case 0:
-              context.go('/dashboard');
-              break;
-            case 1:
-              context.go('/properties');
-              break;
-            case 2:
-              context.go('/units');
-              break;
-            case 4:
-              context.go('/billing');
-              break;
-            case 5:
-              context.go('/reports');
-              break;
-          }
-        },
-      ),
     );
   }
 

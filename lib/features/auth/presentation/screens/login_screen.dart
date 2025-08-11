@@ -566,9 +566,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ),
       );
     } finally {
-      setState(() {
-        _isGoogleLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isGoogleLoading = false;
+        });
+      }
     }
   }
 
@@ -598,23 +600,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               .read(authStateProvider.notifier)
               .login(token, role, userData: normalizedUser);
           await AuthService.saveToken(token);
-          context.go('/dashboard');
+          if (mounted) {
+            context.go('/dashboard');
+          }
         } else {
           // Not found → go to mobile entry for smart registration
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'New user detected! Please enter your mobile number to continue',
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'New user detected! Please enter your mobile number to continue',
+                ),
+                backgroundColor: AppColors.primary,
               ),
-              backgroundColor: AppColors.primary,
-            ),
-          );
-          final picParam = profilePic != null && profilePic.isNotEmpty
-              ? '&profile_pic=${Uri.encodeComponent(profilePic)}'
-              : '';
-          context.push(
-            '/mobile-entry?email=${Uri.encodeComponent(email)}&name=${Uri.encodeComponent(name)}$picParam',
-          );
+            );
+            final picParam = profilePic != null && profilePic.isNotEmpty
+                ? '&profile_pic=${Uri.encodeComponent(profilePic)}'
+                : '';
+            context.push(
+              '/mobile-entry?email=${Uri.encodeComponent(email)}&name=${Uri.encodeComponent(name)}$picParam',
+            );
+          }
         }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -625,9 +631,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 

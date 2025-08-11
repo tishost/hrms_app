@@ -5,7 +5,6 @@ import 'package:hrms_app/core/utils/app_colors.dart';
 import 'package:hrms_app/features/auth/data/services/auth_service.dart';
 import 'package:hrms_app/features/owner/data/services/unit_service.dart';
 import 'package:hrms_app/features/owner/presentation/screens/unit_entry_screen.dart';
-import 'package:hrms_app/features/owner/presentation/widgets/custom_bottom_nav.dart';
 
 class UnitListScreen extends StatefulWidget {
   const UnitListScreen({super.key});
@@ -517,36 +516,6 @@ class _UnitListScreenState extends State<UnitListScreen> {
         },
         backgroundColor: AppColors.primary,
         child: Icon(Icons.add, color: AppColors.white),
-      ),
-      bottomNavigationBar: CustomBottomNav(
-        currentIndex: 2, // Units tab
-        onTap: (index) {
-          print('DEBUG: Bottom nav tapped - index: $index');
-          if (index == 2) return; // Already on units
-
-          switch (index) {
-            case 0:
-              print('DEBUG: Navigating to dashboard');
-              context.go('/dashboard');
-              break;
-            case 1:
-              print('DEBUG: Navigating to properties');
-              context.go('/properties');
-              break;
-            case 3:
-              print('DEBUG: Navigating to tenants');
-              context.go('/tenants');
-              break;
-            case 4:
-              print('DEBUG: Navigating to billing');
-              context.go('/billing');
-              break;
-            case 5:
-              print('DEBUG: Navigating to reports');
-              context.go('/reports');
-              break;
-          }
-        },
       ),
     );
   }

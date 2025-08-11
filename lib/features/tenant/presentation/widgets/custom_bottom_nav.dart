@@ -25,9 +25,9 @@ class CustomBottomNav extends StatelessWidget {
           icon: Icon(Icons.dashboard),
           label: 'Dashboard',
         ),
-        BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Tenants'),
+        BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Units'),
+        BottomNavigationBarItem(icon: Icon(Icons.receipt), label: 'Tenants'),
         BottomNavigationBarItem(icon: Icon(Icons.receipt), label: 'Billing'),
-        BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
       ],
     );
   }

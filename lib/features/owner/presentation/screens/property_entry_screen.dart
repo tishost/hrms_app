@@ -322,36 +322,6 @@ class _PropertyEntryScreenState extends State<PropertyEntryScreen> {
           ),
         ),
       ),
-      bottomNavigationBar: CustomBottomNav(
-        currentIndex: 1, // Properties tab
-        onTap: (index) {
-          print('DEBUG: Bottom nav tapped - index: $index');
-          if (index == 1) return; // Already on properties
-
-          switch (index) {
-            case 0:
-              print('DEBUG: Navigating to dashboard');
-              context.go('/dashboard');
-              break;
-            case 2:
-              print('DEBUG: Navigating to units');
-              context.go('/units');
-              break;
-            case 3:
-              print('DEBUG: Navigating to tenants');
-              context.go('/tenants');
-              break;
-            case 4:
-              print('DEBUG: Navigating to billing');
-              context.go('/billing');
-              break;
-            case 5:
-              print('DEBUG: Navigating to reports');
-              context.go('/reports');
-              break;
-          }
-        },
-      ),
     );
   }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hrms_app/features/auth/data/services/auth_service.dart';
 import 'package:hrms_app/core/utils/api_config.dart';
 import 'package:hrms_app/core/utils/app_colors.dart';
@@ -85,7 +86,7 @@ class _TenantDashboardScreenState extends State<TenantDashboardScreen> {
                 children: [
                   GestureDetector(
                     onTap: () {
-                      Navigator.pushNamed(context, '/tenant-profile');
+                      context.go('/tenant/profile');
                     },
                     child: CircleAvatar(
                       radius: 28,
@@ -101,7 +102,7 @@ class _TenantDashboardScreenState extends State<TenantDashboardScreen> {
                   Expanded(
                     child: GestureDetector(
                       onTap: () {
-                        Navigator.pushNamed(context, '/tenant-profile');
+                        context.go('/tenant/profile');
                       },
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -182,22 +183,6 @@ class _TenantDashboardScreenState extends State<TenantDashboardScreen> {
             ),
           ],
         ),
-      ),
-      bottomNavigationBar: TenantBottomNav(
-        currentIndex: 0, // Home tab
-        onTap: (index) {
-          switch (index) {
-            case 0:
-              // Already on dashboard
-              break;
-            case 1:
-              Navigator.pushReplacementNamed(context, '/tenant-billing');
-              break;
-            case 2:
-              Navigator.pushReplacementNamed(context, '/tenant-profile');
-              break;
-          }
-        },
       ),
     );
   }
@@ -385,8 +370,7 @@ class _TenantDashboardScreenState extends State<TenantDashboardScreen> {
                 'View Bills',
                 Icons.receipt_long,
                 Colors.blue,
-                () =>
-                    Navigator.pushReplacementNamed(context, '/tenant-billing'),
+                () => context.go('/tenant/billing'),
               ),
             ),
             SizedBox(width: 12),
@@ -395,8 +379,7 @@ class _TenantDashboardScreenState extends State<TenantDashboardScreen> {
                 'My Profile',
                 Icons.person,
                 Colors.green,
-                () =>
-                    Navigator.pushReplacementNamed(context, '/tenant-profile'),
+                () => context.go('/tenant/profile'),
               ),
             ),
             SizedBox(width: 12),
@@ -477,8 +460,7 @@ class _TenantDashboardScreenState extends State<TenantDashboardScreen> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             TextButton(
-              onPressed: () =>
-                  Navigator.pushReplacementNamed(context, '/tenant-billing'),
+              onPressed: () => context.go('/tenant/billing'),
               child: Text('View All'),
             ),
           ],

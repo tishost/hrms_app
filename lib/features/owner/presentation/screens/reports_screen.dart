@@ -322,31 +322,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 );
               },
             ),
-      bottomNavigationBar: CustomBottomNav(
-        currentIndex: 5, // Reports index
-        onTap: (index) {
-          switch (index) {
-            case 0:
-              context.go('/dashboard');
-              break;
-            case 1:
-              context.go('/properties');
-              break;
-            case 2:
-              context.go('/units');
-              break;
-            case 3:
-              context.go('/tenants');
-              break;
-            case 4:
-              context.go('/billing');
-              break;
-            case 5:
-              // Already on reports screen
-              break;
-          }
-        },
-      ),
     );
   }
 

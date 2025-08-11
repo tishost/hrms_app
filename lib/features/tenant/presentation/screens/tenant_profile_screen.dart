@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hrms_app/features/auth/data/services/auth_service.dart';
@@ -215,7 +216,7 @@ class _TenantProfileScreenState extends State<TenantProfileScreen> {
                       child: ElevatedButton(
                         onPressed: () async {
                           await AuthService.logout();
-                          Navigator.pushReplacementNamed(context, '/login');
+                          context.go('/login');
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.red,
@@ -238,31 +239,6 @@ class _TenantProfileScreenState extends State<TenantProfileScreen> {
                 ),
               ),
             ),
-      bottomNavigationBar: TenantBottomNav(
-        currentIndex:
-            3, // Profile tab (Dashboard=0, Tenants=1, Billing=2, Profile=3)
-        onTap: (index) {
-          if (kDebugMode) {
-            print('DEBUG: Bottom nav tapped - index: $index');
-          }
-          if (index == 3) return; // Already on profile
-
-          switch (index) {
-            case 0:
-              if (kDebugMode) print('DEBUG: Navigating to dashboard');
-              context.go('/dashboard');
-              break;
-            case 1:
-              if (kDebugMode) print('DEBUG: Navigating to tenants');
-              context.go('/tenants');
-              break;
-            case 2:
-              if (kDebugMode) print('DEBUG: Navigating to billing');
-              context.go('/billing');
-              break;
-          }
-        },
-      ),
     );
   }
 

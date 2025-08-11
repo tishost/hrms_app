@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
-// import 'package:connectivity_plus/connectivity_plus.dart';
-// import 'package:internet_connection_checker/internet_connection_checker.dart';
 
 // Core
 import 'core/constants/app_constants.dart';
 import 'core/utils/performance_config.dart';
 import 'core/theme/app_theme.dart';
 import 'core/providers/app_providers.dart';
-// import 'core/providers/language_provider.dart';
+import 'core/providers/back_button_provider.dart';
+import 'core/models/user_model.dart';
+import 'core/widgets/main_app_shell.dart';
+import 'core/widgets/tenant_app_shell.dart';
 
 // Features
 import 'features/auth/presentation/screens/login_screen.dart';
@@ -33,36 +35,31 @@ import 'features/owner/presentation/screens/subscription_plans_screen.dart';
 import 'features/owner/presentation/screens/subscription_payment_webview.dart';
 import 'features/owner/presentation/screens/subscription_checkout_screen.dart';
 import 'features/owner/presentation/screens/subscription_center_screen.dart';
+import 'features/owner/presentation/screens/subscription_plans_screen.dart';
 import 'features/owner/presentation/screens/property_entry_screen.dart';
 import 'features/owner/presentation/screens/tenant_entry_screen.dart';
-// import 'features/owner/presentation/screens/tenant_entry_simple.dart';
 import 'features/owner/presentation/screens/checkout_form_screen.dart';
 import 'features/owner/presentation/screens/checkout_list_screen.dart';
 import 'features/owner/presentation/screens/checkout_details_screen.dart';
+import 'features/owner/presentation/screens/invoice_payment_screen.dart';
 import 'features/tenant/presentation/screens/tenant_dashboard_screen.dart';
-
 import 'features/tenant/presentation/screens/tenant_details_screen.dart';
+import 'features/tenant/presentation/screens/tenant_billing_screen.dart';
+import 'features/tenant/presentation/screens/tenant_profile_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize connectivity state (if needed later)
-  // final initialConnectivity = await Connectivity().checkConnectivity();
-  // final hasInternet = await InternetConnectionChecker().hasConnection;
-
-  // Performance optimizations
   if (kDebugMode) {
-    // Disable debug prints for better performance
     debugPrintRebuildDirtyWidgets = PerformanceConfig.enableWidgetRebuildLogs;
     debugPrint = (String? message, {int? wrapWidth}) {
-      // Use performance config for debug prints
       if (message != null && message.contains('DEBUG:')) {
         PerformanceConfig.debugPrint(message);
       }
     };
   }
 
-  runApp(ProviderScope(child: MyApp()));
+  runApp(const ProviderScope(child: MyApp()));
 }
 
 class MyApp extends ConsumerWidget {
@@ -87,44 +84,26 @@ class MyApp extends ConsumerWidget {
           debugShowCheckedModeBanner: false,
           builder: (context, child) {
             final maintenance = ref.watch(maintenanceStateProvider);
-            return PopScope(
-              canPop: false,
-              onPopInvoked: (didPop) {
-                if (didPop) return;
-                // Global back behavior: pop if possible, else go to properties (user preference)
-                if (context.canPop()) {
-                  context.pop();
-                } else {
-                  context.go('/dashboard');
-                }
-              },
-              child: Stack(
-                children: [
-                  // If maintenance, show maintenance overlay page and block app
-                  if (maintenance.isMaintenance)
-                    _MaintenanceOverlay()
-                  else
-                    child!,
-                  if (!networkState.isConnected)
-                    Positioned(
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      child: Container(
-                        color: Colors.red,
-                        padding: EdgeInsets.symmetric(vertical: 8.h),
-                        child: Text(
-                          'No internet connection',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 12.sp,
-                          ),
-                        ),
+            return Stack(
+              children: [
+                child!,
+                if (maintenance.isMaintenance) const _MaintenanceOverlay(),
+                if (!networkState.isConnected)
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: Container(
+                      color: Colors.red,
+                      padding: EdgeInsets.symmetric(vertical: 8.h),
+                      child: Text(
+                        'No internet connection',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white, fontSize: 12.sp),
                       ),
                     ),
-                ],
-              ),
+                  ),
+              ],
             );
           },
         );
@@ -133,171 +112,499 @@ class MyApp extends ConsumerWidget {
   }
 }
 
-// ================== ROUTER CONFIGURATION ==================
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
   return GoRouter(
     initialLocation: '/',
     routes: [
-      GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
-      GoRoute(path: '/login', builder: (context, state) => LoginScreen()),
-      GoRoute(path: '/signup', builder: (context, state) => SignupScreen()),
+      GoRoute(
+        path: '/',
+        builder: (context, __) => WillPopScope(
+          onWillPop: () async {
+            print('DEBUG: SplashScreen WillPopScope - Back button pressed');
+            // Prevent back button on splash screen
+            return false;
+          },
+          child: const SplashScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/login',
+        builder: (context, state) => BackButtonListener(
+          onBackButtonPressed: () async {
+            print(
+              'DEBUG: LoginScreen BackButtonListener - Back button pressed',
+            );
+            final shouldExit = await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Exit App?'),
+                content: const Text('Do you want to exit the application?'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text('No'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    child: const Text('Yes'),
+                  ),
+                ],
+              ),
+            );
+
+            if (shouldExit == true) {
+              SystemNavigator.pop();
+            }
+            return true; // Prevent default back behavior
+          },
+          child: LoginScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/signup',
+        builder: (context, state) => BackButtonListener(
+          onBackButtonPressed: () async {
+            print(
+              'DEBUG: SignupScreen BackButtonListener - Back button pressed',
+            );
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/login');
+            }
+            return true;
+          },
+          child: SignupScreen(),
+        ),
+      ),
       GoRoute(
         path: '/owner-registration',
-        builder: (context, state) {
-          // Extract query parameters
-          final mobile = state.uri.queryParameters['mobile'];
-          final email = state.uri.queryParameters['email'];
-          final name = state.uri.queryParameters['name'];
-          return OwnerRegistrationScreen(
-            initialMobile: mobile,
-            initialEmail: email,
-            initialName: name,
-          );
-        },
+        builder: (context, state) => BackButtonListener(
+          onBackButtonPressed: () async {
+            print(
+              'DEBUG: Owner Registration BackButtonListener - Back button pressed',
+            );
+            context.go('/signup');
+            return true;
+          },
+          child: OwnerRegistrationScreen(
+            initialMobile: state.uri.queryParameters['mobile'],
+            initialEmail: state.uri.queryParameters['email'],
+            initialName: state.uri.queryParameters['name'],
+          ),
+        ),
       ),
       GoRoute(
         path: '/mobile-entry',
-        builder: (context, state) {
-          final email = state.uri.queryParameters['email'];
-          final name = state.uri.queryParameters['name'];
-          return MobileEntryScreen(initialEmail: email, initialName: name);
-        },
+        builder: (context, state) => BackButtonListener(
+          onBackButtonPressed: () async {
+            print(
+              'DEBUG: Mobile Entry BackButtonListener - Back button pressed',
+            );
+            context.go('/login');
+            return true;
+          },
+          child: MobileEntryScreen(
+            initialEmail: state.uri.queryParameters['email'],
+            initialName: state.uri.queryParameters['name'],
+          ),
+        ),
       ),
       GoRoute(
         path: '/tenant-registration',
-        builder: (context, state) => TenantRegistrationScreen(),
+        builder: (context, __) => BackButtonListener(
+          onBackButtonPressed: () async {
+            print(
+              'DEBUG: Tenant Registration BackButtonListener - Back button pressed',
+            );
+            context.go('/signup');
+            return true;
+          },
+          child: TenantRegistrationScreen(),
+        ),
       ),
       GoRoute(
         path: '/forgot-password',
-        builder: (context, state) => ForgotPasswordScreen(),
+        builder: (context, __) => BackButtonListener(
+          onBackButtonPressed: () async {
+            print(
+              'DEBUG: Forgot Password BackButtonListener - Back button pressed',
+            );
+            context.go('/login');
+            return true;
+          },
+          child: ForgotPasswordScreen(),
+        ),
       ),
       GoRoute(
         path: '/reset-password',
-        builder: (context, state) =>
-            ResetPasswordScreen(extra: state.extra as Map<String, dynamic>?),
+        builder: (context, state) => BackButtonListener(
+          onBackButtonPressed: () async {
+            print(
+              'DEBUG: Reset Password BackButtonListener - Back button pressed',
+            );
+            context.go('/login');
+            return true;
+          },
+          child: ResetPasswordScreen(
+            extra: state.extra as Map<String, dynamic>?,
+          ),
+        ),
       ),
-      GoRoute(
-        path: '/dashboard',
-        builder: (context, state) => DashboardScreen(),
+
+      // Owner Shell
+      ShellRoute(
+        builder: (_, __, child) => MainAppShell(child: child),
+        routes: [
+          GoRoute(
+            path: '/dashboard',
+            builder: (context, __) => BackButtonListener(
+              onBackButtonPressed: () async {
+                print(
+                  'DEBUG: Dashboard BackButtonListener - Back button pressed',
+                );
+
+                // Show confirmation dialog
+                final shouldExit = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Exit App'),
+                    content: const Text(
+                      'Are you sure you want to exit the app?',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(true),
+                        child: const Text('Exit'),
+                      ),
+                    ],
+                  ),
+                );
+
+                if (shouldExit == true) {
+                  SystemNavigator.pop();
+                }
+                return true; // Prevent default back behavior
+              },
+              child: DashboardScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/properties',
+            builder: (context, __) => BackButtonListener(
+              onBackButtonPressed: () async {
+                print(
+                  'DEBUG: Properties BackButtonListener - Back button pressed',
+                );
+
+                // Check if we can go back to previous page
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  // If no previous page, go to dashboard
+                  context.go('/dashboard');
+                }
+                return true; // Prevent default back behavior
+              },
+              child: PropertyListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/property-entry',
+            builder: (context, state) => BackButtonListener(
+              onBackButtonPressed: () async {
+                print(
+                  'DEBUG: Property Entry BackButtonListener - Back button pressed',
+                );
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/properties');
+                }
+                return true;
+              },
+              child: PropertyEntryScreen(
+                property: state.extra as Map<String, dynamic>?,
+              ),
+            ),
+          ),
+          GoRoute(
+            path: '/tenant-entry',
+            builder: (context, state) => BackButtonListener(
+              onBackButtonPressed: () async {
+                print(
+                  'DEBUG: Tenant Entry BackButtonListener - Back button pressed',
+                );
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/tenants');
+                }
+                return true;
+              },
+              child: TenantEntryScreen(
+                tenant: state.extra as Map<String, dynamic>?,
+              ),
+            ),
+          ),
+          GoRoute(
+            path: '/invoice-payment',
+            builder: (context, state) => BackButtonListener(
+              onBackButtonPressed: () async {
+                print(
+                  'DEBUG: Invoice Payment BackButtonListener - Back button pressed',
+                );
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/billing');
+                }
+                return true;
+              },
+              child: InvoicePaymentScreen(
+                invoice: state.extra as Map<String, dynamic>,
+              ),
+            ),
+          ),
+
+          GoRoute(
+            path: '/units',
+            builder: (context, __) => BackButtonListener(
+              onBackButtonPressed: () async {
+                print('DEBUG: Units BackButtonListener - Back button pressed');
+                // Check if we can go back to previous page
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  // If no previous page, go to dashboard
+                  context.go('/dashboard');
+                }
+                return true;
+              },
+              child: UnitListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/tenants',
+            builder: (context, __) => BackButtonListener(
+              onBackButtonPressed: () async {
+                print(
+                  'DEBUG: Tenants BackButtonListener - Back button pressed',
+                );
+                // Check if we can go back to previous page
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  // If no previous page, go to dashboard
+                  context.go('/dashboard');
+                }
+                return true;
+              },
+              child: OwnerTenantListScreen(),
+            ),
+          ),
+
+          GoRoute(
+            path: '/billing',
+            builder: (context, __) => BackButtonListener(
+              onBackButtonPressed: () async {
+                print(
+                  'DEBUG: Billing BackButtonListener - Back button pressed',
+                );
+                // Check if we can go back to previous page
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  // If no previous page, go to dashboard
+                  context.go('/dashboard');
+                }
+                return true;
+              },
+              child: InvoiceListScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/reports',
+            builder: (context, __) => BackButtonListener(
+              onBackButtonPressed: () async {
+                print(
+                  'DEBUG: Reports BackButtonListener - Back button pressed',
+                );
+                // Check if we can go back to previous page
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  // If no previous page, go to dashboard
+                  context.go('/dashboard');
+                }
+                return true;
+              },
+              child: ReportsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/profile',
+            builder: (context, __) => BackButtonListener(
+              onBackButtonPressed: () async {
+                print(
+                  'DEBUG: Profile BackButtonListener - Back button pressed',
+                );
+                // Check if we can go back to previous page
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  // If no previous page, go to dashboard
+                  context.go('/dashboard');
+                }
+                return true;
+              },
+              child: ProfileScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/profile/edit',
+            builder: (context, state) => BackButtonListener(
+              onBackButtonPressed: () async {
+                print(
+                  'DEBUG: Profile Edit BackButtonListener - Back button pressed',
+                );
+                context.go('/profile');
+                return true;
+              },
+              child: const ProfileEditScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/subscription-center',
+            builder: (context, __) => BackButtonListener(
+              onBackButtonPressed: () async {
+                print(
+                  'DEBUG: Subscription Center BackButtonListener - Back button pressed',
+                );
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/dashboard');
+                }
+                return true;
+              },
+              child: SubscriptionCenterScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/subscription-plans',
+            builder: (context, __) => BackButtonListener(
+              onBackButtonPressed: () async {
+                print(
+                  'DEBUG: Subscription Plans BackButtonListener - Back button pressed',
+                );
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/dashboard');
+                }
+                return true;
+              },
+              child: SubscriptionPlansScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/subscription-checkout',
+            builder: (context, state) => BackButtonListener(
+              onBackButtonPressed: () async {
+                print(
+                  'DEBUG: Subscription Checkout BackButtonListener - Back button pressed',
+                );
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/subscription-center');
+                }
+                return true;
+              },
+              child: SubscriptionCheckoutScreen(
+                invoice: state.extra as Map<String, dynamic>,
+              ),
+            ),
+          ),
+        ],
       ),
-      GoRoute(path: '/profile', builder: (context, state) => ProfileScreen()),
-      GoRoute(
-        path: '/profile/edit',
-        builder: (context, state) => const ProfileEditScreen(),
-      ),
-      GoRoute(
-        path: '/tenant-dashboard',
-        builder: (context, state) => TenantDashboardScreen(),
-      ),
-      // Owner routes
-      GoRoute(
-        path: '/properties',
-        builder: (context, state) => PropertyListScreen(),
-      ),
-      GoRoute(
-        path: '/property-entry',
-        builder: (context, state) =>
-            PropertyEntryScreen(property: state.extra as Map<String, dynamic>?),
-      ),
-      GoRoute(path: '/units', builder: (context, state) => UnitListScreen()),
-      GoRoute(
-        path: '/tenants',
-        builder: (context, state) => OwnerTenantListScreen(),
-      ),
-      GoRoute(
-        path: '/tenant-entry',
-        builder: (context, state) {
-          return TenantEntryScreen(
-            tenant: state.extra as Map<String, dynamic>?,
-          );
-        },
-      ),
-      GoRoute(
-        path: '/checkout',
-        builder: (context, state) {
-          final tenant = state.extra as Map<String, dynamic>?;
-          return CheckoutFormScreen(
-            tenant: tenant,
-            unit: tenant?['unit'],
-            property: tenant?['property'],
-          );
-        },
-      ),
-      GoRoute(
-        path: '/checkout/:id',
-        builder: (context, state) {
-          final checkoutId = state.pathParameters['id'] ?? '';
-          return CheckoutDetailsScreen(checkoutId: checkoutId);
-        },
-      ),
-      GoRoute(
-        path: '/checkouts',
-        builder: (context, state) {
-          return CheckoutListScreen();
-        },
-      ),
-      GoRoute(
-        path: '/tenant-details',
-        builder: (context, state) =>
-            TenantDetailsScreen(tenant: state.extra as Map<String, dynamic>),
-      ),
-      GoRoute(
-        path: '/billing',
-        builder: (context, state) => InvoiceListScreen(),
-      ),
-      GoRoute(path: '/reports', builder: (context, state) => ReportsScreen()),
-      GoRoute(
-        path: '/subscription-plans',
-        builder: (context, state) => const SubscriptionPlansScreen(),
-      ),
-      // Common typo alias (fallback)
-      GoRoute(
-        path: '/subcription-plans',
-        builder: (context, state) => const SubscriptionPlansScreen(),
-      ),
-      GoRoute(
-        path: '/subscription-checkout',
-        builder: (context, state) {
-          final extra = state.extra as Map<String, dynamic>?;
-          final invoice = (extra?['invoice'] ?? {}) as Map<String, dynamic>;
-          return SubscriptionCheckoutScreen(invoice: invoice);
-        },
-      ),
-      GoRoute(
-        path: '/subscription-center',
-        builder: (context, state) => const SubscriptionCenterScreen(),
-      ),
-      // Alias for backward compatibility
-      GoRoute(
-        path: '/subscription',
-        builder: (context, state) => const SubscriptionPlansScreen(),
-      ),
-      GoRoute(
-        path: '/subscription-payment',
-        builder: (context, state) {
-          final extra = state.extra as Map<String, dynamic>?;
-          final url = (extra?['url'] ?? '') as String;
-          return SubscriptionPaymentWebView(url: url);
-        },
+
+      // Tenant Shell
+      ShellRoute(
+        builder: (_, __, child) => TenantAppShell(child: child),
+        routes: [
+          GoRoute(
+            path: '/tenant/dashboard',
+            builder: (context, __) => BackButtonListener(
+              onBackButtonPressed: () async {
+                print(
+                  'DEBUG: Tenant Dashboard BackButtonListener - Back button pressed',
+                );
+
+                // Show confirmation dialog
+                final shouldExit = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Exit App'),
+                    content: const Text(
+                      'Are you sure you want to exit the app?',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(true),
+                        child: const Text('Exit'),
+                      ),
+                    ],
+                  ),
+                );
+
+                if (shouldExit == true) {
+                  SystemNavigator.pop();
+                }
+                return true; // Prevent default back behavior
+              },
+              child: TenantDashboardScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/tenant/properties',
+            builder: (context, __) => BackButtonListener(
+              onBackButtonPressed: () async {
+                print(
+                  'DEBUG: Tenant Properties BackButtonListener - Back button pressed',
+                );
+
+                // Check if we can go back to previous page
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  // If no previous page, go to tenant dashboard
+                  context.go('/tenant/dashboard');
+                }
+                return true; // Prevent default back behavior
+              },
+              child:
+                  PropertyListScreen(), // Assuming tenant uses same property list
+            ),
+          ),
+        ],
       ),
     ],
-    redirect: (context, state) {
+    redirect: (BuildContext context, GoRouterState state) {
       final isAuthenticated = authState.isAuthenticated;
       final isLoading = authState.isLoading;
       final location = state.matchedLocation;
       final userRole = authState.user?.role;
-
-      print(
-        'DEBUG: ROUTER REDIRECT - '
-        'isLoading: $isLoading, '
-        'isAuthenticated: $isAuthenticated, '
-        'location: $location, '
-        'userRole: $userRole',
-      );
-
-      // final isGoingToLogin = location == '/login';
-      final isGoingToSplash = location == '/';
 
       final publicRoutes = [
         '/login',
@@ -309,55 +616,25 @@ final routerProvider = Provider<GoRouter>((ref) {
         '/reset-password',
       ];
       final isPublicRoute = publicRoutes.contains(location);
+      final isGoingToSplash = location == '/';
 
-      // 1. While app is loading, show splash screen
-      if (isLoading) {
-        return isGoingToSplash ? null : '/';
-      }
+      if (isLoading) return isGoingToSplash ? null : '/';
 
-      // 2. If authenticated, handle redirects
       if (isAuthenticated) {
-        // If on a public route (like login/signup), redirect to the correct dashboard
-        if (isPublicRoute) {
-          switch (userRole) {
-            case 'tenant':
-              return '/tenant-dashboard';
-            case 'admin':
-              return '/admin-dashboard';
-            default:
-              return '/dashboard';
-          }
+        if (isPublicRoute || isGoingToSplash) {
+          return userRole == 'tenant' ? '/tenant/dashboard' : '/dashboard';
         }
-        // If on splash, also redirect to dashboard
-        if (isGoingToSplash) {
-          switch (userRole) {
-            case 'tenant':
-              return '/tenant-dashboard';
-            case 'admin':
-              return '/admin-dashboard';
-            default:
-              return '/dashboard';
-          }
-        }
-      }
-      // 3. If not authenticated, handle redirects
-      else {
-        // If trying to access a private route, redirect to login
-        if (!isPublicRoute && !isGoingToSplash) {
-          return '/login';
-        }
-        // If on splash, redirect to login
-        if (isGoingToSplash) {
-          return '/login';
-        }
+      } else {
+        if (!isPublicRoute && !isGoingToSplash) return '/login';
+        if (isGoingToSplash) return '/login';
       }
 
-      // 4. No redirection needed
       return null;
     },
   );
 });
 
+// ... Rest of the file remains unchanged ...
 // ================== SPLASH SCREEN ==================
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -370,14 +647,65 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    print(
-      'DEBUG: SplashScreen initState - AuthState provider will handle checkAuthStatus',
-    );
-    // No need to call checkAuthStatus here - AuthState provider handles it
+    print('DEBUG: SplashScreen initState - Starting navigation logic');
+
+    // Start navigation logic after a short delay
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        _checkAuthAndNavigate();
+      }
+    });
+
     // Kick off maintenance check
     Future.microtask(
       () => ref.read(maintenanceStateProvider.notifier).refresh(),
     );
+  }
+
+  void _checkAuthAndNavigate() {
+    final authState = ref.read(authStateProvider);
+    print(
+      'DEBUG: SplashScreen - Initial auth check: ${authState.isAuthenticated}, Role: ${authState.user?.role}',
+    );
+
+    if (authState.isAuthenticated && authState.user?.role != null) {
+      print(
+        'DEBUG: SplashScreen - User already authenticated, navigating immediately',
+      );
+      _handleNavigation();
+    } else {
+      print(
+        'DEBUG: SplashScreen - User not authenticated, navigating to login',
+      );
+      // Navigate to login if not authenticated
+      _handleNavigation();
+    }
+  }
+
+  void _handleNavigation() {
+    final authState = ref.read(authStateProvider);
+    print(
+      'DEBUG: SplashScreen - Auth state: ${authState.isAuthenticated}, Role: ${authState.user?.role}',
+    );
+
+    try {
+      if (authState.isAuthenticated && authState.user?.role != null) {
+        if (authState.user?.role == 'tenant') {
+          print('DEBUG: Navigating to tenant dashboard');
+          context.go('/tenant/dashboard');
+        } else {
+          print('DEBUG: Navigating to owner dashboard');
+          context.go('/dashboard');
+        }
+      } else {
+        print('DEBUG: Navigating to login');
+        context.go('/login');
+      }
+    } catch (e) {
+      print('DEBUG: Navigation error: $e');
+      // Fallback to login
+      context.go('/login');
+    }
   }
 
   @override

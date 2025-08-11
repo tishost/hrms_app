@@ -551,10 +551,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                                 subtitle: Text('Sign out of your account'),
                                 onTap: () async {
                                   await AuthService.clearToken();
-                                  Navigator.pushReplacementNamed(
-                                    context,
-                                    '/login',
-                                  );
+                                  context.go('/login');
                                 },
                               ),
                             ],
@@ -566,28 +563,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                 ),
               ),
             ),
-      bottomNavigationBar: CustomBottomNav(
-        currentIndex: 3, // Profile tab
-        onTap: (index) {
-          switch (index) {
-            case 0:
-              context.go('/dashboard');
-              break;
-            case 1:
-              context.go('/properties');
-              break;
-            case 2:
-              context.go('/units');
-              break;
-            case 3:
-              // Already on profile screen
-              break;
-            case 4:
-              context.go('/billing');
-              break;
-          }
-        },
-      ),
     );
   }
 

@@ -70,31 +70,7 @@ class TenantDetailsScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      bottomNavigationBar: CustomBottomNav(
-        currentIndex:
-            1, // Tenants tab (Dashboard=0, Tenants=1, Billing=2, Profile=3)
-        onTap: (index) {
-          if (kDebugMode) {
-            print('DEBUG: Bottom nav tapped - index: $index');
-          }
-          if (index == 1) return; // Already on tenants
 
-          switch (index) {
-            case 0:
-              if (kDebugMode) print('DEBUG: Navigating to dashboard');
-              context.go('/dashboard');
-              break;
-            case 2:
-              if (kDebugMode) print('DEBUG: Navigating to billing');
-              context.go('/billing');
-              break;
-            case 3:
-              if (kDebugMode) print('DEBUG: Navigating to profile');
-              context.go('/profile');
-              break;
-          }
-        },
-      ),
       body: SafeArea(
         child: Column(
           children: [

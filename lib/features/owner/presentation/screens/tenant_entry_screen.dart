@@ -1102,7 +1102,7 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
           ),
         ],
       ),
-      bottomNavigationBar: _buildBottomNavigation(),
+      
     );
   }
 
@@ -3798,3 +3798,4 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
     }
   }
 }
+

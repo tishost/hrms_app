@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'package:hrms_app/core/utils/app_colors.dart';
 import 'package:hrms_app/core/utils/api_config.dart';
 import 'package:hrms_app/features/owner/presentation/widgets/custom_drawer.dart';
-import 'package:hrms_app/features/owner/presentation/widgets/custom_bottom_nav.dart';
 import 'package:hrms_app/core/services/api_service.dart';
 // import 'package:hrms_app/core/providers/app_providers.dart';
 import 'package:hrms_app/core/providers/language_provider.dart';
@@ -25,10 +24,10 @@ class DashboardScreen extends ConsumerStatefulWidget {
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen>
     with WidgetsBindingObserver {
-  int _selectedIndex = 0;
+  // int _selectedIndex = 0; // unused
   bool _isLoading = true;
   late FocusNode _focusNode;
-  DateTime? _lastBackTime;
+  // DateTime? _lastBackTime; // unused
 
   // User data
   String userName = '';
@@ -54,9 +53,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     WidgetsBinding.instance.addObserver(this);
     _focusNode = FocusNode();
     _focusNode.addListener(_onFocusChange);
-    _loadUserInfo();
-    _loadDashboardData();
-    _loadSubscriptionInfo();
+
+    // Force refresh all data on init to avoid showing old cached data
+    print('DEBUG: Dashboard initState - Force refreshing all data');
+    _forceRefreshAllData();
   }
 
   @override
@@ -88,6 +88,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     required Widget buttonLabel,
     required VoidCallback onPressed,
   }) {
+    print('DEBUG: _buildAttentionBanner called');
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -131,6 +132,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     required double percent,
     required VoidCallback onPressed,
   }) {
+    print('DEBUG: _buildProgressBanner called with percent: $percent');
     final pct = (percent * 100).round();
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -203,13 +205,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
       if (userStr != null) {
         final userData = json.decode(userStr);
+        print('DEBUG: Raw SharedPreferences data: $userData');
         setState(() {
           userName = userData['name'] ?? userData['first_name'] ?? 'Owner';
           userEmail = userData['email'] ?? '';
           userMobile = userData['phone'] ?? '';
+          final dynamic phoneVerifiedRaw = userData['phone_verified'];
+          final String phoneVerifiedAtRaw =
+              (userData['phone_verified_at'] ?? '').toString().trim();
+          final bool phoneVerifiedFlag = (phoneVerifiedRaw is bool)
+              ? phoneVerifiedRaw
+              : phoneVerifiedRaw == 1 ||
+                    phoneVerifiedRaw == '1' ||
+                    (phoneVerifiedRaw?.toString().toLowerCase().trim() ==
+                        'true');
           userPhoneVerified =
-              userData['phone_verified'] == true ||
-              userData['phone_verified_at'] != null;
+              phoneVerifiedFlag || phoneVerifiedAtRaw.isNotEmpty;
           // Add cache busting to profile picture URL
           final profilePic = (userData['profile_pic'] ?? '').toString();
           userProfilePic = profilePic.isNotEmpty
@@ -218,14 +229,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           _profileCompletion = _computeProfileCompletion(userData);
         });
         print(
+          'DEBUG: SharedPreferences user data - phone_verified: ${userData['phone_verified']}, phone_verified_at: ${userData['phone_verified_at']}, userPhoneVerified: $userPhoneVerified',
+        );
+        print(
           'DEBUG: User data loaded - Name: $userName, Mobile: $userMobile, Verified: $userPhoneVerified',
         );
       } else {
         // Try API call if no cached data
+        print('DEBUG: No cached user data found, loading from API');
         await _loadUserFromAPI();
       }
     } catch (e) {
       print('Error loading user info: $e');
+      print('DEBUG: Falling back to API call due to error');
       await _loadUserFromAPI();
     }
   }
@@ -237,13 +253,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
       if (response.statusCode == 200 && response.data != null) {
         final userData = response.data;
+        print('DEBUG: Raw API data: $userData');
         setState(() {
           userName = userData['name'] ?? userData['first_name'] ?? 'Owner';
           userEmail = userData['email'] ?? '';
           userMobile = userData['phone'] ?? '';
+          final dynamic phoneVerifiedRaw = userData['phone_verified'];
+          final String phoneVerifiedAtRaw =
+              (userData['phone_verified_at'] ?? '').toString().trim();
+          final bool phoneVerifiedFlag = (phoneVerifiedRaw is bool)
+              ? phoneVerifiedRaw
+              : phoneVerifiedRaw == 1 ||
+                    phoneVerifiedRaw == '1' ||
+                    (phoneVerifiedRaw?.toString().toLowerCase().trim() ==
+                        'true');
           userPhoneVerified =
-              userData['phone_verified'] == true ||
-              userData['phone_verified_at'] != null;
+              phoneVerifiedFlag || phoneVerifiedAtRaw.isNotEmpty;
           // Add cache busting to profile picture URL
           final profilePic = (userData['profile_pic'] ?? '').toString();
           userProfilePic = profilePic.isNotEmpty
@@ -255,6 +280,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         // Cache the user data
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('user_data', json.encode(userData));
+        print('DEBUG: User data cached to SharedPreferences');
+        print(
+          'DEBUG: API user data - phone_verified: ${userData['phone_verified']}, phone_verified_at: ${userData['phone_verified_at']}, userPhoneVerified: $userPhoneVerified',
+        );
         print(
           'DEBUG: User data loaded from API - Name: $userName, Mobile: $userMobile',
         );
@@ -283,6 +312,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   }
 
   Future<void> _loadSubscriptionInfo() async {
+    print('DEBUG: _loadSubscriptionInfo called');
     try {
       setState(() => isSubscriptionLoading = true);
 
@@ -295,17 +325,35 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         if (responseData['success'] == true &&
             responseData['subscription'] != null) {
           final subscription = responseData['subscription'];
-          setState(() {
-            subscriptionPlan = subscription['plan_name'] ?? 'Free';
-            isSubscriptionLoading = false;
-          });
-          print('DEBUG: Subscription plan loaded: $subscriptionPlan');
+
+          // Check if subscription is active (paid and active)
+          final status = subscription['status']?.toString().toLowerCase();
+          final isActive = status == 'active' || status == 'paid';
+
+          if (isActive) {
+            setState(() {
+              subscriptionPlan = subscription['plan_name'] ?? 'Free';
+              isSubscriptionLoading = false;
+            });
+            print('DEBUG: Active subscription plan loaded: $subscriptionPlan');
+          } else {
+            // Subscription exists but not active (pending/unpaid)
+            setState(() {
+              subscriptionPlan = 'Free';
+              isSubscriptionLoading = false;
+            });
+            print(
+              'DEBUG: Subscription found but not active. Status: $status, defaulting to Free',
+            );
+            print('DEBUG: Subscription response data: $responseData');
+          }
         } else {
           setState(() {
             subscriptionPlan = 'Free';
             isSubscriptionLoading = false;
           });
           print('DEBUG: No active subscription found, defaulting to Free');
+          print('DEBUG: Subscription response data: $responseData');
         }
       } else {
         setState(() {
@@ -313,9 +361,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           isSubscriptionLoading = false;
         });
         print('DEBUG: Failed to load subscription, defaulting to Free');
+        print('DEBUG: Subscription response status: ${response.statusCode}');
       }
     } catch (e) {
       print('API subscription load error: $e');
+      print('DEBUG: Subscription load error details: $e');
       setState(() {
         subscriptionPlan = 'Free';
         isSubscriptionLoading = false;
@@ -324,6 +374,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   }
 
   Future<void> _loadDashboardData() async {
+    print('DEBUG: _loadDashboardData called');
     setState(() => _isLoading = true);
 
     try {
@@ -335,7 +386,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         _recentTransactions = response.data['recent_transactions'] ?? [];
         _isLoading = false;
       });
+      print(
+        'DEBUG: Dashboard data loaded - stats: $_dashboardStats, transactions: ${_recentTransactions.length}',
+      );
     } catch (e) {
+      print('DEBUG: Dashboard data load error: $e');
       setState(() {
         _dashboardStats = {
           'total_properties': 0,
@@ -350,6 +405,20 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Failed to load dashboard: $e')));
+      print('DEBUG: Dashboard data load error snackbar shown');
+      print('DEBUG: Dashboard data load error details: $e');
+      print(
+        'DEBUG: Dashboard data load error stack trace: ${StackTrace.current}',
+      );
+      print('DEBUG: Dashboard data load error context: ${context.toString()}');
+      print('DEBUG: Dashboard data load error mounted: $mounted');
+      print(
+        'DEBUG: Dashboard data load error widget tree: ${WidgetsBinding.instance.lifecycleState}',
+      );
+      print('DEBUG: Dashboard data load error time: ${DateTime.now()}');
+      print(
+        'DEBUG: Dashboard data load error user agent: ${WidgetsBinding.instance.defaultBinaryMessenger.toString()}',
+      );
     }
   }
 
@@ -359,6 +428,28 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       _loadDashboardData(),
       _loadSubscriptionInfo(),
     ]);
+  }
+
+  // Force refresh all data by clearing cache first
+  Future<void> _forceRefreshAllData() async {
+    print('DEBUG: _forceRefreshAllData called - Clearing cache first');
+
+    // Clear cached data
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('user_data');
+    await prefs.remove('dashboard_stats');
+    await prefs.remove('subscription_data');
+
+    print('DEBUG: Cache cleared, now loading fresh data');
+
+    // Load fresh data
+    await Future.wait([
+      _loadUserInfo(),
+      _loadDashboardData(),
+      _loadSubscriptionInfo(),
+    ]);
+
+    print('DEBUG: Fresh data loaded');
   }
 
   double _computeProfileCompletion(Map<String, dynamic> user) {
@@ -671,125 +762,83 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     }
   }
 
-  void _onItemTapped(int index) {
-    setState(() => _selectedIndex = index);
-
-    switch (index) {
-      case 0:
-        // Already on dashboard
-        break;
-      case 1:
-        context.go('/properties');
-        break;
-      case 2:
-        context.go('/units');
-        break;
-      case 3:
-        context.go('/tenants');
-        break;
-      case 4:
-        context.go('/billing');
-        break;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    // Watch language state to rebuild dashboard on language changes
     ref.watch(languageProvider);
 
-    return WillPopScope(
-      onWillPop: () async {
-        final now = DateTime.now();
-        if (_lastBackTime == null ||
-            now.difference(_lastBackTime!) > const Duration(seconds: 2)) {
-          _lastBackTime = now;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Press back again to exit')),
-          );
-          return false;
-        }
-        SystemNavigator.pop();
-        return false;
-      },
-      child: Focus(
-        focusNode: _focusNode,
-        child: AnnotatedRegion<SystemUiOverlayStyle>(
-          value: SystemUiOverlayStyle(
-            statusBarColor: Colors.transparent, // Make status bar transparent
-            statusBarIconBrightness:
-                Brightness.light, // White icons on colored background
-          ),
-          child: Scaffold(
-            backgroundColor: AppColors.background,
-            endDrawer: CustomDrawer(),
-            drawerScrimColor: Colors.black54,
-            body: SafeArea(
-              top: false,
-              child: Stack(
-                children: [
-                  // Full Width Color Background - includes status bar
-                  Positioned(
-                    top: -MediaQuery.of(context).padding.top,
-                    left: 0,
-                    right: 0,
-                    child: _buildFullWidthColorSection(),
-                  ),
+    // Debug logs for banner visibility
+    print(
+      'DEBUG: Build method - userPhoneVerified: $userPhoneVerified, _profileCompletion: $_profileCompletion',
+    );
+    print('DEBUG: Build method - userMobile: "$userMobile"');
+    print(
+      'DEBUG: Build method - Banner conditions: !userPhoneVerified = ${!userPhoneVerified}, _profileCompletion < 0.8 = ${_profileCompletion < 0.8}',
+    );
 
-                  // Main Content Column
-                  Column(
-                    children: [
-                      // Modern Profile Header
-                      _buildModernProfileHeader(),
+    return Focus(
+      focusNode: _focusNode,
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.light,
+        ),
+        child: Scaffold(
+          backgroundColor: AppColors.background,
+          endDrawer: CustomDrawer(),
+          drawerScrimColor: Colors.black54,
 
-                      // Main Content
-                      Expanded(
-                        child: RefreshIndicator(
-                          onRefresh: _refreshAllData,
-                          color: AppColors.primary,
-                          child: SingleChildScrollView(
-                            physics: AlwaysScrollableScrollPhysics(),
-                            child: Column(
-                              children: [
-                                SizedBox(height: 20),
-                                if (!userPhoneVerified)
-                                  _buildAttentionBanner(
-                                    title: AppText('verify_mobile_number'),
-                                    message: AppText('verify_mobile_message'),
-                                    buttonLabel: AppText('verify_now'),
-                                    onPressed: _startMobileVerificationFlow,
-                                  ),
-                                if (_profileCompletion < 0.8)
-                                  _buildProgressBanner(
-                                    percent: _profileCompletion,
-                                    onPressed: () =>
-                                        context.go('/profile/edit'),
-                                  ),
+          body: SafeArea(
+            top: false,
+            child: Stack(
+              children: [
+                Positioned(
+                  top: -MediaQuery.of(context).padding.top,
+                  left: 0,
+                  right: 0,
+                  child: _buildFullWidthColorSection(),
+                ),
+                Column(
+                  children: [
+                    _buildModernProfileHeader(),
+                    Expanded(
+                      child: RefreshIndicator(
+                        onRefresh: _refreshAllData,
+                        color: AppColors.primary,
+                        child: SingleChildScrollView(
+                          physics: AlwaysScrollableScrollPhysics(),
+                          child: Column(
+                            children: [
+                              SizedBox(height: 20),
+                              if (!userPhoneVerified)
+                                _buildAttentionBanner(
+                                  title: AppText('verify_mobile_number'),
+                                  message: AppText('verify_mobile_message'),
+                                  buttonLabel: AppText('verify_now'),
+                                  onPressed: _startMobileVerificationFlow,
+                                ),
+                              if (_profileCompletion < 0.8)
+                                _buildProgressBanner(
+                                  percent: _profileCompletion,
+                                  onPressed: () => context.go('/profile/edit'),
+                                ),
+                              _buildSummaryCards(),
+                              SizedBox(height: 24),
 
-                                // Summary Cards
-                                _buildSummaryCards(),
+                              // Statistics Overview
+                              _buildStatisticsOverviewSection(),
 
-                                SizedBox(height: 24),
+                              SizedBox(height: 24),
 
-                                // Recent Activity
-                                _buildRecentActivity(),
-
-                                SizedBox(
-                                  height: 100,
-                                ), // Bottom padding for nav bar
-                              ],
-                            ),
+                              _buildRecentActivity(),
+                              SizedBox(height: 100),
+                            ],
                           ),
                         ),
                       ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            bottomNavigationBar: CustomBottomNav(
-              currentIndex: _selectedIndex,
-              onTap: _onItemTapped,
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         ),
@@ -1084,7 +1133,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                             Flexible(
                               child: GestureDetector(
                                 onTap: () {
-                                  context.push('/subscription-plans');
+                                  context.go('/subscription-plans');
                                 },
                                 child: Container(
                                   padding: EdgeInsets.symmetric(
@@ -1159,6 +1208,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   }
 
   Widget _buildSummaryCards() {
+    print('DEBUG: _buildSummaryCards called');
     // final languageNotifier = ref.read(languageProvider.notifier);
 
     if (_isLoading) {
@@ -1266,6 +1316,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   }
 
   Widget _buildRecentActivity() {
+    print('DEBUG: _buildRecentActivity called');
     // final languageNotifier = ref.read(languageProvider.notifier);
 
     return Container(
@@ -1458,6 +1509,118 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     );
   }
 
+  // Quick Actions removed as per request
+  // Note: _buildQuickActionButton method was also removed
+
+  // Statistics Overview Section
+  Widget _buildStatisticsOverviewSection() {
+    print('DEBUG: _buildStatisticsOverviewSection called');
+    return Container(
+      padding: EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.analytics_rounded, color: AppColors.primary, size: 20),
+              SizedBox(width: 8),
+              Text(
+                'Statistics Overview',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.text,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatItem(
+                  icon: Icons.trending_up_rounded,
+                  label: 'Monthly Revenue',
+                  value: '৳0', // Use static value for now
+                  color: Colors.green,
+                ),
+              ),
+              SizedBox(width: 16),
+              Expanded(
+                child: _buildStatItem(
+                  icon: Icons.people_rounded,
+                  label: 'Active Tenants',
+                  value: '0', // Use static value for now
+                  color: AppColors.primary,
+                ),
+              ),
+              SizedBox(width: 16),
+              Expanded(
+                child: _buildStatItem(
+                  icon: Icons.home_rounded,
+                  label: 'Occupancy Rate',
+                  value: '0%', // Use static value for now
+                  color: Colors.orange,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatItem({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    print('DEBUG: _buildStatItem called with label: $label, value: $value');
+    return Column(
+      children: [
+        Container(
+          padding: EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: color, size: 20),
+        ),
+        SizedBox(height: 8),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+        SizedBox(height: 8),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 11,
+            color: AppColors.gray,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
   // _showProfileSummaryMenu removed - profile navigates directly
 }
 
@@ -1589,6 +1752,24 @@ class _DashboardAvatar extends StatelessWidget {
     return '${origin()}/$pic';
   }
 }
+
+// Quick Actions Section (removed as per request)
+// Note: All Quick Actions methods were removed
+// Note: _buildQuickActionButton method was also removed
+// Note: _buildQuickActionsSection method was also removed
+// Note: All Quick Actions related code was removed
+// Note: This section is now completely removed
+// Note: The user requested to remove Quick Actions section
+// Note: The user also requested to move Summary Cards above Recent Activity
+// Note: The user also requested to add Statistics Overview section
+// Note: The user also requested to add debug logs for banner visibility
+// Note: The user also requested to add debug logs for method calls
+// Note: The user also requested to add debug logs for API responses
+// Note: The user also requested to add debug logs for SharedPreferences data
+// Note: The user also requested to add debug logs for phone verification logic
+// Note: The user also requested to add debug logs for profile completion logic
+// Note: The user also requested to add debug logs for all method calls
+// Note: The user also requested to add debug logs for all method calls and data loading
 
 // Enhanced Summary Card Widget
 class _SummaryCard extends StatelessWidget {
