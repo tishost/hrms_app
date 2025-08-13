@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hrms_app/core/utils/api_config.dart';
 import 'package:hrms_app/features/auth/data/services/auth_service.dart';
+import 'package:hrms_app/core/providers/session_provider.dart';
 
 // Dio Provider with interceptors
 final dioProvider = Provider((ref) {
@@ -52,9 +53,29 @@ final dioProvider = Provider((ref) {
 
         // Handle 401 Unauthorized
         if (error.response?.statusCode == 401) {
-          print('🔐 Token expired, logging out user');
-          await AuthService.logout();
-          // TODO: Navigate to login screen
+          print('🔐 Token expired or session killed, logging out user');
+
+          // Check if this is a session kill response
+          final responseData = error.response?.data;
+          if (responseData != null && responseData is Map<String, dynamic>) {
+            final message =
+                responseData['message']?.toString().toLowerCase() ?? '';
+            if (message.contains('session') ||
+                message.contains('kill') ||
+                message.contains('unauthorized')) {
+              print('🚫 Session killed by admin, using session kill handler');
+              await AuthService.handleSessionKill();
+
+              // Trigger session kill event (this will be handled by the app)
+              // The app will detect the session kill and redirect to login
+            } else {
+              print('🔐 Regular token expired, using normal logout');
+              await AuthService.logout();
+            }
+          } else {
+            // Default to normal logout for 401 errors
+            await AuthService.logout();
+          }
         }
 
         return handler.next(error);
@@ -88,6 +109,17 @@ class ApiService {
   // Convenience: system status
   Future<Response> getSystemStatus() {
     return get('/system/status');
+  }
+
+  // Kill current session (logout from all devices)
+  Future<Response> killSession() async {
+    try {
+      final response = await _dio.post('/kill-session');
+      return response;
+    } on DioException catch (e) {
+      _handleDioError(e);
+      rethrow;
+    }
   }
 
   // POST request

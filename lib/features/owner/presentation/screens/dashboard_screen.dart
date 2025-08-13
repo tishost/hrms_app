@@ -90,11 +90,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   }) {
     print('DEBUG: _buildAttentionBanner called');
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      margin: EdgeInsets.fromLTRB(14, 6, 14, 6),
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      constraints: BoxConstraints(maxWidth: double.infinity),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.06),
@@ -104,24 +105,54 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         ],
       ),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [title, SizedBox(height: 2), message],
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.phone_android_rounded,
+                      color: AppColors.primary,
+                      size: 16,
+                    ),
+                    SizedBox(width: 6),
+                    title,
+                  ],
+                ),
+                SizedBox(height: 4),
+                message,
+              ],
             ),
           ),
-          SizedBox(width: 8),
-          TextButton(
-            onPressed: onPressed,
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.white,
-              backgroundColor: AppColors.primary,
-              padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              minimumSize: Size(0, 0),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          SizedBox(width: 12),
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [AppColors.primary, AppColors.primary.withOpacity(0.8)],
+              ),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: buttonLabel,
+            child: TextButton(
+              onPressed: onPressed,
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                minimumSize: Size(0, 0),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.verified_rounded, size: 14),
+                  SizedBox(width: 4),
+                  buttonLabel,
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -135,11 +166,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     print('DEBUG: _buildProgressBanner called with percent: $percent');
     final pct = (percent * 100).round();
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      margin: EdgeInsets.fromLTRB(14, 6, 14, 6),
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      constraints: BoxConstraints(maxWidth: double.infinity),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.06),
@@ -149,49 +181,83 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         ],
       ),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                AppText(
-                  'complete_your_profile',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.text,
-                    fontSize: 13,
+                Row(
+                  children: [
+                    Icon(
+                      Icons.person_outline_rounded,
+                      color: AppColors.primary,
+                      size: 16,
+                    ),
+                    SizedBox(width: 6),
+                    AppText(
+                      'complete_your_profile',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.text,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: LinearProgressIndicator(
+                    value: percent.clamp(0.0, 1.0),
+                    minHeight: 8,
+                    backgroundColor: Colors.grey.withOpacity(0.2),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      AppColors.primary,
+                    ),
                   ),
                 ),
                 SizedBox(height: 6),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: LinearProgressIndicator(
-                    value: percent.clamp(0.0, 1.0),
-                    minHeight: 6,
-                    backgroundColor: Colors.grey.withOpacity(0.2),
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
-                  ),
-                ),
-                SizedBox(height: 4),
                 Text(
                   '$pct% · ${AppStrings.getString('update_your_profile', ref.read(languageProvider).code)}',
                   style: TextStyle(
                     color: AppColors.textSecondary,
-                    fontSize: 11,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
             ),
           ),
-          SizedBox(width: 8),
-          TextButton(
-            onPressed: onPressed,
-            style: TextButton.styleFrom(
-              padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              minimumSize: Size(0, 0),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          SizedBox(width: 12),
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [AppColors.primary, AppColors.primary.withOpacity(0.8)],
+              ),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: AppText('update', style: TextStyle(fontSize: 12)),
+            child: TextButton(
+              onPressed: onPressed,
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                minimumSize: Size(0, 0),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.edit_rounded, size: 14),
+                  SizedBox(width: 4),
+                  AppText(
+                    'update',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -762,6 +828,46 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     }
   }
 
+  // Calculate profile completion percentage
+  void _calculateProfileCompletion() {
+    double completion = 0.0;
+    int totalFields = 0;
+    int completedFields = 0;
+
+    // Check user name
+    totalFields++;
+    if (userName.isNotEmpty) completedFields++;
+
+    // Check user email
+    totalFields++;
+    if (userEmail.isNotEmpty) completedFields++;
+
+    // Check user mobile
+    totalFields++;
+    if (userMobile.isNotEmpty) completedFields++;
+
+    // Check phone verification
+    totalFields++;
+    if (userPhoneVerified) completedFields++;
+
+    // Check profile picture
+    totalFields++;
+    if (userProfilePic.isNotEmpty) completedFields++;
+
+    // Calculate percentage
+    if (totalFields > 0) {
+      completion = completedFields / totalFields;
+    }
+
+    setState(() {
+      _profileCompletion = completion;
+    });
+
+    print(
+      'DEBUG: Profile completion calculated: $_profileCompletion ($completedFields/$totalFields)',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.watch(languageProvider);
@@ -811,9 +917,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                               SizedBox(height: 20),
                               if (!userPhoneVerified)
                                 _buildAttentionBanner(
-                                  title: AppText('verify_mobile_number'),
-                                  message: AppText('verify_mobile_message'),
-                                  buttonLabel: AppText('verify_now'),
+                                  title: AppText('mobile_verification_title'),
+                                  message: AppText(
+                                    'mobile_verification_message',
+                                  ),
+                                  buttonLabel: AppText(
+                                    'mobile_verification_button',
+                                  ),
                                   onPressed: _startMobileVerificationFlow,
                                 ),
                               if (_profileCompletion < 0.8)
@@ -1752,24 +1862,6 @@ class _DashboardAvatar extends StatelessWidget {
     return '${origin()}/$pic';
   }
 }
-
-// Quick Actions Section (removed as per request)
-// Note: All Quick Actions methods were removed
-// Note: _buildQuickActionButton method was also removed
-// Note: _buildQuickActionsSection method was also removed
-// Note: All Quick Actions related code was removed
-// Note: This section is now completely removed
-// Note: The user requested to remove Quick Actions section
-// Note: The user also requested to move Summary Cards above Recent Activity
-// Note: The user also requested to add Statistics Overview section
-// Note: The user also requested to add debug logs for banner visibility
-// Note: The user also requested to add debug logs for method calls
-// Note: The user also requested to add debug logs for API responses
-// Note: The user also requested to add debug logs for SharedPreferences data
-// Note: The user also requested to add debug logs for phone verification logic
-// Note: The user also requested to add debug logs for profile completion logic
-// Note: The user also requested to add debug logs for all method calls
-// Note: The user also requested to add debug logs for all method calls and data loading
 
 // Enhanced Summary Card Widget
 class _SummaryCard extends StatelessWidget {

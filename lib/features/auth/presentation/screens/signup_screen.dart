@@ -9,6 +9,7 @@ import 'package:hrms_app/core/services/api_service.dart';
 import 'package:hrms_app/features/auth/data/services/auth_service.dart';
 import 'package:hrms_app/core/providers/app_providers.dart';
 import 'package:hrms_app/core/providers/language_provider.dart';
+import 'package:hrms_app/core/widgets/app_logo.dart';
 
 import 'dart:async'; // Added for Timer
 
@@ -849,16 +850,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Logo/Icon
-                CircleAvatar(
-                  radius: 50,
-                  backgroundColor: AppColors.primary,
-                  child: Icon(
-                    Icons.apartment,
-                    color: AppColors.white,
-                    size: 50,
-                  ),
-                ),
+                // App Logo
+                AppLogo(size: 100, showText: true, showSubtitle: false),
                 SizedBox(height: 32),
                 // Welcome Text
                 Text(

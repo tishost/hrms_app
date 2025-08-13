@@ -227,6 +227,12 @@ class AppStrings {
       'password_too_long': 'Password must be less than 50 characters',
       'name_too_short': 'Name must be at least 2 characters',
       'name_too_long': 'Name must be less than 100 characters',
+
+      // Mobile verification
+      'mobile_verification_title': 'Verify Mobile Number',
+      'mobile_verification_message':
+          'Please verify your mobile number to complete your profile',
+      'mobile_verification_button': 'Verify Now',
     },
 
     'bn': {
@@ -460,6 +466,12 @@ class AppStrings {
       'password_too_long': 'পাসওয়ার্ড ৫০ অক্ষরের কম হতে হবে',
       'name_too_short': 'নাম কমপক্ষে ২ অক্ষর হতে হবে',
       'name_too_long': 'নাম ১০০ অক্ষরের কম হতে হবে',
+
+      // Mobile verification
+      'mobile_verification_title': 'মোবাইল নম্বর যাচাই করুন',
+      'mobile_verification_message':
+          'আপনার প্রোফাইল সম্পূর্ণ করতে অনুগ্রহ করে আপনার মোবাইল নম্বর যাচাই করুন',
+      'mobile_verification_button': 'এখনই যাচাই করুন',
     },
   };
 

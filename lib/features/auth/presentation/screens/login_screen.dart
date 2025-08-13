@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:hrms_app/core/services/api_service.dart';
+import 'package:hrms_app/core/widgets/app_logo.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -193,21 +194,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           SizedBox(height: 40),
-                          Icon(
-                            Icons.apartment,
-                            size: 60,
-                            color: AppColors.primary,
+                          AppLogo(
+                            size: 80,
+                            showText: false,
+                            showSubtitle: false,
                           ),
                           SizedBox(height: 10),
-                          Text(
-                            "HRMS",
-                            style: TextStyle(
-                              color: AppColors.primary,
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 2,
-                            ),
-                          ),
                         ],
                       ),
                     ),

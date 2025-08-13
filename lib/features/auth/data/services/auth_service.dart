@@ -55,6 +55,19 @@ class AuthService {
     await clearToken();
   }
 
+  // Handle session kill (force logout from all devices)
+  static Future<void> handleSessionKill() async {
+    print('🚫 Session killed by admin, clearing all data');
+    await clearToken();
+    await clearStoredCredentials();
+
+    // Clear any other cached data
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear(); // Clear all SharedPreferences data
+
+    print('DEBUG: All data cleared due to session kill');
+  }
+
   // Check if user is already logged in
   static Future<bool> isLoggedIn() async {
     final token = await getToken();

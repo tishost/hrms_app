@@ -1,6 +1,6 @@
 class AppConstants {
   // App Info
-  static const String appName = 'HRMS App';
+  static const String appName = 'BariManager';
   static const String appVersion = '1.0.0';
 
   // API Constants
