@@ -27,6 +27,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   // int _selectedIndex = 0; // unused
   bool _isLoading = true;
   late FocusNode _focusNode;
+  bool _otpBusy = false;
   // DateTime? _lastBackTime; // unused
 
   // User data
@@ -38,6 +39,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   // Subscription data
   String subscriptionPlan = 'Free';
   bool isSubscriptionLoading = true;
+  Map<String, dynamic>? _subscriptionData; // holds plan and sms_credits
 
   // Profile completion
   double _profileCompletion = 0.0;
@@ -46,6 +48,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   // Dashboard data
   Map<String, dynamic> _dashboardStats = {};
   List<dynamic> _recentTransactions = [];
+  List<Map<String, dynamic>> _unpaidSubInvoices = [];
+  // OTP flow state/cache
+  bool _otpSent = false;
+  DateTime? _lastOtpSentAt;
+  bool _otpSettingsLoaded = false;
+  int _otpExpirySeconds = 600; // default 10 min
+  int _resendCooldownSeconds = 300; // default 5 min
+  int _otpLength = 6;
+  bool _userLoaded = false; // prevent banner flash before user loads
 
   @override
   void initState() {
@@ -57,6 +68,28 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     // Force refresh all data on init to avoid showing old cached data
     print('DEBUG: Dashboard initState - Force refreshing all data');
     _forceRefreshAllData();
+  }
+
+  Widget _subMiniStat({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: Colors.white.withOpacity(0.9)),
+        SizedBox(width: 4),
+        Text(
+          value,
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.9),
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -86,7 +119,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     required Widget title,
     required Widget message,
     required Widget buttonLabel,
-    required VoidCallback onPressed,
+    VoidCallback? onPressed,
   }) {
     print('DEBUG: _buildAttentionBanner called');
     return Container(
@@ -120,37 +153,53 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                       size: 16,
                     ),
                     SizedBox(width: 6),
-                    title,
+                    // Allow long localized titles (e.g., Bangla) to wrap instead of overflow
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: title,
+                      ),
+                    ),
                   ],
                 ),
-                SizedBox(height: 4),
-                message,
+                // Subtitle removed as requested
               ],
             ),
           ),
           SizedBox(width: 12),
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [AppColors.primary, AppColors.primary.withOpacity(0.8)],
+          // Make action compact and shrink to avoid overflow on long localized labels
+          Flexible(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.primary,
+                    AppColors.primary.withOpacity(0.8),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(12),
               ),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: TextButton(
-              onPressed: onPressed,
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.white,
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                minimumSize: Size(0, 0),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.verified_rounded, size: 14),
-                  SizedBox(width: 4),
-                  buttonLabel,
-                ],
+              padding: EdgeInsets.zero,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: onPressed,
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    minimumSize: Size(0, 0),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.verified_rounded, size: 14),
+                      SizedBox(width: 4),
+                      buttonLabel,
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -293,6 +342,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
               ? '$profilePic?t=${DateTime.now().millisecondsSinceEpoch}'
               : '';
           _profileCompletion = _computeProfileCompletion(userData);
+          _userLoaded = true;
         });
         print(
           'DEBUG: SharedPreferences user data - phone_verified: ${userData['phone_verified']}, phone_verified_at: ${userData['phone_verified_at']}, userPhoneVerified: $userPhoneVerified',
@@ -304,11 +354,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         // Try API call if no cached data
         print('DEBUG: No cached user data found, loading from API');
         await _loadUserFromAPI();
+        if (mounted) setState(() => _userLoaded = true);
       }
     } catch (e) {
       print('Error loading user info: $e');
       print('DEBUG: Falling back to API call due to error');
       await _loadUserFromAPI();
+      if (mounted) setState(() => _userLoaded = true);
     }
   }
 
@@ -353,6 +405,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         print(
           'DEBUG: User data loaded from API - Name: $userName, Mobile: $userMobile',
         );
+        if (mounted) setState(() => _userLoaded = true);
       }
     } catch (e) {
       print('Error loading user from API: $e');
@@ -362,6 +415,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         userMobile = '';
         userPhoneVerified = false;
         _profileCompletion = 0.0;
+        _userLoaded = true;
       });
     }
   }
@@ -399,6 +453,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           if (isActive) {
             setState(() {
               subscriptionPlan = subscription['plan_name'] ?? 'Free';
+              _subscriptionData =
+                  subscription; // store full subscription for limits
               isSubscriptionLoading = false;
             });
             print('DEBUG: Active subscription plan loaded: $subscriptionPlan');
@@ -406,6 +462,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             // Subscription exists but not active (pending/unpaid)
             setState(() {
               subscriptionPlan = 'Free';
+              _subscriptionData =
+                  subscription; // still store for possible display
               isSubscriptionLoading = false;
             });
             print(
@@ -416,6 +474,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         } else {
           setState(() {
             subscriptionPlan = 'Free';
+            _subscriptionData = null;
             isSubscriptionLoading = false;
           });
           print('DEBUG: No active subscription found, defaulting to Free');
@@ -424,6 +483,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       } else {
         setState(() {
           subscriptionPlan = 'Free';
+          _subscriptionData = null;
           isSubscriptionLoading = false;
         });
         print('DEBUG: Failed to load subscription, defaulting to Free');
@@ -434,6 +494,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       print('DEBUG: Subscription load error details: $e');
       setState(() {
         subscriptionPlan = 'Free';
+        _subscriptionData = null;
         isSubscriptionLoading = false;
       });
     }
@@ -493,6 +554,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       _loadUserInfo(),
       _loadDashboardData(),
       _loadSubscriptionInfo(),
+      _loadUnpaidSubscriptionInvoices(),
     ]);
   }
 
@@ -513,9 +575,33 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       _loadUserInfo(),
       _loadDashboardData(),
       _loadSubscriptionInfo(),
+      _loadUnpaidSubscriptionInvoices(),
     ]);
 
     print('DEBUG: Fresh data loaded');
+  }
+
+  Future<void> _loadUnpaidSubscriptionInvoices() async {
+    try {
+      final api = ref.read(apiServiceProvider);
+      final res = await api.get('/subscription/invoices');
+      final data = res.data as Map<String, dynamic>;
+      final list = (data['invoices'] as List?)?.cast<dynamic>() ?? [];
+      final mapped = list
+          .map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e as Map))
+          .where((inv) {
+            // Backend invoices() returns: id, invoice_number, amount, status, due_date, paid_date, plan
+            // Filter only by status
+            final status = (inv['status'] ?? '').toString().toLowerCase();
+            return status == 'unpaid' ||
+                status == 'partial' ||
+                status == 'pending';
+          })
+          .toList();
+      setState(() => _unpaidSubInvoices = mapped);
+    } catch (_) {
+      setState(() => _unpaidSubInvoices = []);
+    }
   }
 
   double _computeProfileCompletion(Map<String, dynamic> user) {
@@ -557,6 +643,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   }
 
   Future<void> _startMobileVerificationFlow() async {
+    // Debounce to prevent rapid multiple taps creating multiple OTP sends
+    DateTime? _lastOtpTapTime;
+    final now = DateTime.now();
+    if (_lastOtpTapTime != null &&
+        now.difference(_lastOtpTapTime!).inSeconds < 2) {
+      return;
+    }
+    _lastOtpTapTime = now;
     if (userMobile.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('No mobile number found in your profile')),
@@ -592,11 +686,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       int resendCooldown = resendCooldownSeconds;
       Timer? countdownTimer;
       Timer? cooldownTimer;
+      Timer? verifyTimer;
 
       await showDialog(
         context: context,
         builder: (ctx) {
           bool timersInitialized = false;
+          int verifyCooldown = 0;
+          bool verifying = false;
           String twoDigits(int n) => n.toString().padLeft(2, '0');
           return StatefulBuilder(
             builder: (context, setState) {
@@ -737,13 +834,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                     onPressed: () {
                       countdownTimer?.cancel();
                       cooldownTimer?.cancel();
+                      verifyTimer?.cancel();
                       Navigator.pop(ctx);
                     },
                     child: const Text('Cancel'),
                   ),
                   ElevatedButton(
-                    onPressed: (code.length == otpLength && secondsLeft > 0)
+                    onPressed:
+                        (code.length == otpLength &&
+                            secondsLeft > 0 &&
+                            verifyCooldown == 0 &&
+                            !verifying)
                         ? () async {
+                            setState(() => verifying = true);
                             try {
                               await api.post(
                                 '/verify-otp',
@@ -755,6 +858,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                               );
                               countdownTimer?.cancel();
                               cooldownTimer?.cancel();
+                              verifyTimer?.cancel();
                               if (mounted) Navigator.pop(ctx);
                               setState(() => userPhoneVerified = true);
                               await _loadUserFromAPI();
@@ -769,27 +873,58 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                                 );
                               }
                             } catch (e) {
-                              // Interpret 429 (limit exceeded) specially
                               final msg = e.toString();
                               final isLimit =
                                   msg.contains('HTTP 429') ||
+                                  msg.toLowerCase().contains('429') ||
                                   msg.toLowerCase().contains('limit');
+                              if (isLimit) {
+                                setState(() => verifyCooldown = 60);
+                                verifyTimer?.cancel();
+                                verifyTimer = Timer.periodic(
+                                  const Duration(seconds: 1),
+                                  (_) {
+                                    if (verifyCooldown > 0) {
+                                      setState(() => verifyCooldown--);
+                                    } else {
+                                      verifyTimer?.cancel();
+                                    }
+                                  },
+                                );
+                              }
                               if (mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Text(
                                       isLimit
-                                          ? 'OTP attempt limit exceeded. Please request a new OTP.'
+                                          ? 'OTP attempt limit exceeded. Please wait and try again.'
                                           : 'Verification failed: $e',
                                     ),
                                     backgroundColor: Colors.red,
                                   ),
                                 );
                               }
+                            } finally {
+                              setState(() => verifying = false);
                             }
                           }
                         : null,
-                    child: const Text('Verify'),
+                    child: verifying
+                        ? SizedBox(
+                            height: 18,
+                            width: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
+                            ),
+                          )
+                        : Text(
+                            verifyCooldown > 0
+                                ? 'Wait (${twoDigits(verifyCooldown)})'
+                                : 'Verify',
+                          ),
                   ),
                 ],
               );
@@ -914,8 +1049,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                           physics: AlwaysScrollableScrollPhysics(),
                           child: Column(
                             children: [
-                              SizedBox(height: 20),
-                              if (!userPhoneVerified)
+                              SizedBox(height: 10),
+                              if (_unpaidSubInvoices.isNotEmpty)
+                                _buildUnpaidSubscriptionInvoices(),
+                              SizedBox(height: 4),
+                              if (_userLoaded && !userPhoneVerified)
                                 _buildAttentionBanner(
                                   title: AppText('mobile_verification_title'),
                                   message: AppText(
@@ -924,23 +1062,27 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                                   buttonLabel: AppText(
                                     'mobile_verification_button',
                                   ),
-                                  onPressed: _startMobileVerificationFlow,
+                                  onPressed: _otpBusy
+                                      ? null
+                                      : _startMobileVerificationFlow,
                                 ),
-                              if (_profileCompletion < 0.8)
+                              if (_userLoaded && _profileCompletion < 0.8)
                                 _buildProgressBanner(
                                   percent: _profileCompletion,
                                   onPressed: () => context.go('/profile/edit'),
                                 ),
+                              SizedBox(height: 4),
+                              _buildSmsBalanceCard(),
+                              SizedBox(height: 4),
                               _buildSummaryCards(),
-                              SizedBox(height: 24),
+                              SizedBox(height: 16),
 
                               // Statistics Overview
                               _buildStatisticsOverviewSection(),
 
-                              SizedBox(height: 24),
+                              SizedBox(height: 16),
 
                               _buildRecentActivity(),
-                              SizedBox(height: 100),
                             ],
                           ),
                         ),
@@ -1053,14 +1195,41 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                               ),
                             ),
                             SizedBox(height: 2),
-                            Text(
-                              userName,
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.3,
-                              ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    userName,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.3,
+                                    ),
+                                  ),
+                                ),
+                                if (userPhoneVerified) ...[
+                                  SizedBox(width: 6),
+                                  Container(
+                                    padding: EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.withOpacity(0.2),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: Colors.green.withOpacity(0.4),
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: Icon(
+                                      Icons.verified_rounded,
+                                      color: Colors.greenAccent,
+                                      size: 14,
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                           ],
                         ),
@@ -1196,43 +1365,74 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                                     ),
                                   ),
                                 ] else ...[
-                                  subscriptionPlan.toLowerCase() == 'free'
-                                      ? AppText(
-                                          'free_plan',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
+                                  GestureDetector(
+                                    onTap: () =>
+                                        context.go('/subscription-center'),
+                                    child:
+                                        subscriptionPlan.toLowerCase() == 'free'
+                                        ? AppText(
+                                            'free_plan',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          )
+                                        : Text(
+                                            '$subscriptionPlan Plan',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                            ),
                                           ),
-                                        )
-                                      : Text(
-                                          '$subscriptionPlan Plan',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
+                                  ),
                                   SizedBox(height: 2),
-                                  subscriptionPlan.toLowerCase() == 'free'
-                                      ? AppText(
-                                          'limited_features',
-                                          style: TextStyle(
-                                            color: Colors.white.withOpacity(
-                                              0.8,
-                                            ),
-                                            fontSize: 12,
-                                          ),
-                                        )
-                                      : AppText(
-                                          'premium_features',
-                                          style: TextStyle(
-                                            color: Colors.white.withOpacity(
-                                              0.8,
-                                            ),
-                                            fontSize: 12,
-                                          ),
+                                  GestureDetector(
+                                    onTap: () =>
+                                        context.go('/subscription-center'),
+                                    child: Row(
+                                      children: [
+                                        _subMiniStat(
+                                          icon: Icons.apartment_rounded,
+                                          label: 'Property',
+                                          value:
+                                              (_subscriptionData?['plan']?['properties_limit']
+                                                          ?.toString() ??
+                                                      _dashboardStats['plan']?['properties_limit']
+                                                          ?.toString() ??
+                                                      _dashboardStats['properties_limit_text'] ??
+                                                      '—')
+                                                  .toString(),
                                         ),
+                                        SizedBox(width: 8),
+                                        _subMiniStat(
+                                          icon: Icons.meeting_room_rounded,
+                                          label: 'Unit',
+                                          value:
+                                              (_subscriptionData?['plan']?['units_limit']
+                                                          ?.toString() ??
+                                                      _dashboardStats['plan']?['units_limit']
+                                                          ?.toString() ??
+                                                      _dashboardStats['units_limit_text'] ??
+                                                      '—')
+                                                  .toString(),
+                                        ),
+                                        SizedBox(width: 8),
+                                        _subMiniStat(
+                                          icon: Icons.sms_rounded,
+                                          label: 'SMS',
+                                          value:
+                                              (_subscriptionData?['sms_credits']
+                                                          ?.toString() ??
+                                                      _dashboardStats['sms_credit']
+                                                          ?.toString() ??
+                                                      '—')
+                                                  .toString(),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ],
                               ],
                             ),
@@ -1278,25 +1478,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                                       ),
                                       SizedBox(width: 4),
                                       Flexible(
-                                        child:
-                                            subscriptionPlan.toLowerCase() ==
-                                                'free'
-                                            ? AppText(
-                                                'upgrade',
-                                                style: TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              )
-                                            : AppText(
-                                                'manage',
-                                                style: TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
+                                        child: Text(
+                                          'Upgrade',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -1342,6 +1531,38 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       );
     }
 
+    // Prepare property/unit limit display values (count/limit)
+    String _fmtLimit(dynamic raw) {
+      if (raw == null) return '—';
+      if (raw is num) return raw.toInt() == -1 ? '∞' : raw.toInt().toString();
+      final p = int.tryParse(raw.toString());
+      if (p == null) return raw.toString();
+      return p == -1 ? '∞' : p.toString();
+    }
+
+    final int propCount = (_dashboardStats['total_properties'] ?? 0) is num
+        ? (_dashboardStats['total_properties'] as num).toInt()
+        : int.tryParse(
+                (_dashboardStats['total_properties'] ?? '0').toString(),
+              ) ??
+              0;
+    final dynamic propLimitRaw =
+        _subscriptionData?['plan']?['properties_limit'] ??
+        _subscriptionData?['properties_limit'] ??
+        _dashboardStats['plan']?['properties_limit'] ??
+        _dashboardStats['properties_limit_text'];
+    final String propValue = '$propCount/${_fmtLimit(propLimitRaw)}';
+
+    final int unitCount = (_dashboardStats['total_units'] ?? 0) is num
+        ? (_dashboardStats['total_units'] as num).toInt()
+        : int.tryParse((_dashboardStats['total_units'] ?? '0').toString()) ?? 0;
+    final dynamic unitLimitRaw =
+        _subscriptionData?['plan']?['units_limit'] ??
+        _subscriptionData?['units_limit'] ??
+        _dashboardStats['plan']?['units_limit'] ??
+        _dashboardStats['units_limit_text'];
+    final String unitValue = '$unitCount/${_fmtLimit(unitLimitRaw)}';
+
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 16),
       child: Column(
@@ -1356,7 +1577,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                     'properties',
                     ref.read(languageProvider).code,
                   ),
-                  value: '${_dashboardStats['total_properties'] ?? 0}',
+                  value: propValue,
                   icon: Icons.apartment_rounded,
                   color: AppColors.primary,
                   onTap: () {
@@ -1369,7 +1590,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                     'units',
                     ref.read(languageProvider).code,
                   ),
-                  value: '${_dashboardStats['total_units'] ?? 0}',
+                  value: unitValue,
                   icon: Icons.home_rounded,
                   color: Colors.orange,
                   onTap: () {
@@ -1517,6 +1738,84 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     );
   }
 
+  Widget _buildUnpaidSubscriptionInvoices() {
+    // White card style similar to mobile verification banner
+    return Column(
+      children: _unpaidSubInvoices.take(3).map((inv) {
+        final invoiceNo = (inv['invoice_number'] ?? inv['number'] ?? '—')
+            .toString();
+        final amount = (inv['net_amount'] ?? inv['amount'] ?? 0).toString();
+        final isPaid = (inv['status'] ?? '').toString().toLowerCase() == 'paid';
+        return Container(
+          margin: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          padding: EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 12,
+                offset: Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.receipt_long_rounded, color: AppColors.primary),
+              SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      invoiceNo,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.text,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      '৳$amount',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(width: 12),
+              TextButton(
+                onPressed: isPaid
+                    ? null
+                    : () {
+                        context.go(
+                          '/subscription-checkout',
+                          extra: {'invoice': inv},
+                        );
+                      },
+                style: TextButton.styleFrom(
+                  foregroundColor: isPaid ? Colors.green : Colors.white,
+                  backgroundColor: isPaid
+                      ? Colors.green.withOpacity(0.12)
+                      : AppColors.primary,
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: Text(isPaid ? 'Paid' : 'Pay Now'),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
   Widget _buildTransactionItem(Map<String, dynamic> transaction) {
     // final languageNotifier = ref.read(languageProvider.notifier);
 
@@ -1625,6 +1924,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   // Statistics Overview Section
   Widget _buildStatisticsOverviewSection() {
     print('DEBUG: _buildStatisticsOverviewSection called');
+    final double monthlyCollections = _getMonthlyCollections();
     return Container(
       padding: EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -1662,7 +1962,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                 child: _buildStatItem(
                   icon: Icons.trending_up_rounded,
                   label: 'Monthly Revenue',
-                  value: '৳0', // Use static value for now
+                  value: '৳${monthlyCollections.toStringAsFixed(0)}',
                   color: Colors.green,
                 ),
               ),
@@ -1689,6 +1989,44 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         ],
       ),
     );
+  }
+
+  double _getMonthlyCollections() {
+    try {
+      // Prefer backend-provided monthly collections if available
+      final dynamic backendMonthly =
+          _dashboardStats['collections_this_month'] ??
+          _dashboardStats['monthly_collections'] ??
+          _dashboardStats['total_collections_this_month'];
+      if (backendMonthly != null) {
+        if (backendMonthly is num) return backendMonthly.toDouble();
+        final parsed = double.tryParse(backendMonthly.toString());
+        if (parsed != null) return parsed;
+      }
+
+      // Fallback: sum recent transactions in current month
+      final now = DateTime.now();
+      double sum = 0.0;
+      for (final tx in _recentTransactions) {
+        try {
+          final amtRaw = tx['amount'];
+          final dateRaw = tx['date'];
+          if (amtRaw == null || dateRaw == null) continue;
+          final amount = (amtRaw is num)
+              ? amtRaw.toDouble()
+              : (double.tryParse(amtRaw.toString()) ?? 0.0);
+          if (amount <= 0) continue;
+          final dt = DateTime.tryParse(dateRaw.toString());
+          if (dt == null) continue;
+          if (dt.year == now.year && dt.month == now.month) {
+            sum += amount;
+          }
+        } catch (_) {}
+      }
+      return sum;
+    } catch (_) {
+      return 0.0;
+    }
   }
 
   Widget _buildStatItem({
@@ -1732,6 +2070,83 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   }
 
   // _showProfileSummaryMenu removed - profile navigates directly
+
+  Widget _buildSmsBalanceCard() {
+    final String smsBalance =
+        (_subscriptionData?['sms_credits'] ??
+                _dashboardStats['sms_credit'] ??
+                0)
+            .toString();
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 16),
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(Icons.sms_rounded, color: AppColors.primary),
+          ),
+          SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'SMS Balance',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.text,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  smsBalance,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.text,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: 12),
+          TextButton(
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Recharge SMS coming soon')),
+              );
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.white,
+              backgroundColor: AppColors.primary,
+              padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: Text('Recharge SMS'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _DashboardAvatar extends StatelessWidget {

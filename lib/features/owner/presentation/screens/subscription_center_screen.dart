@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hrms_app/core/services/api_service.dart';
 import 'package:hrms_app/core/utils/api_config.dart';
+import 'package:hrms_app/core/utils/app_colors.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 class SubscriptionCenterScreen extends ConsumerStatefulWidget {
   const SubscriptionCenterScreen({super.key});
@@ -19,6 +21,89 @@ class _SubscriptionCenterScreenState
   Map<String, dynamic>? _current;
   Map<String, dynamic>? _rawSubscriptionData; // Store raw subscription data
   List<Map<String, dynamic>> _invoices = [];
+
+  // Helpers to render plan resource limits in cards
+  Map<String, dynamic>? _getPlanDataForDisplay() {
+    // Prefer active subscription's embedded plan
+    if (_current != null) {
+      final planField = _current!['plan'];
+      if (planField is Map<String, dynamic>) {
+        return planField;
+      }
+      return _current;
+    }
+    // Fallback: raw subscription data (pending)
+    if (_rawSubscriptionData != null) {
+      final planField = _rawSubscriptionData!['plan'];
+      if (planField is Map<String, dynamic>) {
+        return planField;
+      }
+      return _rawSubscriptionData;
+    }
+    return null;
+  }
+
+  String _formatLimit(dynamic value) {
+    if (value == null) return '—';
+    if (value is num) {
+      if (value < 0) return 'Unlimited';
+      return value.toInt().toString();
+    }
+    // Try parse
+    final parsed = int.tryParse(value.toString());
+    if (parsed == null) return value.toString();
+    return parsed < 0 ? 'Unlimited' : parsed.toString();
+  }
+
+  // Removed old chip helper
+
+  // Old pill helper removed
+
+  String _formatCompact(dynamic value) {
+    final s = _formatLimit(value);
+    if (s == 'Unlimited') return '∞';
+    if (s == '—') return '0';
+    return s;
+  }
+
+  Widget _compactStat({
+    required IconData icon,
+    required String value,
+    required Color color,
+  }) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 6),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+            color: AppColors.textPrimary,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // removed older unused helpers
+
+  String _validUntilWithDays(String? rawEndDate) {
+    if (rawEndDate == null || rawEndDate.trim().isEmpty) return 'N/A';
+    try {
+      final end = DateTime.parse(rawEndDate).toLocal();
+      final now = DateTime.now();
+      int days = end.difference(now).inDays;
+      if (days < 0) days = 0;
+      final dateText = DateFormat('d MMM yyyy').format(end);
+      return '$dateText (${days.toString()} Days)';
+    } catch (_) {
+      return rawEndDate;
+    }
+  }
 
   @override
   void initState() {
@@ -120,6 +205,16 @@ class _SubscriptionCenterScreenState
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Subscription'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/properties');
+            }
+          },
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -148,476 +243,271 @@ class _SubscriptionCenterScreenState
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  // Current Subscription - New Modern Design
+                  // Current Subscription - Modern Summary Card (logo removed)
                   Container(
                     width: double.infinity,
                     margin: const EdgeInsets.only(bottom: 20),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // App Logo Header
-                        Center(
-                          child: Container(
-                            margin: const EdgeInsets.only(bottom: 20),
-                            child: Column(
-                              children: [
-                                // Logo Container
-                                Container(
-                                  width: 80,
-                                  height: 80,
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                      colors: [
-                                        Colors.blue[600]!,
-                                        Colors.blue[700]!,
-                                      ],
-                                    ),
-                                    borderRadius: BorderRadius.circular(20),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.blue.withValues(
-                                          alpha: 0.3,
-                                        ),
-                                        blurRadius: 15,
-                                        offset: const Offset(0, 8),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Stack(
-                                    children: [
-                                      // House Icon (Top Left)
-                                      Positioned(
-                                        top: 12,
-                                        left: 12,
-                                        child: Icon(
-                                          Icons.home_rounded,
-                                          color: Colors.white,
-                                          size: 24,
-                                        ),
-                                      ),
-                                      // Document Icon (Right)
-                                      Positioned(
-                                        top: 20,
-                                        right: 12,
-                                        child: Icon(
-                                          Icons.description_rounded,
-                                          color: Colors.white,
-                                          size: 20,
-                                        ),
-                                      ),
-                                      // BM Text (Bottom Center)
-                                      Positioned(
-                                        bottom: 12,
-                                        left: 0,
-                                        right: 0,
-                                        child: Center(
-                                          child: Text(
-                                            'BM',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.bold,
-                                              letterSpacing: 1.0,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                // App Name
-                                Text(
-                                  'BariManager',
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.blue[800],
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Subscription Center',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey[600],
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-
                         if (_current == null)
-                          // Free Plan - Modern Card Design
+                          // Free Plan - Minimal Summary Card
                           Container(
                             width: double.infinity,
-                            padding: const EdgeInsets.all(24),
+                            padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [Colors.blue[50]!, Colors.purple[50]!],
-                              ),
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.05),
-                                  blurRadius: 20,
-                                  offset: const Offset(0, 10),
-                                ),
-                              ],
+                              color: AppColors.surface,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: AppColors.border),
                             ),
                             child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // Plan Icon and Name
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(16),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(16),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.blue.withValues(
-                                              alpha: 0.1,
-                                            ),
-                                            blurRadius: 10,
-                                            offset: const Offset(0, 5),
-                                          ),
-                                        ],
-                                      ),
-                                      child: Icon(
-                                        Icons.star_rounded,
-                                        color: Colors.blue[600],
-                                        size: 32,
+                                Center(
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 10,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.white,
+                                      borderRadius: BorderRadius.circular(14),
+                                      boxShadow: const [
+                                        BoxShadow(
+                                          color: AppColors.shadowLight,
+                                          blurRadius: 14,
+                                          offset: Offset(0, 6),
+                                        ),
+                                      ],
+                                      border: Border.all(
+                                        color: AppColors.border,
                                       ),
                                     ),
-                                    const SizedBox(width: 20),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'Free Plan',
-                                            style: TextStyle(
-                                              fontSize: 24,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.blue[800],
-                                            ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            'Basic features included',
-                                            style: TextStyle(
-                                              fontSize: 16,
-                                              color: Colors.blue[600],
-                                            ),
-                                          ),
-                                        ],
+                                    child: const Text(
+                                      'Free Plan',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w800,
+                                        color: AppColors.textPrimary,
+                                        letterSpacing: 0.2,
                                       ),
                                     ),
-                                  ],
-                                ),
-                                const SizedBox(height: 24),
-
-                                // Plan Details
-                                Container(
-                                  padding: const EdgeInsets.all(20),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.7),
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: Column(
-                                          children: [
-                                            Text(
-                                              'Status',
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                color: Colors.grey[600],
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 12,
-                                                    vertical: 6,
-                                                  ),
-                                              decoration: BoxDecoration(
-                                                color: Colors.green[100],
-                                                borderRadius:
-                                                    BorderRadius.circular(20),
-                                              ),
-                                              child: Text(
-                                                'Active',
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.green[700],
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      Container(
-                                        width: 1,
-                                        height: 40,
-                                        color: Colors.grey[300],
-                                      ),
-                                      Expanded(
-                                        child: Column(
-                                          children: [
-                                            Text(
-                                              'Validity',
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                color: Colors.grey[600],
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              'Lifetime',
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.blue[800],
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
                                   ),
                                 ),
-                                const SizedBox(height: 24),
-
-                                // Upgrade Button
+                                const SizedBox(height: 20),
+                                // Resource summary compact: icons + qty (3 in first line)
+                                Builder(
+                                  builder: (_) {
+                                    final plan = _getPlanDataForDisplay();
+                                    final props = _formatCompact(
+                                      plan?['properties_limit'],
+                                    );
+                                    final units = _formatCompact(
+                                      plan?['units_limit'],
+                                    );
+                                    final smsCredit = _formatCompact(
+                                      plan?['sms_credit'] ??
+                                          plan?['sms_credits'],
+                                    );
+                                    return Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Expanded(
+                                          child: _compactStat(
+                                            icon: Icons.apartment_rounded,
+                                            value: props,
+                                            color: AppColors.indigo,
+                                          ),
+                                        ),
+                                        Expanded(
+                                          child: _compactStat(
+                                            icon: Icons.meeting_room_rounded,
+                                            value: units,
+                                            color: AppColors.primary,
+                                          ),
+                                        ),
+                                        Expanded(
+                                          child: _compactStat(
+                                            icon: Icons.sms_rounded,
+                                            value: smsCredit,
+                                            color: AppColors.teal,
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                ),
+                                const SizedBox(height: 8),
+                                // Second line: validity/renew info (Free = Lifetime)
+                                Builder(
+                                  builder: (_) {
+                                    // Free plan
+                                    return const Text(
+                                      'Valid: Lifetime',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.textSecondary,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    );
+                                  },
+                                ),
+                                const SizedBox(height: 16),
                                 SizedBox(
                                   width: double.infinity,
                                   child: ElevatedButton(
                                     onPressed: () =>
                                         context.go('/subscription-plans'),
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.blue[600],
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 16,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
+                                      backgroundColor: Color(0xFF7FA7F3),
+                                      foregroundColor: AppColors.white,
                                       elevation: 0,
-                                    ),
-                                    child: const Text(
-                                      'Upgrade Now',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 14,
                                       ),
                                     ),
+                                    child: const Text('Upgrade'),
                                   ),
                                 ),
                               ],
                             ),
                           )
                         else
-                          // Paid Plan - Modern Card Design
+                          // Paid Plan - Minimal Summary Card
                           Container(
                             width: double.infinity,
-                            padding: const EdgeInsets.all(24),
+                            padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  Colors.purple[50]!,
-                                  Colors.indigo[50]!,
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.05),
-                                  blurRadius: 20,
-                                  offset: const Offset(0, 10),
-                                ),
-                              ],
+                              color: AppColors.surface,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: AppColors.border),
                             ),
                             child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // Plan Icon and Name
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(16),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(16),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.purple.withValues(
-                                              alpha: 0.1,
-                                            ),
-                                            blurRadius: 10,
-                                            offset: const Offset(0, 5),
-                                          ),
-                                        ],
-                                      ),
-                                      child: Icon(
-                                        Icons.workspace_premium_rounded,
-                                        color: Colors.purple[600],
-                                        size: 32,
+                                Center(
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 10,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.white,
+                                      borderRadius: BorderRadius.circular(14),
+                                      boxShadow: const [
+                                        BoxShadow(
+                                          color: AppColors.shadowLight,
+                                          blurRadius: 14,
+                                          offset: Offset(0, 6),
+                                        ),
+                                      ],
+                                      border: Border.all(
+                                        color: AppColors.border,
                                       ),
                                     ),
-                                    const SizedBox(width: 20),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            _current!['plan_name'] ??
-                                                _current!['plan']?['name'] ??
-                                                'Premium Plan',
-                                            style: TextStyle(
-                                              fontSize: 24,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.purple[800],
-                                            ),
-                                            overflow: TextOverflow.ellipsis,
-                                            maxLines: 1,
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            'Premium features unlocked',
-                                            style: TextStyle(
-                                              fontSize: 16,
-                                              color: Colors.purple[600],
-                                            ),
-                                          ),
-                                        ],
+                                    child: Text(
+                                      _current!['plan_name'] ??
+                                          _current!['plan']?['name'] ??
+                                          'Premium Plan',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w800,
+                                        color: AppColors.textPrimary,
+                                        letterSpacing: 0.2,
                                       ),
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                  ],
-                                ),
-                                const SizedBox(height: 24),
-
-                                // Plan Details
-                                Container(
-                                  padding: const EdgeInsets.all(20),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.7),
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: Column(
-                                          children: [
-                                            Text(
-                                              'Status',
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                color: Colors.grey[600],
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 12,
-                                                    vertical: 6,
-                                                  ),
-                                              decoration: BoxDecoration(
-                                                color: Colors.green[100],
-                                                borderRadius:
-                                                    BorderRadius.circular(20),
-                                              ),
-                                              child: Text(
-                                                _current!['status'] ?? 'Active',
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.green[700],
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      Container(
-                                        width: 1,
-                                        height: 40,
-                                        color: Colors.grey[300],
-                                      ),
-                                      Expanded(
-                                        child: Column(
-                                          children: [
-                                            Text(
-                                              'Valid Until',
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                color: Colors.grey[600],
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              _current!['end_date'] ?? 'N/A',
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.purple[800],
-                                              ),
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
                                   ),
                                 ),
-                                const SizedBox(height: 24),
-
-                                // Manage Button
+                                const SizedBox(height: 20),
+                                // Resource summary compact: icons + qty (3 in first line)
+                                Builder(
+                                  builder: (_) {
+                                    final plan = _getPlanDataForDisplay();
+                                    final props = _formatCompact(
+                                      plan?['properties_limit'],
+                                    );
+                                    final units = _formatCompact(
+                                      plan?['units_limit'],
+                                    );
+                                    final smsCredit = _formatCompact(
+                                      plan?['sms_credit'] ??
+                                          plan?['sms_credits'],
+                                    );
+                                    return Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Expanded(
+                                          child: _compactStat(
+                                            icon: Icons.apartment_rounded,
+                                            value: props,
+                                            color: AppColors.indigo,
+                                          ),
+                                        ),
+                                        Expanded(
+                                          child: _compactStat(
+                                            icon: Icons.meeting_room_rounded,
+                                            value: units,
+                                            color: AppColors.primary,
+                                          ),
+                                        ),
+                                        Expanded(
+                                          child: _compactStat(
+                                            icon: Icons.sms_rounded,
+                                            value: smsCredit,
+                                            color: AppColors.teal,
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                ),
+                                const SizedBox(height: 12),
+                                // Second line: validity + renew counter (Paid/Lifetime)
+                                Builder(
+                                  builder: (_) {
+                                    final end = _current!['end_date']
+                                        ?.toString();
+                                    final label = (end == null || end.isEmpty)
+                                        ? 'Lifetime'
+                                        : _validUntilWithDays(end);
+                                    return Align(
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        'Valid Until : $label',
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          color: AppColors.textSecondary,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    );
+                                  },
+                                ),
+                                const SizedBox(height: 16),
                                 SizedBox(
                                   width: double.infinity,
-                                  child: OutlinedButton(
+                                  child: ElevatedButton(
                                     onPressed: () =>
                                         context.go('/subscription-plans'),
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: Colors.purple[700],
-                                      side: BorderSide(
-                                        color: Colors.purple[300]!,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Color(0xFF7FA7F3),
+                                      foregroundColor: AppColors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
                                       ),
                                       padding: const EdgeInsets.symmetric(
-                                        vertical: 16,
+                                        vertical: 14,
                                       ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
+                                      elevation: 0,
                                     ),
-                                    child: const Text(
-                                      'Manage Subscription',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
+                                    child: const Text('Upgrade'),
                                   ),
                                 ),
                               ],

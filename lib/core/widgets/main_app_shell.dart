@@ -60,11 +60,22 @@ class _MainAppShellState extends ConsumerState<MainAppShell> {
       _currentIndex = 4;
     }
 
-    return Scaffold(
-      body: widget.child,
-      bottomNavigationBar: OwnerBottomNav(
-        currentIndex: _currentIndex,
-        onTap: _onItemTapped,
+    return BackButtonListener(
+      onBackButtonPressed: () async {
+        final loc = GoRouterState.of(context).matchedLocation;
+        if (loc.contains('subscription-checkout') ||
+            loc.contains('subscription-payment')) {
+          context.go('/subscription-center');
+          return true; // consume back
+        }
+        return false; // let route-specific listeners handle
+      },
+      child: Scaffold(
+        body: widget.child,
+        bottomNavigationBar: OwnerBottomNav(
+          currentIndex: _currentIndex,
+          onTap: _onItemTapped,
+        ),
       ),
     );
   }

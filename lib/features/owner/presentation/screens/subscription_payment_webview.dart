@@ -92,20 +92,27 @@ class _SubscriptionPaymentWebViewState
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
-        final now = DateTime.now();
-        if (_lastBack == null ||
-            now.difference(_lastBack!) > const Duration(seconds: 2)) {
-          _lastBack = now;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Press back again to cancel payment')),
-          );
-          return false;
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/subscription-center');
         }
-        context.go('/subscription-plans');
         return false;
       },
       child: Scaffold(
-        appBar: AppBar(title: const Text('Complete Payment')),
+        appBar: AppBar(
+          title: const Text('Complete Payment'),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded),
+            onPressed: () {
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go('/subscription-center');
+              }
+            },
+          ),
+        ),
         body: Stack(
           children: [
             WebViewWidget(controller: _controller),

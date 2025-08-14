@@ -4,13 +4,19 @@ import 'package:hrms_app/core/utils/api_config.dart';
 import 'package:hrms_app/features/auth/data/services/auth_service.dart';
 
 class UnitService {
-  static Future<List<Map<String, dynamic>>> getUnits() async {
+  static Future<List<Map<String, dynamic>>> getUnits({String? status}) async {
     try {
       final token = await AuthService.getToken();
       if (token == null) throw Exception('No token available');
 
+      final base = ApiConfig.getApiUrl('/units');
+      final uri = Uri.parse(base).replace(
+        queryParameters: {
+          if (status != null && status.isNotEmpty) 'status': status,
+        },
+      );
       final response = await http.get(
-        Uri.parse(ApiConfig.getApiUrl('/units')),
+        uri,
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -66,7 +72,15 @@ class UnitService {
         body: json.encode(unitData),
       );
 
-      return response.statusCode == 200 || response.statusCode == 201;
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return true;
+      }
+      if (response.statusCode == 403) {
+        final data = json.decode(response.body);
+        // Bubble up a descriptive error so UI can redirect
+        throw Exception(data['error'] ?? 'Unit limit exceeded');
+      }
+      return false;
     } catch (e) {
       throw Exception('Error adding unit: $e');
     }
@@ -105,7 +119,16 @@ class UnitService {
         },
       );
 
-      return response.statusCode == 200 || response.statusCode == 204;
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        return true;
+      }
+      if (response.statusCode == 409) {
+        final data = json.decode(response.body);
+        if (data['requires_checkout'] == true) {
+          throw Exception('REQUIRES_CHECKOUT');
+        }
+      }
+      return false;
     } catch (e) {
       throw Exception('Error deleting unit: $e');
     }

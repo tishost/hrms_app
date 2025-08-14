@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hrms_app/core/utils/app_colors.dart';
 import 'package:hrms_app/core/utils/api_config.dart';
-import 'package:hrms_app/features/owner/presentation/widgets/custom_bottom_nav.dart';
 import 'package:hrms_app/features/auth/data/services/auth_service.dart';
 import 'package:hrms_app/core/utils/country_helper.dart';
 import 'package:http/http.dart' as http;
@@ -378,9 +377,20 @@ class _PropertyEntryScreenState extends State<PropertyEntryScreen> {
           ),
         );
         context.go('/properties');
+      } else if (response.statusCode == 403) {
+        final data = json.decode(response.body);
+        final error =
+            data['error']?.toString() ??
+            'Limit exceeded. Please upgrade your plan.';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error), backgroundColor: AppColors.error),
+        );
+        context.go('/subscription-plans');
       } else {
         final data = json.decode(response.body);
-        throw Exception(data['message'] ?? 'Failed to save property');
+        throw Exception(
+          data['message'] ?? data['error'] ?? 'Failed to save property',
+        );
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(

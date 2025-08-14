@@ -346,7 +346,10 @@ class _UnitEntryScreenState extends State<UnitEntryScreen> {
       if (widget.unitId != null) {
         await UnitService.updateUnit(widget.unitId!, unitData);
       } else {
-        await UnitService.addUnit(unitData);
+        final ok = await UnitService.addUnit(unitData);
+        if (!ok) {
+          throw Exception('Failed to add unit');
+        }
       }
       ScaffoldMessenger.of(
         context,

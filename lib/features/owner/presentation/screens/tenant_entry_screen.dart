@@ -1067,42 +1067,59 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: _buildAppBar(),
+      resizeToAvoidBottomInset: true,
       body: Column(
         children: [
           _buildStepHeader(),
           Expanded(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.all(16),
-              child: Container(
-                padding: EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 6,
-                      offset: Offset(0, 1),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+                return AnimatedPadding(
+                  duration: const Duration(milliseconds: 150),
+                  curve: Curves.easeOut,
+                  padding: EdgeInsets.only(bottom: bottomInset > 0 ? 8 : 0),
+                  child: SingleChildScrollView(
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomInset),
+                    child: Container(
+                      padding: EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 6,
+                            offset: Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          switch (_currentStep) {
+                            0 => _buildPersonalInfoForm(),
+                            1 => _buildWorkFamilyForm(),
+                            2 => _buildAddressDriverForm(),
+                            3 => _buildPropertyLeaseForm(),
+                            _ => _buildPersonalInfoForm(),
+                          },
+                        ],
+                      ),
                     ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    switch (_currentStep) {
-                      0 => _buildPersonalInfoForm(),
-                      1 => _buildWorkFamilyForm(),
-                      2 => _buildAddressDriverForm(),
-                      3 => _buildPropertyLeaseForm(),
-                      _ => _buildPersonalInfoForm(),
-                    },
-                  ],
-                ),
-              ),
+                  ),
+                );
+              },
             ),
           ),
         ],
       ),
-      
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: _buildBottomNavigation(),
+      ),
     );
   }
 
@@ -1116,7 +1133,7 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
           if (context.canPop()) {
             context.pop();
           } else {
-            context.go('/dashboard');
+            context.go('/properties');
           }
         },
       ),
@@ -2908,9 +2925,9 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
   }
 
   Widget _buildBottomNavigation() {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     return Container(
-      height: 60,
-      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: EdgeInsets.fromLTRB(20, 12, 20, 12 + (bottomInset > 0 ? 8 : 0)),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -3240,9 +3257,25 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
       }
     } else {
       print('DEBUG: Error response: $responseBody');
-      _showErrorMessage(
-        'Failed to save tenant. Status: ${response.statusCode}',
-      );
+      try {
+        final data = json.decode(responseBody);
+        final details = data['details'] as Map<String, dynamic>?;
+        if (details != null && details.isNotEmpty) {
+          final firstKey = details.keys.first;
+          final firstMsg = (details[firstKey] as List).first.toString();
+          _showErrorMessage(firstMsg);
+        } else if (data['error'] != null) {
+          _showErrorMessage(data['error'].toString());
+        } else {
+          _showErrorMessage(
+            'Failed to save tenant. Status: ${response.statusCode}',
+          );
+        }
+      } catch (_) {
+        _showErrorMessage(
+          'Failed to save tenant. Status: ${response.statusCode}',
+        );
+      }
     }
   }
 
@@ -3798,4 +3831,3 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
     }
   }
 }
-

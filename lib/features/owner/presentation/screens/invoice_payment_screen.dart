@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hrms_app/features/owner/presentation/screens/invoice_pdf_screen.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:hrms_app/core/utils/api_config.dart';
 import 'package:hrms_app/core/utils/app_colors.dart';
 import 'package:hrms_app/features/auth/data/services/auth_service.dart';
-import 'package:hrms_app/features/owner/presentation/widgets/custom_bottom_nav.dart';
 
 class InvoicePaymentScreen extends StatefulWidget {
   final Map<String, dynamic> invoice;
@@ -55,89 +55,36 @@ class _InvoicePaymentScreenState extends State<InvoicePaymentScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        automaticallyImplyLeading: false,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(gradient: AppColors.primaryGradient),
+        ),
+        title: Text('Invoice Payment', style: TextStyle(color: Colors.white)),
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back_ios_rounded, color: Colors.white),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/billing');
+            }
+          },
+        ),
+      ),
       body: SafeArea(
         child: Column(
           children: [
-            // Custom Header
-            Container(
-              padding: EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => context.go('/dashboard'),
-                    child: Container(
-                      padding: EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppColors.background,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(Icons.arrow_back, color: AppColors.primary),
-                    ),
-                  ),
-                  SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Payment',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.text,
-                          ),
-                        ),
-                        Text(
-                          'Invoice #${widget.invoice['invoice_number'] ?? 'N/A'}',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Content
             Expanded(
               child: SingleChildScrollView(
-                padding: EdgeInsets.all(16),
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Form(
                   key: _formKey,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // Invoice Summary Card
-                      _buildInvoiceSummaryCard(),
-                      SizedBox(height: 24),
-
-                      // Payment Amount Section
-                      _buildPaymentAmountSection(),
-                      SizedBox(height: 24),
-
-                      // Payment Method Section
-                      _buildPaymentMethodSection(),
-                      SizedBox(height: 24),
-
-                      // Reference & Notes Section
-                      _buildReferenceSection(),
-                      SizedBox(height: 32),
-
-                      // Submit Button
-                      _buildSubmitButton(),
-                    ],
+                    children: [_buildAllInOneSection(), SizedBox(height: 80)],
                   ),
                 ),
               ),
@@ -145,7 +92,739 @@ class _InvoicePaymentScreenState extends State<InvoicePaymentScreen> {
           ],
         ),
       ),
+      bottomNavigationBar: Padding(
+        padding: EdgeInsets.fromLTRB(16, 8, 16, 16),
+        child: Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _downloadPdf,
+                icon: Icon(Icons.picture_as_pdf, color: AppColors.primary),
+                label: Text('Download PDF'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  padding: EdgeInsets.symmetric(vertical: 14),
+                  minimumSize: Size(double.infinity, 56),
+                  side: BorderSide(color: AppColors.primary),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(width: 12),
+            Expanded(
+              child: _isInvoicePaid()
+                  ? SizedBox(
+                      height: 56,
+                      child: ElevatedButton(
+                        onPressed: null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.grey,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text('Already Paid'),
+                      ),
+                    )
+                  : _buildSubmitButton(),
+            ),
+          ],
+        ),
+      ),
     );
+  }
+
+  Widget _buildCompactHeader() {
+    final invoiceNo = (widget.invoice['invoice_number'] ?? 'N/A').toString();
+    final type =
+        (widget.invoice['invoice_type'] ?? widget.invoice['type'] ?? '')
+            .toString();
+    final tenant = (widget.invoice['tenant_name'] ?? 'N/A').toString();
+    final unit = (widget.invoice['unit_name'] ?? 'N/A').toString();
+    final status = (widget.invoice['status'] ?? '').toString();
+    final amount = (widget.invoice['amount'] ?? '0').toString();
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '#$invoiceNo - ${type.isNotEmpty ? type[0].toUpperCase() + type.substring(1) : 'Invoice'}',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                      color: AppColors.text,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _getStatusColor(status).withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    _getStatusText(status),
+                    style: TextStyle(
+                      color: _getStatusColor(status),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 6),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    '$tenant | $unit',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                SizedBox(width: 8),
+                Text(
+                  '৳$amount',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: _getStatusColor(status),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Helpers
+  Color _getStatusColor(String? status) {
+    switch ((status ?? '').toString().toLowerCase()) {
+      case 'paid':
+        return Colors.green;
+      case 'unpaid':
+        return Colors.red;
+      case 'partial':
+      case 'due':
+        return Colors.orange;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  double _parseAmount(dynamic v) {
+    if (v == null) return 0.0;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString()) ?? 0.0;
+  }
+
+  double _getInvoiceTotal() {
+    final total = _parseAmount(widget.invoice['amount']);
+    if (total > 0) return total;
+    final breakdown = widget.invoice['breakdown'];
+    if (breakdown is List) {
+      double sum = 0;
+      for (final item in breakdown) {
+        final amt = _parseAmount(item is Map ? item['amount'] : null);
+        sum += amt;
+      }
+      return sum;
+    }
+    return 0.0;
+  }
+
+  Widget _buildInvoiceMetaTable() {
+    final invoiceNo = (widget.invoice['invoice_number'] ?? 'N/A').toString();
+    final tenant = (widget.invoice['tenant_name'] ?? 'N/A').toString();
+    final unit = (widget.invoice['unit_name'] ?? 'N/A').toString();
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: EdgeInsets.all(12),
+        child: Column(
+          children: [
+            _kvRow('Invoice no:', '#$invoiceNo'),
+            Divider(height: 10),
+            _kvRow('Name:', tenant),
+            Divider(height: 10),
+            _kvRow('Unit:', unit),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _kvRow(String k, String v) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(k, style: TextStyle(color: AppColors.textSecondary)),
+        SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            v,
+            textAlign: TextAlign.right,
+            style: TextStyle(
+              color: AppColors.text,
+              fontWeight: FontWeight.w600,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFeesTable() {
+    final breakdown = widget.invoice['breakdown'];
+    if (breakdown is! List || breakdown.isEmpty) return SizedBox.shrink();
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Fees details',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.text,
+                  ),
+                ),
+                Text(
+                  'Amount',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.text,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 8),
+            ...breakdown.map<Widget>((fee) {
+              final name = (fee['name'] ?? 'Fee').toString();
+              final amt = _parseAmount(fee['amount']).toStringAsFixed(2);
+              return Padding(
+                padding: EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        name,
+                        style: TextStyle(color: AppColors.text),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    SizedBox(width: 12),
+                    Text(
+                      '৳$amt',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.text,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTotalsAndPaymentSection() {
+    final total = _getInvoiceTotal();
+    final paid = _parseAmount(_amountController.text);
+    final due = (total - paid).clamp(0, double.infinity);
+    final isPartial = due > 0 && paid > 0;
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _kvRow('Total:', '৳${total.toStringAsFixed(2)}'),
+            SizedBox(height: 8),
+            Text(
+              'Paid Amount:',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+            SizedBox(height: 6),
+            TextFormField(
+              controller: _amountController,
+              keyboardType: TextInputType.numberWithOptions(decimal: true),
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                hintText: 'Enter amount to pay',
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: EdgeInsets.symmetric(
+                  vertical: 10,
+                  horizontal: 12,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: Colors.transparent),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: Colors.transparent),
+                ),
+              ),
+              validator: (v) {
+                final val = _parseAmount(v);
+                if (val <= 0) return 'Enter a valid amount';
+                if (val > total) return 'Amount cannot exceed total';
+                return null;
+              },
+            ),
+            SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Due:', style: TextStyle(color: AppColors.textSecondary)),
+                Row(
+                  children: [
+                    Text(
+                      '৳${due.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: due > 0 ? Colors.orange : Colors.green,
+                      ),
+                    ),
+                    if (isPartial) ...[
+                      SizedBox(width: 8),
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          'Partial',
+                          style: TextStyle(
+                            color: Colors.orange,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+            SizedBox(height: 12),
+            // Payment Method
+            Text(
+              'Payment Method:',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+            SizedBox(height: 6),
+            DropdownButtonFormField<String>(
+              value: _selectedPaymentMethod,
+              items: const [
+                DropdownMenuItem(value: 'cash', child: Text('Cash')),
+                DropdownMenuItem(
+                  value: 'bank_transfer',
+                  child: Text('Bank Transfer'),
+                ),
+                DropdownMenuItem(
+                  value: 'mobile_banking',
+                  child: Text('Mobile Banking'),
+                ),
+                DropdownMenuItem(value: 'check', child: Text('Check')),
+                DropdownMenuItem(value: 'other', child: Text('Other')),
+              ],
+              onChanged: (v) =>
+                  setState(() => _selectedPaymentMethod = v ?? 'cash'),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: EdgeInsets.symmetric(
+                  vertical: 10,
+                  horizontal: 12,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: Colors.transparent),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: Colors.transparent),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAllInOneSection() {
+    final total = _getInvoiceTotal();
+    final paid = _parseAmount(_amountController.text);
+    final due = (total - paid).clamp(0, double.infinity);
+    final isPartial = due > 0 && paid > 0;
+    final invoiceNo = (widget.invoice['invoice_number'] ?? 'N/A').toString();
+    final tenant = (widget.invoice['tenant_name'] ?? 'N/A').toString();
+    final unit = (widget.invoice['unit_name'] ?? 'N/A').toString();
+    final breakdown = widget.invoice['breakdown'];
+    final String gatewayRaw =
+        (widget.invoice['payment_gateway'] ??
+                widget.invoice['payment_method'] ??
+                widget.invoice['gateway'] ??
+                widget.invoice['method'] ??
+                '')
+            .toString();
+    final String gateway = _prettyGatewayName(gatewayRaw);
+    final String txDate = _formatDate(
+      widget.invoice['payment_date'] ??
+          widget.invoice['paid_date'] ??
+          widget.invoice['paid_at'] ??
+          widget.invoice['issue_date'],
+    );
+    final status = (widget.invoice['status'] ?? '').toString();
+
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Payment status badge
+            Align(
+              alignment: Alignment.centerRight,
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: _getStatusColor(status).withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _getStatusColor(status).withOpacity(0.3),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      status.toLowerCase() == 'paid'
+                          ? Icons.check_circle
+                          : (status.toLowerCase() == 'partial'
+                                ? Icons.timelapse
+                                : Icons.error_outline),
+                      color: _getStatusColor(status),
+                      size: 16,
+                    ),
+                    SizedBox(width: 6),
+                    Text(
+                      _getStatusText(status),
+                      style: TextStyle(
+                        color: _getStatusColor(status),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SizedBox(height: 8),
+            // Meta rows
+            _kvRow('Invoice no:', '#$invoiceNo'),
+            SizedBox(height: 8),
+            _kvRow('Name:', tenant),
+            SizedBox(height: 8),
+            _kvRow('Unit:', unit),
+            SizedBox(height: 8),
+            _kvRow('Transaction Date:', txDate.isNotEmpty ? txDate : 'N/A'),
+            SizedBox(height: 8),
+            _kvRow('Gateway:', gateway.isNotEmpty ? gateway : 'N/A'),
+
+            // Fees table (optional)
+            if (breakdown is List && breakdown.isNotEmpty) ...[
+              SizedBox(height: 12),
+              Divider(height: 12),
+
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Fees details',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.text,
+                    ),
+                  ),
+                  Text(
+                    'Amount',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.text,
+                    ),
+                  ),
+                ],
+              ),
+
+              Divider(height: 12),
+              ...breakdown.map<Widget>((fee) {
+                final name = (fee['name'] ?? 'Fee').toString();
+                final amt = _parseAmount(fee['amount']).toStringAsFixed(2);
+                return Padding(
+                  padding: EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          name,
+                          style: TextStyle(color: AppColors.text),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      SizedBox(width: 12),
+                      Text(
+                        '৳$amt',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.text,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ],
+
+            // Totals & payment fields
+            //r SizedBox(height: 4),
+            Divider(height: 12),
+            _kvRow('Total:', '৳${total.toStringAsFixed(2)}'),
+            SizedBox(height: 8),
+            Text(
+              'Paid Amount:',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+            SizedBox(height: 6),
+            TextFormField(
+              controller: _amountController,
+              keyboardType: TextInputType.numberWithOptions(decimal: true),
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                hintText: 'Enter amount to pay',
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: EdgeInsets.symmetric(
+                  vertical: 10,
+                  horizontal: 12,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: Colors.transparent),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: Colors.transparent),
+                ),
+              ),
+              validator: (v) {
+                final val = _parseAmount(v);
+                if (val <= 0) return 'Enter a valid amount';
+                if (val > total) return 'Amount cannot exceed total';
+                return null;
+              },
+            ),
+            SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Due:', style: TextStyle(color: AppColors.textSecondary)),
+                Row(
+                  children: [
+                    Text(
+                      '৳${due.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: due > 0 ? Colors.orange : Colors.green,
+                      ),
+                    ),
+                    if (isPartial) ...[
+                      SizedBox(width: 8),
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          'Partial',
+                          style: TextStyle(
+                            color: Colors.orange,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+
+            SizedBox(height: 12),
+            Text(
+              'Payment Method:',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+            SizedBox(height: 6),
+            DropdownButtonFormField<String>(
+              value: _selectedPaymentMethod,
+              items: const [
+                DropdownMenuItem(value: 'cash', child: Text('Cash')),
+                DropdownMenuItem(
+                  value: 'bank_transfer',
+                  child: Text('Bank Transfer'),
+                ),
+                DropdownMenuItem(
+                  value: 'mobile_banking',
+                  child: Text('Mobile Banking'),
+                ),
+                DropdownMenuItem(value: 'check', child: Text('Check')),
+                DropdownMenuItem(value: 'other', child: Text('Other')),
+              ],
+              onChanged: (v) =>
+                  setState(() => _selectedPaymentMethod = v ?? 'cash'),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: EdgeInsets.symmetric(
+                  vertical: 10,
+                  horizontal: 12,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: Colors.transparent),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: Colors.transparent),
+                ),
+              ),
+            ),
+
+            SizedBox(height: 12),
+            // Reference & Notes
+            Text(
+              'Reference/Transaction ID',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+            SizedBox(height: 6),
+            TextFormField(
+              controller: _referenceController,
+              decoration: InputDecoration(
+                hintText: 'e.g. TXN12345',
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: EdgeInsets.symmetric(
+                  vertical: 10,
+                  horizontal: 12,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: Colors.transparent),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: Colors.transparent),
+                ),
+              ),
+            ),
+            SizedBox(height: 12),
+            Text('Note', style: TextStyle(color: AppColors.textSecondary)),
+            SizedBox(height: 6),
+            TextFormField(
+              controller: _notesController,
+              maxLines: 3,
+              decoration: InputDecoration(
+                hintText: 'Optional',
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: EdgeInsets.symmetric(
+                  vertical: 10,
+                  horizontal: 12,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: Colors.transparent),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: Colors.transparent),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _prettyGatewayName(String raw) {
+    final s = raw.toLowerCase();
+    switch (s) {
+      case 'cash':
+        return 'Cash';
+      case 'bank_transfer':
+        return 'Bank Transfer';
+      case 'mobile_banking':
+        return 'Mobile Banking';
+      case 'bkash':
+        return 'bKash';
+      case 'nagad':
+        return 'Nagad';
+      case 'card':
+        return 'Card';
+      case 'check':
+        return 'Check';
+      case 'other':
+        return 'Other';
+      default:
+        return raw;
+    }
   }
 
   Widget _buildInvoiceSummaryCard() {
@@ -823,6 +1502,33 @@ class _InvoicePaymentScreenState extends State<InvoicePaymentScreen> {
       print('=== PAYMENT PROCESS COMPLETED ===');
       setState(() => _isLoading = false);
       print('Loading state set to false');
+    }
+  }
+
+  bool _isInvoicePaid() {
+    final status = (widget.invoice['status'] ?? '').toString().toLowerCase();
+    return status == 'paid';
+  }
+
+  Future<void> _downloadPdf() async {
+    try {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Opening PDF...')));
+      await Future.delayed(const Duration(milliseconds: 400));
+      if (!mounted) return;
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => InvoicePdfScreen(
+            invoiceId: (widget.invoice['id'] as num).toInt(),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to open PDF: $e')));
     }
   }
 

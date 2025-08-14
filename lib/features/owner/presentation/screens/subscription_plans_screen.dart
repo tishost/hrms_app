@@ -139,14 +139,16 @@ class _SubscriptionPlansScreenState
       canPop: false,
       onPopInvoked: (didPop) {
         if (didPop) return;
-        if (context.canPop()) {
-          context.pop();
-        } else {
-          context.go('/properties');
-        }
+        context.go('/subscription-center');
       },
       child: Scaffold(
-        appBar: AppBar(title: const Text('Subscription Plans')),
+        appBar: AppBar(
+          title: const Text('Subscription Plans'),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded),
+            onPressed: () => context.go('/subscription-center'),
+          ),
+        ),
         body: Container(
           constraints: const BoxConstraints(maxWidth: double.infinity),
           decoration: BoxDecoration(
@@ -189,100 +191,8 @@ class _SubscriptionPlansScreenState
                   child: ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
-                      // App Logo Header
-                      Center(
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 24),
-                          child: Column(
-                            children: [
-                              // Logo Container
-                              Container(
-                                width: 80,
-                                height: 80,
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [
-                                      Colors.blue[600]!,
-                                      Colors.blue[700]!,
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(20),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.blue.withValues(alpha: 0.3),
-                                      blurRadius: 15,
-                                      offset: const Offset(0, 8),
-                                    ),
-                                  ],
-                                ),
-                                child: Stack(
-                                  children: [
-                                    // House Icon (Top Left)
-                                    Positioned(
-                                      top: 12,
-                                      left: 12,
-                                      child: Icon(
-                                        Icons.home_rounded,
-                                        color: Colors.white,
-                                        size: 24,
-                                      ),
-                                    ),
-                                    // Document Icon (Right)
-                                    Positioned(
-                                      top: 20,
-                                      right: 12,
-                                      child: Icon(
-                                        Icons.description_rounded,
-                                        color: Colors.white,
-                                        size: 20,
-                                      ),
-                                    ),
-                                    // BM Text (Bottom Center)
-                                    Positioned(
-                                      bottom: 12,
-                                      left: 0,
-                                      right: 0,
-                                      child: Center(
-                                        child: Text(
-                                          'BM',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold,
-                                            letterSpacing: 1.0,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              // App Name
-                              Text(
-                                'BariManager',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.blue[800],
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Choose Your Plan',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey[600],
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      
+                      // Header removed per request
+
                       // Debug info (remove in production)
                       if (_currentSubscription != null)
                         Container(

@@ -5,6 +5,9 @@ import 'package:hrms_app/core/utils/app_colors.dart';
 import 'package:hrms_app/features/auth/data/services/auth_service.dart';
 import 'package:hrms_app/features/owner/data/services/unit_service.dart';
 import 'package:hrms_app/features/owner/presentation/screens/unit_entry_screen.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:hrms_app/core/utils/api_config.dart';
 
 class UnitListScreen extends StatefulWidget {
   const UnitListScreen({super.key});
@@ -17,6 +20,18 @@ class _UnitListScreenState extends State<UnitListScreen> {
   List<Map<String, dynamic>> _units = [];
   bool _isLoading = true;
   String _searchQuery = '';
+  bool _planExpired = false;
+  bool _canAddUnit = true;
+  int _allowedUnitLimit = 999999;
+  bool _unlimitedUnits = false;
+  String _selectedFilter = 'All';
+  final List<String> _filterOptions = [
+    'All', // shows Rent + Vacant
+    'Rented',
+    'Vacant',
+    'Archived',
+    'Maintenance',
+  ];
 
   @override
   void initState() {
@@ -31,11 +46,30 @@ class _UnitListScreenState extends State<UnitListScreen> {
     try {
       String? token = await AuthService.getToken();
       if (token == null) throw Exception('Not authenticated');
-      final units = await UnitService.getUnits();
+      String? statusParam;
+      switch (_selectedFilter) {
+        case 'Rented':
+          statusParam = 'rented';
+          break;
+        case 'Vacant':
+          statusParam = 'vacant';
+          break;
+        case 'Archived':
+          statusParam = 'archived';
+          break;
+        case 'Maintenance':
+          statusParam = 'maintenance';
+          break;
+        case 'All':
+        default:
+          statusParam = null; // all
+      }
+      final units = await UnitService.getUnits(status: statusParam);
       setState(() {
         _units = units;
         _isLoading = false;
       });
+      _evaluateUnitLimit();
     } catch (e) {
       setState(() {
         _isLoading = false;
@@ -44,6 +78,50 @@ class _UnitListScreenState extends State<UnitListScreen> {
         context,
       ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
     }
+  }
+
+  Future<void> _evaluateUnitLimit() async {
+    try {
+      final token = await AuthService.getToken();
+      if (token == null) return;
+      final url = ApiConfig.getApiUrl('/owner/subscription');
+      final resp = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+      if (resp.statusCode == 200) {
+        final data = json.decode(resp.body);
+        final sub = data['subscription'];
+        bool expired =
+            (sub == null) ||
+            ((sub['status'] ?? '').toString().toLowerCase() != 'active');
+        int count = _units.length;
+        int? limit;
+        try {
+          final raw = sub?['plan']?['units_limit'];
+          if (raw is num) limit = raw.toInt();
+          if (raw is String) limit = int.tryParse(raw);
+        } catch (_) {}
+        bool unlimited = (limit == -1);
+        int allowed = unlimited ? 999999 : (limit ?? 1);
+        if (expired) {
+          allowed = 1;
+          unlimited = false;
+        }
+        bool canAdd = !expired && (unlimited || count < allowed);
+        if (mounted) {
+          setState(() {
+            _planExpired = expired;
+            _canAddUnit = canAdd;
+            _allowedUnitLimit = allowed;
+            _unlimitedUnits = unlimited;
+          });
+        }
+      }
+    } catch (_) {}
   }
 
   Widget _buildUnitCard(Map<String, dynamic> unit) {
@@ -101,6 +179,23 @@ class _UnitListScreenState extends State<UnitListScreen> {
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: () async {
+            final index = _units.indexOf(unit);
+            final isDisabled =
+                _planExpired ||
+                (!_unlimitedUnits && index >= _allowedUnitLimit);
+            if (isDisabled) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Limit reached. Upgrade to manage more units.'),
+                  action: SnackBarAction(
+                    label: 'Upgrade',
+                    onPressed: () => context.go('/subscription-plans'),
+                    textColor: AppColors.primary,
+                  ),
+                ),
+              );
+              return;
+            }
             final result = await Navigator.push(
               context,
               MaterialPageRoute(
@@ -359,7 +454,11 @@ class _UnitListScreenState extends State<UnitListScreen> {
     final filteredUnits = _units.where((unit) {
       final name = unit['name']?.toString().toLowerCase() ?? '';
       final query = _searchQuery.toLowerCase();
-      return name.contains(query);
+      if (!name.contains(query)) return false;
+      if (_selectedFilter == 'All') return true;
+      final st = (unit['status'] ?? '').toString().toLowerCase();
+      final expected = _selectedFilter.toLowerCase();
+      return st == expected;
     }).toList();
 
     return Scaffold(
@@ -394,29 +493,61 @@ class _UnitListScreenState extends State<UnitListScreen> {
       ),
       body: Column(
         children: [
-          // Search Section
+          // Search and Filter Section
           Container(
             padding: EdgeInsets.all(16),
-            child: TextField(
-              onChanged: (value) {
-                setState(() {
-                  _searchQuery = value;
-                });
-              },
-              decoration: InputDecoration(
-                hintText: 'Search units...',
-                prefixIcon: Icon(Icons.search, color: AppColors.hint),
-                filled: true,
-                fillColor: AppColors.white,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
+            child: Column(
+              children: [
+                TextField(
+                  onChanged: (value) {
+                    setState(() {
+                      _searchQuery = value;
+                    });
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'Search units...',
+                    prefixIcon: Icon(Icons.search, color: AppColors.hint),
+                    filled: true,
+                    fillColor: AppColors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 16,
+                    ),
+                  ),
                 ),
-                contentPadding: EdgeInsets.symmetric(
-                  vertical: 12,
-                  horizontal: 16,
+                SizedBox(height: 12),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: _filterOptions.map((filter) {
+                      return Padding(
+                        padding: EdgeInsets.only(right: 8),
+                        child: FilterChip(
+                          label: Text(filter),
+                          selected: _selectedFilter == filter,
+                          onSelected: (selected) async {
+                            setState(() {
+                              _selectedFilter = filter;
+                            });
+                            await _loadUnits();
+                          },
+                          backgroundColor: AppColors.white,
+                          selectedColor: AppColors.primary.withOpacity(0.2),
+                          labelStyle: TextStyle(
+                            color: _selectedFilter == filter
+                                ? AppColors.primary
+                                : AppColors.textSecondary,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
           // Units List
@@ -443,6 +574,26 @@ class _UnitListScreenState extends State<UnitListScreen> {
                           direction: DismissDirection.endToStart,
                           background: _slideRightBackground(),
                           confirmDismiss: (direction) async {
+                            final isDisabled =
+                                _planExpired ||
+                                (!_unlimitedUnits &&
+                                    index >= _allowedUnitLimit);
+                            if (isDisabled) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Limit reached. Upgrade to manage more units.',
+                                  ),
+                                  action: SnackBarAction(
+                                    label: 'Upgrade',
+                                    onPressed: () =>
+                                        context.go('/subscription-plans'),
+                                    textColor: AppColors.primary,
+                                  ),
+                                ),
+                              );
+                              return false;
+                            }
                             final confirm = await showDialog<bool>(
                               context: context,
                               builder: (ctx) => AlertDialog(
@@ -504,19 +655,29 @@ class _UnitListScreenState extends State<UnitListScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => UnitEntryScreen()),
-          );
-          if (result == true) {
-            _loadUnits();
-          }
-        },
-        backgroundColor: AppColors.primary,
-        child: Icon(Icons.add, color: AppColors.white),
-      ),
+      floatingActionButton: (_planExpired || !_canAddUnit)
+          ? FloatingActionButton.extended(
+              onPressed: () => context.go('/subscription-plans'),
+              backgroundColor: AppColors.primary,
+              icon: Icon(Icons.upgrade, color: AppColors.white),
+              label: Text(
+                'Upgrade to add',
+                style: TextStyle(color: AppColors.white),
+              ),
+            )
+          : FloatingActionButton(
+              onPressed: () async {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => UnitEntryScreen()),
+                );
+                if (result == true) {
+                  _loadUnits();
+                }
+              },
+              backgroundColor: AppColors.primary,
+              child: Icon(Icons.add, color: AppColors.white),
+            ),
     );
   }
 }

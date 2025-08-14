@@ -4,9 +4,10 @@ import 'package:go_router/go_router.dart';
 import 'package:hrms_app/core/utils/app_colors.dart';
 import 'package:hrms_app/features/auth/data/services/auth_service.dart';
 import 'package:hrms_app/features/owner/data/services/property_service.dart';
-import 'package:hrms_app/features/owner/presentation/widgets/custom_bottom_nav.dart';
-import 'package:hrms_app/features/owner/presentation/screens/property_entry_screen.dart';
-import 'package:hrms_app/features/owner/presentation/screens/dashboard_screen.dart';
+// import 'package:hrms_app/features/owner/presentation/screens/property_entry_screen.dart';
+import 'package:hrms_app/core/utils/api_config.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class PropertyListScreen extends StatefulWidget {
   const PropertyListScreen({super.key});
@@ -21,13 +22,17 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
   bool _isLoading = true;
   bool _isRefreshing = false;
   String _searchQuery = '';
-  String _selectedFilter = 'All';
-  int _selectedIndex = 1; // Property tab selected
+  String _selectedFilter = 'Active';
+  // int _selectedIndex = 1; // Property tab selected (unused)
+  bool _planExpired = false;
+  bool _canAddProperty = true;
+  int _allowedPropertyLimit = 999999;
+  bool _unlimitedProperties = false;
 
   final List<String> _filterOptions = [
-    'All',
     'Active',
-    'Inactive',
+    'All',
+    'Archived',
     'Maintenance',
   ];
 
@@ -58,7 +63,30 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
         return;
       }
 
-      final properties = await PropertyService.getProperties();
+      // Map UI filter to API params
+      String? statusParam;
+      bool includeArchived = false;
+      switch (_selectedFilter) {
+        case 'Active':
+          statusParam = 'active';
+          break;
+        case 'Archived':
+          statusParam = 'archived';
+          includeArchived = true;
+          break;
+        case 'Maintenance':
+          statusParam = 'maintenance';
+          break;
+        case 'All':
+        default:
+          statusParam = null;
+          includeArchived = false;
+      }
+
+      final properties = await PropertyService.getProperties(
+        status: statusParam,
+        includeArchived: includeArchived,
+      );
 
       setState(() {
         _properties = properties;
@@ -66,6 +94,9 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
         _isLoading = false;
         _isRefreshing = false;
       });
+
+      // After loading properties, evaluate limits
+      _evaluatePropertyLimit();
     } catch (e) {
       setState(() {
         _isLoading = false;
@@ -78,6 +109,52 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
           backgroundColor: AppColors.error,
         ),
       );
+    }
+  }
+
+  Future<void> _evaluatePropertyLimit() async {
+    try {
+      final token = await AuthService.getToken();
+      if (token == null) return;
+      final url = ApiConfig.getApiUrl('/owner/subscription');
+      final resp = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+      if (resp.statusCode == 200) {
+        final data = json.decode(resp.body);
+        final sub = data['subscription'];
+        bool expired =
+            (sub == null) ||
+            ((sub['status'] ?? '').toString().toLowerCase() != 'active');
+        int count = _properties.length;
+        int? limit;
+        try {
+          final raw = sub?['plan']?['properties_limit'];
+          if (raw is num) limit = raw.toInt();
+          if (raw is String) limit = int.tryParse(raw);
+        } catch (_) {}
+        bool unlimited = (limit == -1);
+        int allowed = unlimited ? 999999 : (limit ?? 1);
+        if (expired) {
+          allowed = 1;
+          unlimited = false;
+        }
+        bool canAdd = !expired && (unlimited || count < allowed);
+        if (mounted) {
+          setState(() {
+            _planExpired = expired;
+            _canAddProperty = canAdd;
+            _allowedPropertyLimit = allowed;
+            _unlimitedProperties = unlimited;
+          });
+        }
+      }
+    } catch (_) {
+      // Silent fail; keep existing state
     }
   }
 
@@ -98,10 +175,12 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
       }).toList();
     }
 
-    // Apply status filter
+    // Apply status filter (client-side safeguard)
     if (_selectedFilter != 'All') {
+      final expected = _selectedFilter.toLowerCase();
       filtered = filtered.where((property) {
-        return property['status'] == _selectedFilter.toLowerCase();
+        final st = (property['status'] ?? '').toString().toLowerCase();
+        return expected == 'archived' ? st == 'archived' : st == expected;
       }).toList();
     }
 
@@ -110,26 +189,7 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
     });
   }
 
-  void _onItemTapped(int index) {
-    if (index == 0) {
-      // Navigate to Dashboard
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (context) => DashboardScreen()),
-        (route) => false,
-      );
-    } else if (index == 1) {
-      // Already on Property List, do nothing
-    } else {
-      setState(() {
-        _selectedIndex = index;
-      });
-      // TODO: Navigate to other screens when implemented
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Coming soon!')));
-    }
-  }
+  // _onItemTapped removed (unused)
 
   @override
   Widget build(BuildContext context) {
@@ -259,18 +319,26 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final result = await context.push('/property-entry');
-
-          // Refresh the list if a new property was added
-          if (result == true) {
-            _loadProperties();
-          }
-        },
-        backgroundColor: AppColors.primary,
-        child: Icon(Icons.add, color: AppColors.white),
-      ),
+      floatingActionButton: (_planExpired || !_canAddProperty)
+          ? FloatingActionButton.extended(
+              onPressed: () => context.go('/subscription-plans'),
+              backgroundColor: AppColors.primary,
+              icon: Icon(Icons.upgrade, color: AppColors.white),
+              label: Text(
+                'Upgrade to add',
+                style: TextStyle(color: AppColors.white),
+              ),
+            )
+          : FloatingActionButton(
+              onPressed: () async {
+                final result = await context.push('/property-entry');
+                if (result == true) {
+                  _loadProperties();
+                }
+              },
+              backgroundColor: AppColors.primary,
+              child: Icon(Icons.add, color: AppColors.white),
+            ),
     );
   }
 
@@ -348,7 +416,73 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
           try {
             String? token = await AuthService.getToken();
             if (token == null) throw Exception('Not authenticated');
-            await PropertyService.deleteProperty(property['id']);
+            try {
+              await PropertyService.deleteProperty(property['id']);
+            } catch (e) {
+              final msg = e.toString();
+              if (msg.contains('requires_checkout') ||
+                  msg.contains('REQUIRES_CHECKOUT')) {
+                // Show prompt to go to checkout list/form
+                final go = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: Text('Checkout required'),
+                    content: Text(
+                      'Some units are currently rented. Please checkout tenants before deleting this property.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: Text('Go to Checkout'),
+                      ),
+                    ],
+                  ),
+                );
+                if (go == true) {
+                  // Try to prefill tenant/unit if possible from backend later
+                  context.go('/owner/tenants');
+                }
+                return false;
+              }
+              if (msg.contains('ARCHIVE_REQUIRED')) {
+                final archive = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: Text('Archive Property?'),
+                    content: Text(
+                      'This property has linked units or data. You can archive it to keep invoices/billing intact. Proceed to archive?',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: Text('Archive'),
+                      ),
+                    ],
+                  ),
+                );
+                if (archive == true) {
+                  final ok = await PropertyService.archiveProperty(
+                    property['id'],
+                  );
+                  if (ok) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Property archived successfully')),
+                    );
+                    _loadProperties();
+                  }
+                }
+                return false;
+              }
+              rethrow;
+            }
             setState(() {
               _properties.removeWhere((p) => p['id'] == property['id']);
               _filterProperties();
@@ -384,6 +518,25 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
           child: InkWell(
             borderRadius: BorderRadius.circular(12),
             onTap: () async {
+              final index = _filteredProperties.indexOf(property);
+              final isDisabled =
+                  _planExpired ||
+                  (!_unlimitedProperties && index >= _allowedPropertyLimit);
+              if (isDisabled) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Limit reached. Upgrade to manage more properties.',
+                    ),
+                    action: SnackBarAction(
+                      label: 'Upgrade',
+                      onPressed: () => context.go('/subscription-plans'),
+                      textColor: AppColors.primary,
+                    ),
+                  ),
+                );
+                return;
+              }
               // Open edit form with property data
               print('DEBUG: Property tapped for edit: $property');
               final result = await context.push(

@@ -258,6 +258,30 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, __, child) => MainAppShell(child: child),
         routes: [
           GoRoute(
+            path: '/checkout',
+            builder: (context, state) => BackButtonListener(
+              onBackButtonPressed: () async {
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/owner/tenants');
+                }
+                return true;
+              },
+              child: CheckoutFormScreen(
+                tenant: state.extra is Map<String, dynamic>
+                    ? (state.extra as Map<String, dynamic>)['tenant']
+                    : null,
+                unit: state.extra is Map<String, dynamic>
+                    ? (state.extra as Map<String, dynamic>)['unit']
+                    : null,
+                property: state.extra is Map<String, dynamic>
+                    ? (state.extra as Map<String, dynamic>)['property']
+                    : null,
+              ),
+            ),
+          ),
+          GoRoute(
             path: '/dashboard',
             builder: (context, __) => BackButtonListener(
               onBackButtonPressed: () async {
@@ -518,17 +542,25 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => BackButtonListener(
               onBackButtonPressed: () async {
                 print(
-                  'DEBUG: Subscription Checkout BackButtonListener - Back button pressed',
+                  'DEBUG: Subscription Checkout Back - redirect to /subscription-center',
                 );
-                if (context.canPop()) {
-                  context.pop();
-                } else {
-                  context.go('/subscription-center');
-                }
+                context.go('/subscription-center');
                 return true;
               },
               child: SubscriptionCheckoutScreen(
                 invoice: state.extra as Map<String, dynamic>,
+              ),
+            ),
+          ),
+          GoRoute(
+            path: '/subscription-payment',
+            builder: (context, state) => BackButtonListener(
+              onBackButtonPressed: () async {
+                context.go('/subscription-center');
+                return true;
+              },
+              child: SubscriptionPaymentWebView(
+                url: (state.extra as Map<String, dynamic>)['url'] as String,
               ),
             ),
           ),

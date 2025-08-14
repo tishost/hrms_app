@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
+import 'dart:async';
 import 'dart:convert';
 import 'package:hrms_app/core/utils/api_config.dart';
 import 'package:hrms_app/core/utils/app_colors.dart';
 import 'package:hrms_app/features/auth/data/services/auth_service.dart';
-import 'package:hrms_app/features/owner/presentation/widgets/custom_bottom_nav.dart';
 import 'invoice_payment_screen.dart';
 import 'invoice_pdf_screen.dart';
 
@@ -20,6 +20,9 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
   List<Map<String, dynamic>> _invoices = [];
   bool _isLoading = true;
   String _selectedFilter = 'all'; // all, unpaid, paid
+  final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -49,9 +52,9 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
         });
       } else {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to load invoices')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to load invoices')),
+        );
       }
     } catch (e) {
       setState(() => _isLoading = false);
@@ -62,10 +65,62 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
   }
 
   List<Map<String, dynamic>> get _filteredInvoices {
-    if (_selectedFilter == 'all') return _invoices;
-    return _invoices
-        .where((invoice) => invoice['status']?.toLowerCase() == _selectedFilter)
-        .toList();
+    final List<Map<String, dynamic>> base = _selectedFilter == 'all'
+        ? _invoices
+        : _invoices
+              .where(
+                (invoice) =>
+                    (invoice['status'] ?? '').toString().toLowerCase() ==
+                    _selectedFilter,
+              )
+              .toList();
+
+    final q = _searchQuery.trim().toLowerCase();
+    List<Map<String, dynamic>> result;
+    if (q.isEmpty) {
+      result = List<Map<String, dynamic>>.from(base);
+    } else {
+      bool match(Map<String, dynamic> inv) {
+        final name =
+            (inv['tenant_name'] ??
+                    (inv['tenant'] is Map ? inv['tenant']['name'] : null) ??
+                    (inv['tenant'] is Map
+                        ? inv['tenant']['full_name']
+                        : null) ??
+                    '')
+                .toString()
+                .toLowerCase();
+        final invNo =
+            (inv['invoice_number'] ?? inv['number'] ?? inv['invoiceNo'] ?? '')
+                .toString()
+                .toLowerCase();
+        return name.contains(q) || invNo.contains(q);
+      }
+
+      result = base.where(match).toList();
+    }
+
+    // Sort to show unpaid first, then partial/due, then others, then paid last
+    result.sort((a, b) {
+      final pa = _statusPriority(a['status']);
+      final pb = _statusPriority(b['status']);
+      if (pa != pb) return pa.compareTo(pb);
+      // Optional tie-breaker: newer due_date first if available
+      final ad = (a['due_date'] ?? '').toString();
+      final bd = (b['due_date'] ?? '').toString();
+      return bd.compareTo(ad);
+    });
+
+    return result;
+  }
+
+  int _statusPriority(dynamic status) {
+    final s = (status ?? '').toString().toLowerCase();
+    if (s == 'unpaid') return 0;
+    if (s == 'partial' || s == 'due') return 1;
+    if (s == 'pending') return 2;
+    if (s == 'paid') return 3;
+    return 4;
   }
 
   @override
@@ -104,26 +159,75 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
         children: [
           // Filter Buttons
           Container(
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               children: [
                 Expanded(child: _buildFilterButton('all', 'All')),
-                SizedBox(width: 6),
+                const SizedBox(width: 6),
                 Expanded(child: _buildFilterButton('unpaid', 'Unpaid')),
-                SizedBox(width: 6),
+                const SizedBox(width: 6),
                 Expanded(child: _buildFilterButton('paid', 'Paid')),
               ],
             ),
           ),
+          // Search bar
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: TextField(
+              controller: _searchController,
+              textInputAction: TextInputAction.search,
+              onChanged: (value) {
+                _searchDebounce?.cancel();
+                _searchDebounce = Timer(const Duration(milliseconds: 400), () {
+                  if (!mounted) return;
+                  setState(() => _searchQuery = value);
+                });
+              },
+              decoration: InputDecoration(
+                hintText: 'Search by name or invoice #',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchQuery.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _searchQuery = '');
+                        },
+                      ),
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: const EdgeInsets.symmetric(
+                  vertical: 10,
+                  horizontal: 12,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: Colors.transparent),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: Colors.transparent),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(
+                    color: AppColors.primary.withOpacity(0.4),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
           // Invoice List
           Expanded(
             child: _isLoading
-                ? Center(child: CircularProgressIndicator())
+                ? const Center(child: CircularProgressIndicator())
                 : _filteredInvoices.isEmpty
                 ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
+                      children: const [
                         Icon(Icons.receipt_long, size: 64, color: Colors.grey),
                         SizedBox(height: 16),
                         Text(
@@ -136,302 +240,160 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
                 : RefreshIndicator(
                     onRefresh: _fetchInvoices,
                     child: ListView.builder(
-                      padding: EdgeInsets.symmetric(horizontal: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
                       itemCount: _filteredInvoices.length,
                       itemBuilder: (context, index) {
                         final invoice = _filteredInvoices[index];
+                        final String tenantName =
+                            (invoice['tenant_name'] ??
+                                    (invoice['tenant'] is Map
+                                        ? invoice['tenant']['name']
+                                        : null) ??
+                                    (invoice['tenant'] is Map
+                                        ? invoice['tenant']['full_name']
+                                        : null) ??
+                                    '—')
+                                .toString();
+                        final String unitName =
+                            (invoice['unit_name'] ??
+                                    (invoice['unit'] is Map
+                                        ? invoice['unit']['name']
+                                        : null) ??
+                                    invoice['unit_no'] ??
+                                    '—')
+                                .toString();
+                        final String invoiceNo =
+                            (invoice['invoice_number'] ??
+                                    invoice['number'] ??
+                                    invoice['invoiceNo'] ??
+                                    'N/A')
+                                .toString();
+                        final String amountStr =
+                            (invoice['amount'] ??
+                                    invoice['net_amount'] ??
+                                    invoice['total'] ??
+                                    invoice['amount_due'] ??
+                                    '0')
+                                .toString();
+                        final String dateStr = _formatDate(invoice['due_date']);
+                        final String invoiceType =
+                            (invoice['invoice_type'] ?? invoice['type'] ?? '')
+                                .toString()
+                                .trim();
+
                         return Card(
-                          margin: EdgeInsets.only(bottom: 12),
+                          margin: const EdgeInsets.only(bottom: 12),
                           elevation: 2,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: InkWell(
-                            onTap: () => _showPaymentOptions(invoice),
+                            onTap: () {
+                              context.push('/invoice-payment', extra: invoice);
+                            },
                             borderRadius: BorderRadius.circular(12),
                             child: Padding(
-                              padding: EdgeInsets.all(12),
+                              padding: const EdgeInsets.all(14),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  // Header Row
+                                  // Row 1: Name | Unit (left) | Status (right)
                                   Row(
-                                    children: [
-                                      CircleAvatar(
-                                        radius: 20,
-                                        backgroundColor: _getInvoiceTypeColor(
-                                          invoice['invoice_type'],
-                                        ),
-                                        child: Icon(
-                                          _getInvoiceTypeIcon(
-                                            invoice['invoice_type'],
-                                          ),
-                                          color: Colors.white,
-                                          size: 20,
-                                        ),
-                                      ),
-                                      SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              invoice['description'] ??
-                                                  'Invoice',
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 16,
-                                              ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            SizedBox(height: 4),
-                                            Text(
-                                              '👤 ${invoice['tenant_name'] ?? 'N/A'}',
-                                              style: TextStyle(fontSize: 13),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.end,
-                                        children: [
-                                          Text(
-                                            '${invoice['amount'] ?? '0'} BDT',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 16,
-                                              color: AppColors.primary,
-                                            ),
-                                          ),
-                                          SizedBox(height: 4),
-                                          Container(
-                                            padding: EdgeInsets.symmetric(
-                                              horizontal: 6,
-                                              vertical: 2,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: _getStatusColor(
-                                                invoice['status'],
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                            child: Text(
-                                              _getStatusText(invoice['status']),
-                                              style: TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                  SizedBox(height: 8),
-                                  // Details Row
-                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
                                     children: [
                                       Expanded(
                                         child: Text(
-                                          '🏠 ${invoice['unit_name'] ?? 'N/A'}',
-                                          style: TextStyle(fontSize: 12),
+                                          '$tenantName | $unitName',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 15,
+                                            color: AppColors.text,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 5,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: _getStatusColor(
+                                            invoice['status'],
+                                          ).withOpacity(0.12),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          _getStatusText(invoice['status']),
+                                          style: TextStyle(
+                                            color: _getStatusColor(
+                                              invoice['status'],
+                                            ),
+                                            fontSize: 12.5,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  // Row 2: Invoice # - Type (left) | Amount (right)
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Expanded(
+                                        child: RichText(
+                                          text: TextSpan(
+                                            children: [
+                                              TextSpan(
+                                                text: '#$invoiceNo',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: AppColors.gray,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                              if (invoiceType.isNotEmpty) ...[
+                                                const TextSpan(text: '  '),
+                                                TextSpan(
+                                                  text:
+                                                      invoiceType[0]
+                                                          .toUpperCase() +
+                                                      invoiceType.substring(1),
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: _getTypeColor(
+                                                      invoiceType,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
+                                          ),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
                                       Text(
-                                        '📅 ${_formatDate(invoice['due_date'])}',
-                                        style: TextStyle(fontSize: 12),
+                                        '৳$amountStr',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: _getStatusColor(
+                                            invoice['status'],
+                                          ),
+                                        ),
                                       ),
                                     ],
                                   ),
-                                  // Fees breakdown (expanded)
-                                  if (invoice['breakdown'] != null &&
-                                      (invoice['breakdown'] as List)
-                                          .isNotEmpty) ...[
-                                    SizedBox(height: 8),
-                                    Container(
-                                      padding: EdgeInsets.all(12),
-                                      decoration: BoxDecoration(
-                                        color: Colors.blue.withOpacity(0.05),
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(
-                                          color: Colors.blue.withOpacity(0.2),
-                                          width: 1,
-                                        ),
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              Icon(
-                                                Icons.receipt_long,
-                                                size: 16,
-                                                color: AppColors.primary,
-                                              ),
-                                              SizedBox(width: 6),
-                                              Text(
-                                                'Invoice Breakdown',
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: AppColors.primary,
-                                                ),
-                                              ),
-                                              Spacer(),
-                                              Container(
-                                                padding: EdgeInsets.symmetric(
-                                                  horizontal: 6,
-                                                  vertical: 2,
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  color: AppColors.primary,
-                                                  borderRadius:
-                                                      BorderRadius.circular(10),
-                                                ),
-                                                child: Text(
-                                                  '${(invoice['breakdown'] as List).length} items',
-                                                  style: TextStyle(
-                                                    fontSize: 10,
-                                                    color: Colors.white,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          SizedBox(height: 8),
-                                          // Show all breakdown items
-                                          ...(invoice['breakdown'] as List).map<
-                                            Widget
-                                          >((fee) {
-                                            return Container(
-                                              margin: EdgeInsets.only(
-                                                bottom: 6,
-                                              ),
-                                              padding: EdgeInsets.all(8),
-                                              decoration: BoxDecoration(
-                                                color: Colors.white,
-                                                borderRadius:
-                                                    BorderRadius.circular(6),
-                                                border: Border.all(
-                                                  color: Colors.grey
-                                                      .withOpacity(0.2),
-                                                ),
-                                              ),
-                                              child: Row(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment
-                                                        .spaceBetween,
-                                                children: [
-                                                  Expanded(
-                                                    child: Column(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
-                                                      children: [
-                                                        Text(
-                                                          fee['name'] ?? 'Fee',
-                                                          style: TextStyle(
-                                                            fontSize: 12,
-                                                            fontWeight:
-                                                                FontWeight.w600,
-                                                            color:
-                                                                Colors.black87,
-                                                          ),
-                                                        ),
-                                                        if (fee['description'] !=
-                                                                null &&
-                                                            fee['description']
-                                                                .toString()
-                                                                .isNotEmpty) ...[
-                                                          SizedBox(height: 4),
-                                                          Container(
-                                                            padding:
-                                                                EdgeInsets.all(
-                                                                  6,
-                                                                ),
-                                                            decoration: BoxDecoration(
-                                                              color: Colors.blue
-                                                                  .withOpacity(
-                                                                    0.1,
-                                                                  ),
-                                                              borderRadius:
-                                                                  BorderRadius.circular(
-                                                                    4,
-                                                                  ),
-                                                              border: Border.all(
-                                                                color: Colors
-                                                                    .blue
-                                                                    .withOpacity(
-                                                                      0.2,
-                                                                    ),
-                                                                width: 1,
-                                                              ),
-                                                            ),
-                                                            child: Row(
-                                                              children: [
-                                                                Icon(
-                                                                  Icons
-                                                                      .info_outline,
-                                                                  color: AppColors
-                                                                      .primary,
-                                                                  size: 12,
-                                                                ),
-                                                                SizedBox(
-                                                                  width: 4,
-                                                                ),
-                                                                Expanded(
-                                                                  child: Text(
-                                                                    fee['description'],
-                                                                    style: TextStyle(
-                                                                      fontSize:
-                                                                          9,
-                                                                      color: Colors
-                                                                          .grey[700],
-                                                                      fontStyle:
-                                                                          FontStyle
-                                                                              .italic,
-                                                                    ),
-                                                                    maxLines: 2,
-                                                                    overflow:
-                                                                        TextOverflow
-                                                                            .ellipsis,
-                                                                  ),
-                                                                ),
-                                                              ],
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ],
-                                                    ),
-                                                  ),
-                                                  Text(
-                                                    '৳${fee['amount'] ?? '0'}',
-                                                    style: TextStyle(
-                                                      fontSize: 12,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      color: AppColors.primary,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            );
-                                          }),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
                                 ],
                               ),
                             ),
@@ -449,11 +411,9 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
   Widget _buildFilterButton(String filter, String label) {
     final isSelected = _selectedFilter == filter;
     return GestureDetector(
-      onTap: () {
-        setState(() => _selectedFilter = filter);
-      },
+      onTap: () => setState(() => _selectedFilter = filter),
       child: Container(
-        padding: EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.symmetric(vertical: 6),
         decoration: BoxDecoration(
           color: isSelected ? AppColors.primary : Colors.white,
           borderRadius: BorderRadius.circular(6),
@@ -475,36 +435,13 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
     );
   }
 
-  Color _getInvoiceTypeColor(String? type) {
-    switch (type?.toLowerCase()) {
-      case 'advance':
-        return Colors.orange;
-      case 'rent':
-        return Colors.blue;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  IconData _getInvoiceTypeIcon(String? type) {
-    switch (type?.toLowerCase()) {
-      case 'advance':
-        return Icons.security;
-      case 'rent':
-        return Icons.home;
-      default:
-        return Icons.receipt;
-    }
-  }
-
   Color _getStatusColor(String? status) {
-    switch (status?.toLowerCase()) {
+    switch ((status ?? '').toString().toLowerCase()) {
       case 'paid':
         return Colors.green;
       case 'unpaid':
         return Colors.red;
       case 'due':
-        return Colors.orange;
       case 'partial':
         return Colors.orange;
       default:
@@ -513,7 +450,7 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
   }
 
   String _getStatusText(String? status) {
-    switch (status?.toLowerCase()) {
+    switch ((status ?? '').toString().toLowerCase()) {
       case 'paid':
         return 'Paid';
       case 'unpaid':
@@ -527,14 +464,27 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
     }
   }
 
+  Color _getTypeColor(String type) {
+    switch (type.toLowerCase()) {
+      case 'rent':
+        return Colors.blue;
+      case 'advance':
+        return Colors.orange;
+      default:
+        return Colors.grey;
+    }
+  }
+
   String _formatDate(dynamic date) {
     if (date == null) return 'N/A';
     try {
       if (date is String) {
-        return date.split(' ')[0]; // Remove time part if present
+        // Expecting formats like '2025-08-14 12:34:00'
+        final parts = date.split(' ');
+        return parts.isNotEmpty ? parts.first : date;
       }
       return date.toString();
-    } catch (e) {
+    } catch (_) {
       return 'N/A';
     }
   }
@@ -542,11 +492,11 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
   void _showPaymentOptions(Map<String, dynamic> invoice) {
     showModalBottomSheet(
       context: context,
-      shape: RoundedRectangleBorder(
+      shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) => Container(
-        padding: EdgeInsets.all(20),
+        padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -558,7 +508,7 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             Text(
               'Invoice #${invoice['invoice_number'] ?? 'N/A'}',
               style: TextStyle(
@@ -567,12 +517,12 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
                 color: AppColors.text,
               ),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
               'Amount: ৳${invoice['amount'] ?? '0'}',
               style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             Row(
               children: [
                 Expanded(
@@ -591,18 +541,18 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
                         }
                       });
                     },
-                    icon: Icon(Icons.payment, color: Colors.white),
-                    label: Text('Make Payment'),
+                    icon: const Icon(Icons.payment, color: Colors.white),
+                    label: const Text('Make Payment'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
-                      padding: EdgeInsets.symmetric(vertical: 12),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
                   ),
                 ),
-                SizedBox(width: 12),
+                const SizedBox(width: 12),
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: () {
@@ -616,10 +566,10 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
                       );
                     },
                     icon: Icon(Icons.picture_as_pdf, color: AppColors.primary),
-                    label: Text('View PDF'),
+                    label: const Text('View PDF'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.primary,
-                      padding: EdgeInsets.symmetric(vertical: 12),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -628,7 +578,7 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
                 ),
               ],
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
           ],
         ),
       ),

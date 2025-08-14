@@ -84,6 +84,7 @@ dependencies:
   connectivity_plus: ^5.0.2
   internet_connection_checker: ^1.0.0+1
   google_sign_in: ^6.2.1
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:

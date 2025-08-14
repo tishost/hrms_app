@@ -4,13 +4,23 @@ import 'package:hrms_app/core/utils/api_config.dart';
 import 'package:hrms_app/features/auth/data/services/auth_service.dart';
 
 class PropertyService {
-  static Future<List<Map<String, dynamic>>> getProperties() async {
+  static Future<List<Map<String, dynamic>>> getProperties({
+    String? status,
+    bool includeArchived = false,
+  }) async {
     try {
       final token = await AuthService.getToken();
       if (token == null) throw Exception('No token available');
 
+      final baseUrl = ApiConfig.getApiUrl('/properties');
+      final uri = Uri.parse(baseUrl).replace(
+        queryParameters: {
+          if (status != null && status.isNotEmpty) 'status': status,
+          'include_archived': includeArchived ? '1' : '0',
+        },
+      );
       final response = await http.get(
-        Uri.parse(ApiConfig.getApiUrl('/properties')),
+        uri,
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -65,9 +75,43 @@ class PropertyService {
         },
       );
 
-      return response.statusCode == 200 || response.statusCode == 204;
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        return true;
+      }
+      // 409 means either archive or checkout required
+      if (response.statusCode == 409) {
+        final data = json.decode(response.body);
+        if (data['requires_checkout'] == true) {
+          throw Exception('REQUIRES_CHECKOUT');
+        }
+        if (data['can_archive'] == true) {
+          throw Exception('ARCHIVE_REQUIRED');
+        }
+      }
+      final msg = json.decode(response.body);
+      throw Exception(msg['message'] ?? 'Failed to delete property');
     } catch (e) {
       throw Exception('Error deleting property: $e');
+    }
+  }
+
+  static Future<bool> archiveProperty(int id) async {
+    try {
+      final token = await AuthService.getToken();
+      if (token == null) throw Exception('No token available');
+
+      final response = await http.post(
+        Uri.parse(ApiConfig.getApiUrl('/properties/$id/archive')),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      throw Exception('Error archiving property: $e');
     }
   }
 }

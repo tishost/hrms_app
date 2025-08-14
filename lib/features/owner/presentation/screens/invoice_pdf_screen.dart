@@ -214,56 +214,74 @@ class _InvoicePdfScreenState extends State<InvoicePdfScreen> {
 
   void _downloadPDF() async {
     try {
-      if (_pdfPath != null) {
-        // Request storage permission using service
-        bool hasPermission = await PermissionService.requestStoragePermission(
-          context,
+      if (_pdfPath == null) return;
+
+      final hasPermission = await PermissionService.requestStoragePermission(
+        context,
+      );
+      if (!hasPermission) {
+        await PermissionService.showPermissionDeniedSnackBar(context);
+        return;
+      }
+
+      Directory? downloadsDir;
+      try {
+        final dirs = await getExternalStorageDirectories(
+          type: StorageDirectory.downloads,
         );
+        if (dirs != null && dirs.isNotEmpty) {
+          downloadsDir = dirs.first;
+        }
+      } catch (_) {}
 
-        if (hasPermission) {
-          // Get downloads directory
-          final directory = await getExternalStorageDirectory();
-          if (directory != null) {
-            final downloadsDir = Directory('${directory.path}/Download');
-            if (!await downloadsDir.exists()) {
-              await downloadsDir.create(recursive: true);
-            }
-
-            final sourceFile = File(_pdfPath!);
-            final destFile = File(
-              '${downloadsDir.path}/Invoice # INV-2025-${widget.invoiceId.toString().padLeft(4, '0')}.pdf',
-            );
-
-            await sourceFile.copy(destFile.path);
-
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'Invoice # INV-2025-${widget.invoiceId.toString().padLeft(4, '0')} downloaded to Downloads folder',
-                  ),
-                  backgroundColor: AppColors.green,
-                ),
-              );
-            }
-          } else {
-            throw Exception('Downloads directory not available');
-          }
-        } else {
-          // Show permission denied message
-          await PermissionService.showPermissionDeniedSnackBar(context);
+      // Fallback: try public Downloads on Android
+      if (downloadsDir == null && Platform.isAndroid) {
+        final publicDownloads = Directory('/storage/emulated/0/Download');
+        if (await publicDownloads.exists()) {
+          downloadsDir = publicDownloads;
         }
       }
+
+      // Final fallback: app-specific external dir
+      downloadsDir ??= await getExternalStorageDirectory();
+      if (downloadsDir == null) {
+        throw Exception('Downloads directory not available');
+      }
+
+      // Ensure folder exists
+      if (!await downloadsDir.exists()) {
+        await downloadsDir.create(recursive: true);
+      }
+
+      final sourceFile = File(_pdfPath!);
+      final safeInvoiceNo = widget.invoiceId.toString().padLeft(4, '0');
+      final destPath =
+          '${downloadsDir.path}/Invoice_INV-2025-$safeInvoiceNo.pdf';
+      await sourceFile.copy(destPath);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Invoice saved to Downloads: Invoice_INV-2025-$safeInvoiceNo.pdf',
+          ),
+          backgroundColor: AppColors.green,
+        ),
+      );
+
+      // Attempt to open the saved file
+      try {
+        await OpenFile.open(destPath);
+      } catch (_) {}
     } catch (e) {
       print('DEBUG: Download error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to download PDF: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to download PDF: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 

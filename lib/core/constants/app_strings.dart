@@ -229,7 +229,7 @@ class AppStrings {
       'name_too_long': 'Name must be less than 100 characters',
 
       // Mobile verification
-      'mobile_verification_title': 'Verify Mobile Number',
+      'mobile_verification_title': 'Verify Your Mobile Number',
       'mobile_verification_message':
           'Please verify your mobile number to complete your profile',
       'mobile_verification_button': 'Verify Now',
