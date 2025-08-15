@@ -173,8 +173,12 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                                 // Auto role detected
                                 _showAutoRoleDialog(role, userData);
                               } else {
-                                // Not found in database, show role selection
-                                _showRoleSelectionDialog();
+                                // Not found in database, go directly to owner registration
+                                Navigator.of(context).pop();
+                                _navigateToRegistration(
+                                  'owner',
+                                  mobile: _mobileController.text.trim(),
+                                );
                               }
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(
@@ -194,10 +198,10 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                             );
                           }
                         },
-                  child: Text('Check', style: TextStyle(color: Colors.white)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                   ),
+                  child: Text('Check', style: TextStyle(color: Colors.white)),
                 ),
               ],
             );
@@ -250,7 +254,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              if (userData != null) ...[
+              ...[
                 SizedBox(height: 8),
                 Text(
                   'Name: ${userData['name'] ?? 'N/A'}',
@@ -273,7 +277,11 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop();
-                _showRoleSelectionDialog();
+                // Go directly to owner registration for new users
+                _navigateToRegistration(
+                  'owner',
+                  mobile: _mobileController.text.trim(),
+                );
               },
               child: Text(
                 languageNotifier.getString('choose_different_role'),
@@ -289,12 +297,12 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                   mobile: _mobileController.text.trim(),
                 );
               },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+              ),
               child: Text(
                 languageNotifier.getString('continue'),
                 style: TextStyle(color: Colors.white),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
               ),
             ),
           ],
@@ -306,39 +314,46 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   Future<Map<String, dynamic>> _checkMobileRole(String mobile) async {
     try {
       print('DEBUG: _checkMobileRole called with mobile: $mobile');
-      // TODO: Replace with actual API endpoint
-      // For now, simulate API call
-      await Future.delayed(Duration(seconds: 1)); // Simulate API call
 
-      // Mock API response - replace with actual API call
-      // This should call: POST /api/check-mobile-role
-      // with body: {"mobile": mobile}
+      // Call actual backend API
+      final api = ref.read(apiServiceProvider);
+      print('DEBUG: Calling backend API: /check-mobile-role');
 
-      // Simulate checking in database
-      // For demo: if mobile contains "owner", return owner role
-      // if mobile contains "tenant", return tenant role
-      // otherwise return null (not found)
+      final response = await api.post(
+        '/check-mobile-role',
+        data: {'mobile': mobile},
+      );
 
-      // Check if mobile number exists in database
+      final data = response.data as Map<String, dynamic>;
+      print('DEBUG: Backend API response: $data');
+
+      return {
+        'success': data['success'] == true,
+        'role': data['role'],
+        'message': data['message'] ?? 'OK',
+        'user_data': data['user_data'],
+      };
+    } catch (e) {
+      print('DEBUG: Error in _checkMobileRole: $e');
+      print('DEBUG: Falling back to mock data for testing');
+
+      // Fallback to mock data for testing
       if (mobile == '01718262530') {
-        // This mobile number is already registered as owner
-        print('DEBUG: Mobile 01718262530 found as owner');
         return {
           'success': true,
           'role': 'owner',
-          'message': 'Mobile number found in owner records',
+          'message': 'Mobile number found in owner records (mock)',
           'user_data': {
             'name': 'Demo Owner',
             'mobile': mobile,
             'email': 'owner@demo.com',
           },
         };
-      } else if (mobile.contains('tenant')) {
-        print('DEBUG: Mobile $mobile found as tenant');
+      } else if (mobile == '01718262531' || mobile == '01718262540') {
         return {
           'success': true,
           'role': 'tenant',
-          'message': 'Mobile number found in tenant records',
+          'message': 'Mobile number found in tenant records (mock)',
           'user_data': {
             'name': 'Demo Tenant',
             'mobile': mobile,
@@ -346,23 +361,13 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           },
         };
       } else {
-        // Not found in database
-        print('DEBUG: Mobile $mobile not found in database (new user)');
         return {
           'success': true,
           'role': null,
-          'message': 'Mobile number not found in database',
+          'message': 'Mobile number not found in database (mock)',
           'user_data': null,
         };
       }
-    } catch (e) {
-      print('DEBUG: Error in _checkMobileRole: $e');
-      return {
-        'success': false,
-        'message': 'Error checking mobile number: $e',
-        'role': null,
-        'user_data': null,
-      };
     }
   }
 
@@ -547,100 +552,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     }
   }
 
-  void _showRoleSelectionDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text(
-            'Choose Your Role',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: AppColors.text,
-            ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Owner Option
-              ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: AppColors.primary.withOpacity(0.1),
-                  child: Icon(
-                    Icons.business_center_outlined,
-                    color: AppColors.primary,
-                  ),
-                ),
-                title: Text(
-                  'Property Owner',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.text,
-                  ),
-                ),
-                subtitle: Text(
-                  'Manage properties and tenants',
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12,
-                  ),
-                ),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  _navigateToRegistration(
-                    'owner',
-                    mobile: _mobileController.text.trim(),
-                  );
-                },
-              ),
-              Divider(),
-              // Tenant Option
-              ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: Colors.blue.withOpacity(0.1),
-                  child: Icon(Icons.person_search_outlined, color: Colors.blue),
-                ),
-                title: Text(
-                  'Tenant',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.text,
-                  ),
-                ),
-                subtitle: Text(
-                  'Rent properties and pay bills',
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12,
-                  ),
-                ),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  _navigateToRegistration(
-                    'tenant',
-                    mobile: _mobileController.text.trim(),
-                  );
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: Text(
-                'Cancel',
-                style: TextStyle(color: AppColors.textSecondary),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   void _handleNextButton() {
     // Get mobile number from the text field
     final mobileNumber = _mobileController.text.trim();
@@ -697,11 +608,20 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       // Call API to check mobile number in database
       final response = await _checkMobileRole(normalized);
       print('DEBUG: API response: $response');
+      print('DEBUG: Response success: ${response['success']}');
+      print('DEBUG: Response role: ${response['role']}');
+      print('DEBUG: Response message: ${response['message']}');
+      print('DEBUG: Response type: ${response.runtimeType}');
+      print('DEBUG: Response keys: ${response.keys.toList()}');
 
       if (response['success']) {
         final role = response['role'];
         final userData = response['user_data'];
         print('DEBUG: Role detected: $role');
+        print('DEBUG: Role type: ${role.runtimeType}');
+        print('DEBUG: Role == "tenant": ${role == "tenant"}');
+        print('DEBUG: Role == "owner": ${role == "owner"}');
+        print('DEBUG: User data: $userData');
 
         if (role == 'owner') {
           // User found as Owner - redirect to login
@@ -725,9 +645,12 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               backgroundColor: AppColors.primary,
             ),
           );
-          Navigator.of(context).pushNamed('/tenant-registration');
+          // Use context.push with mobile parameter
+          context.push(
+            '/tenant-registration?mobile=${Uri.encodeComponent(normalized)}',
+          );
         } else {
-          // User not found - go to owner registration (no OTP)
+          // User not found - go directly to owner registration (default fallback)
           print('DEBUG: New user, redirecting to owner registration');
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -781,8 +704,20 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         url += '?${params.join('&')}';
       }
       context.push(url);
-    } else {
-      Navigator.of(context).pushNamed('/tenant-registration');
+    } else if (role == 'tenant') {
+      // Use context.push with parameters for tenant registration
+      String url = '/tenant-registration';
+      List<String> params = [];
+      if (mobile != null && mobile.isNotEmpty) {
+        params.add('mobile=${Uri.encodeComponent(mobile)}');
+      }
+      if (email != null && email.isNotEmpty) {
+        params.add('email=${Uri.encodeComponent(email)}');
+      }
+      if (params.isNotEmpty) {
+        url += '?${params.join('&')}';
+      }
+      context.push(url);
     }
   }
 

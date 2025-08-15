@@ -10,8 +10,6 @@ import 'core/constants/app_constants.dart';
 import 'core/utils/performance_config.dart';
 import 'core/theme/app_theme.dart';
 import 'core/providers/app_providers.dart';
-import 'core/providers/back_button_provider.dart';
-import 'core/models/user_model.dart';
 import 'core/widgets/main_app_shell.dart';
 import 'core/widgets/tenant_app_shell.dart';
 
@@ -35,17 +33,11 @@ import 'features/owner/presentation/screens/subscription_plans_screen.dart';
 import 'features/owner/presentation/screens/subscription_payment_webview.dart';
 import 'features/owner/presentation/screens/subscription_checkout_screen.dart';
 import 'features/owner/presentation/screens/subscription_center_screen.dart';
-import 'features/owner/presentation/screens/subscription_plans_screen.dart';
 import 'features/owner/presentation/screens/property_entry_screen.dart';
 import 'features/owner/presentation/screens/tenant_entry_screen.dart';
 import 'features/owner/presentation/screens/checkout_form_screen.dart';
-import 'features/owner/presentation/screens/checkout_list_screen.dart';
-import 'features/owner/presentation/screens/checkout_details_screen.dart';
 import 'features/owner/presentation/screens/invoice_payment_screen.dart';
 import 'features/tenant/presentation/screens/tenant_dashboard_screen.dart';
-import 'features/tenant/presentation/screens/tenant_details_screen.dart';
-import 'features/tenant/presentation/screens/tenant_billing_screen.dart';
-import 'features/tenant/presentation/screens/tenant_profile_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -213,7 +205,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/tenant-registration',
-        builder: (context, __) => BackButtonListener(
+        builder: (context, state) => BackButtonListener(
           onBackButtonPressed: () async {
             print(
               'DEBUG: Tenant Registration BackButtonListener - Back button pressed',
@@ -221,7 +213,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             context.go('/signup');
             return true;
           },
-          child: TenantRegistrationScreen(),
+          child: TenantRegistrationScreen(
+            mobile: state.uri.queryParameters['mobile'],
+            email: state.uri.queryParameters['email'],
+          ),
         ),
       ),
       GoRoute(

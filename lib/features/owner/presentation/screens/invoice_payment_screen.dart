@@ -97,10 +97,8 @@ class _InvoicePaymentScreenState extends State<InvoicePaymentScreen> {
         child: Row(
           children: [
             Expanded(
-              child: OutlinedButton.icon(
+              child: OutlinedButton(
                 onPressed: _downloadPdf,
-                icon: Icon(Icons.picture_as_pdf, color: AppColors.primary),
-                label: Text('Download PDF'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.primary,
                   padding: EdgeInsets.symmetric(vertical: 14),
@@ -110,6 +108,7 @@ class _InvoicePaymentScreenState extends State<InvoicePaymentScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
+                child: Text('Download PDF'),
               ),
             ),
             SizedBox(width: 12),
@@ -349,7 +348,7 @@ class _InvoicePaymentScreenState extends State<InvoicePaymentScreen> {
                   ],
                 ),
               );
-            }).toList(),
+            }),
           ],
         ),
       ),
@@ -538,16 +537,6 @@ class _InvoicePaymentScreenState extends State<InvoicePaymentScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      status.toLowerCase() == 'paid'
-                          ? Icons.check_circle
-                          : (status.toLowerCase() == 'partial'
-                                ? Icons.timelapse
-                                : Icons.error_outline),
-                      color: _getStatusColor(status),
-                      size: 16,
-                    ),
-                    SizedBox(width: 6),
                     Text(
                       _getStatusText(status),
                       style: TextStyle(
@@ -624,7 +613,7 @@ class _InvoicePaymentScreenState extends State<InvoicePaymentScreen> {
                     ],
                   ),
                 );
-              }).toList(),
+              }),
             ],
 
             // Totals & payment fields
@@ -1078,19 +1067,13 @@ class _InvoicePaymentScreenState extends State<InvoicePaymentScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(Icons.payment, color: AppColors.primary, size: 24),
-                SizedBox(width: 8),
-                Text(
-                  'Payment Amount',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ],
+            Text(
+              'Payment Amount',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppColors.primary,
+              ),
             ),
             SizedBox(height: 16),
             Row(
@@ -1143,7 +1126,6 @@ class _InvoicePaymentScreenState extends State<InvoicePaymentScreen> {
               keyboardType: TextInputType.number,
               decoration: InputDecoration(
                 labelText: 'Amount (BDT)',
-                prefixIcon: Icon(Icons.attach_money, color: AppColors.primary),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -1195,49 +1177,29 @@ class _InvoicePaymentScreenState extends State<InvoicePaymentScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(Icons.payment, color: AppColors.primary, size: 24),
-                SizedBox(width: 8),
-                Text(
-                  'Payment Method',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ],
+            Text(
+              'Payment Method',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppColors.primary,
+              ),
             ),
             SizedBox(height: 16),
-            _buildPaymentMethodOption('cash', 'Cash', Icons.money),
-            _buildPaymentMethodOption(
-              'bank_transfer',
-              'Bank Transfer',
-              Icons.account_balance,
-            ),
-            _buildPaymentMethodOption(
-              'mobile_banking',
-              'Mobile Banking',
-              Icons.phone_android,
-            ),
-            _buildPaymentMethodOption('check', 'Check', Icons.receipt),
-            _buildPaymentMethodOption('other', 'Other', Icons.more_horiz),
+            _buildPaymentMethodOption('cash', 'Cash'),
+            _buildPaymentMethodOption('bank_transfer', 'Bank Transfer'),
+            _buildPaymentMethodOption('mobile_banking', 'Mobile Banking'),
+            _buildPaymentMethodOption('check', 'Check'),
+            _buildPaymentMethodOption('other', 'Other'),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildPaymentMethodOption(String value, String label, IconData icon) {
+  Widget _buildPaymentMethodOption(String value, String label) {
     return RadioListTile<String>(
-      title: Row(
-        children: [
-          Icon(icon, color: AppColors.primary),
-          SizedBox(width: 12),
-          Text(label),
-        ],
-      ),
+      title: Text(label),
       value: value,
       groupValue: _selectedPaymentMethod,
       onChanged: (newValue) {
@@ -1260,26 +1222,19 @@ class _InvoicePaymentScreenState extends State<InvoicePaymentScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(Icons.note, color: AppColors.primary, size: 24),
-                SizedBox(width: 8),
-                Text(
-                  'Reference & Notes',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ],
+            Text(
+              'Reference & Notes',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppColors.primary,
+              ),
             ),
             SizedBox(height: 16),
             TextFormField(
               controller: _referenceController,
               decoration: InputDecoration(
                 labelText: 'Reference Number (Optional)',
-                prefixIcon: Icon(Icons.receipt, color: AppColors.primary),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -1292,7 +1247,6 @@ class _InvoicePaymentScreenState extends State<InvoicePaymentScreen> {
               maxLines: 3,
               decoration: InputDecoration(
                 labelText: 'Notes (Optional)',
-                prefixIcon: Icon(Icons.note, color: AppColors.primary),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -1361,10 +1315,8 @@ class _InvoicePaymentScreenState extends State<InvoicePaymentScreen> {
             : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.payment, color: Colors.white, size: 20),
-                  SizedBox(width: 8),
                   Text(
-                    'Process Payment',
+                    'Pay Now',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
