@@ -5,8 +5,9 @@ import 'package:hrms_app/core/utils/app_colors.dart';
 import 'package:hrms_app/core/utils/api_config.dart';
 import 'package:hrms_app/features/auth/data/services/auth_service.dart';
 import 'package:hrms_app/core/providers/app_providers.dart';
-import 'package:http/http.dart' as http;
+import 'package:hrms_app/core/services/security_service.dart';
 import 'dart:convert';
+import 'package:hrms_app/core/services/api_service.dart';
 
 class TenantRegistrationScreen extends ConsumerStatefulWidget {
   const TenantRegistrationScreen({super.key});
@@ -325,19 +326,23 @@ class _TenantRegistrationScreenState
       print('DEBUG: Requesting OTP for mobile: ${_mobileController.text}');
       print('DEBUG: API URL: ${ApiConfig.getApiUrl('/tenant/request-otp')}');
 
-      final response = await http.post(
-        Uri.parse(ApiConfig.getApiUrl('/tenant/request-otp')),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
+      final apiService = ref.read(apiServiceProvider);
+      final response = await apiService.post(
+        '/send-otp',
+        data: {
+          'phone': _mobileController.text,
+          'type': 'profile_update',
+          'user_id': (await SecurityService.getStoredUserData())?['id'],
         },
-        body: json.encode({'mobile': _mobileController.text}),
       );
 
       print('DEBUG: Response status code: ${response.statusCode}');
-      print('DEBUG: Response body: ${response.body}');
+      print('DEBUG: Response data: ${response.data}');
 
-      final data = json.decode(response.body);
+      final data = response.data;
+
+      print('🔍 DEBUG: Response status: ${response.statusCode}');
+      print('🔍 DEBUG: Response data: $data');
 
       if (response.statusCode == 200) {
         setState(() {
@@ -355,23 +360,169 @@ class _TenantRegistrationScreenState
         // Show OTP in debug mode
         print('DEBUG: OTP = ${data['otp']}');
         print('DEBUG: Tenant info = ${data['tenant']}');
+      } else if (response.statusCode == 429) {
+        print('🔍 DEBUG: 429 status detected - Daily limit reached');
+        // Daily limit reached - show dialog
+        final responseData = response.data;
+        try {
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          }
+        } catch (_) {}
+
+        showDialog(
+          context: context,
+          useRootNavigator: true,
+          barrierDismissible: true,
+          builder: (context) => AlertDialog(
+            title: Row(
+              children: [
+                Icon(Icons.warning, color: Colors.orange, size: 24),
+                SizedBox(width: 8),
+                Text('Daily Limit Reached'),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '📱 You have reached the daily OTP limit for this phone number.',
+                ),
+                SizedBox(height: 16),
+                Text('⏰ Please try again tomorrow.'),
+                SizedBox(height: 8),
+                Text('📞 Contact admin if you need immediate assistance.'),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('OK'),
+              ),
+            ],
+          ),
+        );
       } else {
+        print('🔍 DEBUG: Non-200, non-429 response detected');
         print('DEBUG: Error response: $data');
+        final errorMsg = data['error'] ?? 'Failed to send OTP';
+        print('🔍 DEBUG: Error message: $errorMsg');
+        print('🔍 DEBUG: Error type: ${data['error_type']}');
+
+        final isDailyLimit =
+            data['error_type'] == 'daily_limit' ||
+            errorMsg.contains('daily_limit') ||
+            errorMsg.contains('Daily OTP limit reached') ||
+            errorMsg.contains('429') ||
+            errorMsg.contains('HTTP 429');
+
+        print('🔍 DEBUG: Is daily limit: $isDailyLimit');
+
+        if (isDailyLimit) {
+          // Show user-friendly daily limit dialog
+          try {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            }
+          } catch (_) {}
+
+          showDialog(
+            context: context,
+            useRootNavigator: true,
+            barrierDismissible: true,
+            builder: (context) => AlertDialog(
+              title: Row(
+                children: [
+                  Icon(Icons.warning, color: Colors.orange, size: 24),
+                  SizedBox(width: 8),
+                  Text('Daily Limit Reached'),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '📱 You have reached the daily OTP limit for this phone number.',
+                  ),
+                  SizedBox(height: 16),
+                  Text('⏰ Please try again tomorrow.'),
+                  SizedBox(height: 8),
+                  Text('📞 Contact admin if you need immediate assistance.'),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text('OK'),
+                ),
+              ],
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(errorMsg), backgroundColor: Colors.red),
+          );
+        }
+      }
+    } catch (e) {
+      print('🔍 DEBUG: Exception in _requestOtp: $e');
+      print('🔍 DEBUG: Exception type: ${e.runtimeType}');
+      final errorMsg = e.toString();
+      print('🔍 DEBUG: Exception error message: $errorMsg');
+
+      final isDailyLimit =
+          errorMsg.contains('daily_limit') ||
+          errorMsg.contains('Daily OTP limit reached') ||
+          errorMsg.contains('429') ||
+          errorMsg.contains('HTTP 429') ||
+          errorMsg.contains('Client error') ||
+          errorMsg.contains('status code of 429');
+
+      print('🔍 DEBUG: Is daily limit: $isDailyLimit');
+
+      if (isDailyLimit) {
+        // Show user-friendly daily limit dialog
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Row(
+              children: [
+                Icon(Icons.warning, color: Colors.orange, size: 24),
+                SizedBox(width: 8),
+                Text('Daily Limit Reached'),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '📱 You have reached the daily OTP limit for this phone number.',
+                ),
+                SizedBox(height: 16),
+                Text('⏰ Please try again tomorrow.'),
+                SizedBox(height: 8),
+                Text('📞 Contact admin if you need immediate assistance.'),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('OK'),
+              ),
+            ],
+          ),
+        );
+      } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(data['error'] ?? 'Failed to send OTP'),
+            content: Text('Network error: $e'),
             backgroundColor: Colors.red,
           ),
         );
       }
-    } catch (e) {
-      print('DEBUG: Exception in _requestOtp: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Network error: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
     } finally {
       setState(() {
         _isLoading = false;
@@ -390,31 +541,31 @@ class _TenantRegistrationScreenState
       print('DEBUG: Verifying OTP for mobile: ${_mobileController.text}');
       print('DEBUG: OTP entered: ${_otpController.text}');
 
-      final response = await http.post(
-        Uri.parse(ApiConfig.getApiUrl('/tenant/verify-otp')),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: json.encode({
-          'mobile': _mobileController.text,
+      final apiService = ref.read(apiServiceProvider);
+      final response = await apiService.post(
+        '/verify-otp',
+        data: {
+          'phone': _mobileController.text,
           'otp': _otpController.text,
-        }),
+          'type': 'profile_update',
+          'user_id': (await SecurityService.getStoredUserData())?['id'],
+        },
       );
 
       print('DEBUG: Verify response status: ${response.statusCode}');
-      print('DEBUG: Verify response body: ${response.body}');
+      print('DEBUG: Verify response data: ${response.data}');
 
-      final data = json.decode(response.body);
+      final data = response.data;
 
       if (response.statusCode == 200) {
         setState(() {
           _otpVerified = true;
         });
 
+        // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('OTP verified successfully!'),
+            content: Text('✅ OTP verified successfully!'),
             backgroundColor: Colors.green,
           ),
         );
@@ -454,23 +605,21 @@ class _TenantRegistrationScreenState
         'DEBUG: Completing registration for mobile: ${_mobileController.text}',
       );
 
-      final response = await http.post(
-        Uri.parse(ApiConfig.getApiUrl('/tenant/register')),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: json.encode({
-          'mobile': _mobileController.text,
+      final apiService = ref.read(apiServiceProvider);
+      final response = await apiService.post(
+        '/tenant/register',
+        data: {
+          'phone': _mobileController.text,
           'password': _passwordController.text,
           'password_confirmation': _confirmPasswordController.text,
-        }),
+          'user_id': (await SecurityService.getStoredUserData())?['id'],
+        },
       );
 
       print('DEBUG: Registration response status: ${response.statusCode}');
-      print('DEBUG: Registration response body: ${response.body}');
+      print('DEBUG: Registration response data: ${response.data}');
 
-      final data = json.decode(response.body);
+      final data = response.data;
 
       if (response.statusCode == 200) {
         // Save token

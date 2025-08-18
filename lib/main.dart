@@ -38,6 +38,9 @@ import 'features/owner/presentation/screens/tenant_entry_screen.dart';
 import 'features/owner/presentation/screens/checkout_form_screen.dart';
 import 'features/owner/presentation/screens/invoice_payment_screen.dart';
 import 'features/tenant/presentation/screens/tenant_dashboard_screen.dart';
+import 'features/tenant/presentation/screens/tenant_profile_screen.dart';
+import 'features/tenant/presentation/screens/tenant_billing_screen.dart';
+import 'features/tenant/presentation/screens/tenant_rent_agreement_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -604,6 +607,34 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+            path: '/tenant/profile',
+            builder: (context, __) => BackButtonListener(
+              onBackButtonPressed: () async {
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/tenant/dashboard');
+                }
+                return true;
+              },
+              child: TenantProfileScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/tenant/billing',
+            builder: (context, __) => BackButtonListener(
+              onBackButtonPressed: () async {
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/tenant/dashboard');
+                }
+                return true;
+              },
+              child: TenantBillingScreen(),
+            ),
+          ),
+          GoRoute(
             path: '/tenant/properties',
             builder: (context, __) => BackButtonListener(
               onBackButtonPressed: () async {
@@ -622,6 +653,20 @@ final routerProvider = Provider<GoRouter>((ref) {
               },
               child:
                   PropertyListScreen(), // Assuming tenant uses same property list
+            ),
+          ),
+          GoRoute(
+            path: '/tenant/rent-agreement',
+            builder: (context, __) => BackButtonListener(
+              onBackButtonPressed: () async {
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/tenant/dashboard');
+                }
+                return true;
+              },
+              child: TenantRentAgreementScreen(),
             ),
           ),
         ],

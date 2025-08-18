@@ -42,7 +42,48 @@ class TenantBottomNav extends ConsumerWidget {
           icon: Icon(Icons.person),
           label: AppStrings.getString('profile', code),
         ),
+        BottomNavigationBarItem(
+          icon: MoreGlyphIcon(),
+          activeIcon: MoreGlyphIcon(),
+          label: AppStrings.getString('more', code) ?? 'More',
+        ),
       ],
+    );
+  }
+}
+
+class MoreGlyphIcon extends StatelessWidget {
+  final double? size;
+  const MoreGlyphIcon({super.key, this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    final Color color = IconTheme.of(context).color ?? Colors.black;
+    final double iconSize = size ?? (IconTheme.of(context).size ?? 24);
+    final double barHeight = iconSize * 0.18;
+    final double barWidth = iconSize;
+    final double spacing = barHeight * 0.7;
+    final BorderRadius radius = BorderRadius.circular(barHeight);
+
+    Widget bar() => Container(
+      width: barWidth,
+      height: barHeight,
+      decoration: BoxDecoration(color: color, borderRadius: radius),
+    );
+
+    return SizedBox(
+      width: barWidth,
+      height: barHeight * 3 + spacing * 2,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          bar(),
+          SizedBox(height: spacing),
+          bar(),
+          SizedBox(height: spacing),
+          bar(),
+        ],
+      ),
     );
   }
 }

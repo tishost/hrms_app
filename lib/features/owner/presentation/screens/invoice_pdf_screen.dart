@@ -15,8 +15,9 @@ import 'package:hrms_app/core/services/permission_service.dart';
 
 class InvoicePdfScreen extends StatefulWidget {
   final int invoiceId;
+  final bool forceTenant; // when true, always use tenant endpoint
 
-  const InvoicePdfScreen({super.key, required this.invoiceId});
+  const InvoicePdfScreen({super.key, required this.invoiceId, this.forceTenant = false});
 
   @override
   State<InvoicePdfScreen> createState() => _InvoicePdfScreenState();
@@ -79,8 +80,8 @@ class _InvoicePdfScreenState extends State<InvoicePdfScreen> {
         throw Exception('Authentication token not found. Please login again.');
       }
 
-      // Get user role first
-      final role = await _getUserRole(token);
+      // Get user role first (unless forced tenant)
+      final role = widget.forceTenant ? 'tenant' : await _getUserRole(token);
 
       // Set a timeout for the entire loading process
       _timeoutTimer = Timer(Duration(seconds: 25), () {

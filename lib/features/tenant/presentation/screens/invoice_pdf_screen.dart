@@ -1,5 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+import 'package:flutter_pdfview/flutter_pdfview.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
+import 'package:hrms_app/core/utils/api_config.dart';
+import 'package:hrms_app/features/auth/data/services/auth_service.dart';
 import 'package:hrms_app/core/utils/app_colors.dart';
 
 class InvoicePdfScreen extends StatefulWidget {
@@ -13,41 +18,51 @@ class InvoicePdfScreen extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  _InvoicePdfScreenState createState() => _InvoicePdfScreenState();
+  State<InvoicePdfScreen> createState() => _InvoicePdfScreenState();
 }
 
 class _InvoicePdfScreenState extends State<InvoicePdfScreen> {
-  late WebViewController _controller;
   bool _isLoading = true;
+  String? _error;
+  String? _pdfPath;
 
   @override
   void initState() {
     super.initState();
-    _initializeWebView();
+    _loadPdf();
   }
 
-  void _initializeWebView() {
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onPageStarted: (String url) {
-            setState(() {
-              _isLoading = true;
-            });
-          },
-          onPageFinished: (String url) {
-            setState(() {
-              _isLoading = false;
-            });
-          },
-        ),
-      )
-      ..loadRequest(
-        Uri.parse(
-          'http://localhost/hrms/public/invoice/${widget.invoiceId}/pdf',
-        ),
-      );
+  Future<void> _loadPdf() async {
+    try {
+      final token = await AuthService.getToken();
+      if (token == null) throw Exception('Token not found');
+
+      final url = ApiConfig.getApiUrl('/tenant/invoices/${widget.invoiceId}/pdf-file');
+      final resp = await http.get(Uri.parse(url), headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/pdf',
+      });
+
+      if (resp.statusCode != 200 || resp.bodyBytes.isEmpty) {
+        throw Exception('HTTP ${resp.statusCode}');
+      }
+
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/tenant_invoice_${widget.invoiceId}.pdf');
+      await file.writeAsBytes(resp.bodyBytes);
+
+      if (!mounted) return;
+      setState(() {
+        _pdfPath = file.path;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'Failed to load PDF: $e';
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -55,43 +70,28 @@ class _InvoicePdfScreenState extends State<InvoicePdfScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Invoice #${widget.invoiceNumber}'),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: Icon(Icons.refresh),
             onPressed: () {
-              _controller.reload();
+              setState(() {
+                _isLoading = true;
+                _error = null;
+              });
+              _loadPdf();
             },
-          ),
+          )
         ],
       ),
-      body: Stack(
-        children: [
-          WebViewWidget(controller: _controller),
-          if (_isLoading)
-            Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      AppColors.primary,
-                    ),
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    'Loading PDF...',
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 16,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
+      body: _isLoading
+          ? Center(child: CircularProgressIndicator(color: AppColors.primary))
+          : (_error != null)
+              ? Center(child: Text(_error!))
+              : PDFView(
+                  filePath: _pdfPath!,
+                  enableSwipe: true,
+                  swipeHorizontal: false,
+                ),
     );
   }
 }
