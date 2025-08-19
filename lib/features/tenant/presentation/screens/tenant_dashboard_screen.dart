@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hrms_app/features/auth/data/services/auth_service.dart';
 import 'package:hrms_app/core/utils/api_config.dart';
@@ -9,6 +10,9 @@ import 'package:hrms_app/features/tenant/presentation/screens/invoice_pdf_screen
 import 'package:hrms_app/core/services/api_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hrms_app/core/services/security_service.dart';
+import 'package:hrms_app/core/widgets/ads_banner.dart';
+import 'package:hrms_app/core/providers/ads_provider.dart';
+import 'package:hrms_app/core/services/api_service.dart';
 // import 'package:hrms_app/features/tenant/presentation/screens/debug_screen.dart';
 
 class TenantDashboardScreen extends ConsumerStatefulWidget {
@@ -38,6 +42,18 @@ class _TenantDashboardScreenState extends ConsumerState<TenantDashboardScreen> {
   int _maxAttempts = 3; // Default: 3 attempts
   bool _isOtpEnabled = true; // Default: enabled
   bool _requireOtpForTenantRegistration = false; // Default: disabled
+
+  // Ads Settings
+  bool _isAdsEnabled = true; // Default: enabled
+  List<Map<String, dynamic>> _adsData = []; // Store actual ads content
+
+  // Ads Banner Controller
+  late PageController _adsPageController;
+  int _currentAdsPage = 0;
+  Timer? _adsAutoScrollTimer;
+
+  // Flag to track if widget is being disposed
+  bool _isDisposed = false;
 
   void _showDailyLimitNotice() {
     // Close any existing popup (like OTP dialog), then show the notice on next frame
@@ -133,8 +149,119 @@ class _TenantDashboardScreenState extends ConsumerState<TenantDashboardScreen> {
   @override
   void initState() {
     super.initState();
+    _adsPageController = PageController();
     _loadDashboardData();
     _loadOtpSettings();
+    _loadAdsSettings();
+    _startAdsAutoScroll();
+    _restoreStatusBar();
+  }
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    _adsAutoScrollTimer?.cancel();
+    _adsPageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Restore status bar when returning to this screen
+    _restoreStatusBar();
+  }
+
+  // Load ads settings and content from system
+  Future<void> _loadAdsSettings() async {
+    try {
+      final apiService = ref.read(apiServiceProvider);
+      final response = await apiService.get('/ads/dashboard?type=tenant');
+
+      if (response.statusCode == 200) {
+        final data = response.data;
+        print('🔍 [Dashboard] Ads API response: $data');
+
+        if (data['success'] == true) {
+          final adsEnabled = data['data']['ads_enabled'] ?? true;
+          final adsList = data['data']['ads'] ?? [];
+
+          print(
+            '🔍 [Dashboard] Parsed - ads_enabled: $adsEnabled, ads count: ${adsList.length}',
+          );
+
+          if (mounted && !_isDisposed) {
+            setState(() {
+              _isAdsEnabled = adsEnabled;
+              _adsData = List<Map<String, dynamic>>.from(adsList);
+            });
+
+            // Restart auto-scroll with new ads data
+            if (mounted && !_isDisposed) {
+              _adsAutoScrollTimer?.cancel();
+              _startAdsAutoScroll();
+            }
+          }
+          print(
+            '🔍 [Dashboard] Ads enabled: $_isAdsEnabled, Count: ${_adsData.length}',
+          );
+        }
+      }
+    } catch (e) {
+      print('❌ [Dashboard] Failed to load ads settings: $e');
+      // Keep default values on error
+    }
+  }
+
+  // Start auto-scrolling for ads banner
+  void _startAdsAutoScroll() {
+    if (_adsData.isEmpty || !mounted || _isDisposed) return;
+
+    _adsAutoScrollTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (mounted && !_isDisposed && _adsData.length > 1) {
+        final nextPage = (_currentAdsPage + 1) % _adsData.length;
+
+        // Check if controller is still valid
+        if (_adsPageController.hasClients) {
+          _adsPageController.animateToPage(
+            nextPage,
+            duration: const Duration(milliseconds: 500),
+            curve: Curves.easeInOut,
+          );
+
+          // Double-check before setState
+          if (mounted && !_isDisposed) {
+            setState(() {
+              _currentAdsPage = nextPage;
+            });
+          }
+        }
+      }
+    });
+  }
+
+  // Restore status bar visibility
+  void _restoreStatusBar() {
+    try {
+      // Set status bar to be visible with transparent background
+      SystemChrome.setSystemUIOverlayStyle(
+        const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
+        ),
+      );
+
+      // Ensure status bar is visible
+      SystemChrome.setEnabledSystemUIMode(
+        SystemUiMode.edgeToEdge,
+        overlays: [SystemUiOverlay.top],
+      );
+
+      print('🔍 [Dashboard] Status bar restored');
+    } catch (e) {
+      print('⚠️ [Dashboard] Failed to restore status bar: $e');
+    }
   }
 
   // Load OTP settings from system
@@ -155,17 +282,19 @@ class _TenantDashboardScreenState extends ConsumerState<TenantDashboardScreen> {
             final settings = rawSettings as Map;
             print('DEBUG: OTP Settings parsed: $settings');
 
-            setState(() {
-              _otpExpireTime =
-                  (settings['otp_expiry_minutes'] ?? 10) * 60; // seconds
-              _otpResendTime = settings['resend_cooldown_seconds'] ?? 60;
-              _otpLength = settings['otp_length'] ?? 6;
-              _maxAttempts = settings['max_attempts'] ?? 3;
-              _isOtpEnabled = settings['is_enabled'] ?? true;
-              _requireOtpForTenantRegistration =
-                  (settings['profile_update_required'] == true) ||
-                  (settings['require_otp_for_tenant_registration'] == true);
-            });
+            if (mounted && !_isDisposed) {
+              setState(() {
+                _otpExpireTime =
+                    (settings['otp_expiry_minutes'] ?? 10) * 60; // seconds
+                _otpResendTime = settings['resend_cooldown_seconds'] ?? 60;
+                _otpLength = settings['otp_length'] ?? 6;
+                _maxAttempts = settings['max_attempts'] ?? 3;
+                _isOtpEnabled = settings['is_enabled'] ?? true;
+                _requireOtpForTenantRegistration =
+                    (settings['profile_update_required'] == true) ||
+                    (settings['require_otp_for_tenant_registration'] == true);
+              });
+            }
             print(
               'OTP Settings loaded - Expire: ${_otpExpireTime}s, Resend: ${_otpResendTime}s, Length: ${_otpLength}, Max Attempts: ${_maxAttempts}, Enabled: ${_isOtpEnabled}, Tenant Registration OTP: ${_requireOtpForTenantRegistration}',
             );
@@ -190,14 +319,20 @@ class _TenantDashboardScreenState extends ConsumerState<TenantDashboardScreen> {
   }
 
   Future<void> _refreshAll() async {
-    await Future.wait([_loadOtpSettings(), _loadDashboardData()]);
+    await Future.wait([
+      _loadOtpSettings(),
+      _loadDashboardData(),
+      _loadAdsSettings(),
+    ]);
   }
 
   Future<void> _loadDashboardData() async {
     try {
-      setState(() {
-        _isLoading = true;
-      });
+      if (mounted && !_isDisposed) {
+        setState(() {
+          _isLoading = true;
+        });
+      }
 
       final apiService = ref.read(apiServiceProvider);
 
@@ -209,19 +344,21 @@ class _TenantDashboardScreenState extends ConsumerState<TenantDashboardScreen> {
         print(
           'Tenant Info: ${data['data']?['tenant']}',
         ); // Debug: Print tenant info
-        setState(() {
-          final dynamic dataRoot = data['data'] ?? data;
-          _dashboardData = (dataRoot is Map<String, dynamic>) ? dataRoot : {};
-          final dynamic t = (dataRoot is Map<String, dynamic>)
-              ? dataRoot['tenant']
-              : null;
-          _tenantInfo = (t is Map<String, dynamic>)
-              ? t
-              : (data['tenant'] is Map<String, dynamic>
-                    ? data['tenant']
-                    : null);
-          _isLoading = false;
-        });
+        if (mounted && !_isDisposed) {
+          setState(() {
+            final dynamic dataRoot = data['data'] ?? data;
+            _dashboardData = (dataRoot is Map<String, dynamic>) ? dataRoot : {};
+            final dynamic t = (dataRoot is Map<String, dynamic>)
+                ? dataRoot['tenant']
+                : null;
+            _tenantInfo = (t is Map<String, dynamic>)
+                ? t
+                : (data['tenant'] is Map<String, dynamic>
+                      ? data['tenant']
+                      : null);
+            _isLoading = false;
+          });
+        }
 
         // Debug tenant info after setState
         print('DEBUG: Tenant info loaded:');
@@ -237,6 +374,9 @@ class _TenantDashboardScreenState extends ConsumerState<TenantDashboardScreen> {
         _debugCurrencySettings();
         _calculateProfileCompletion();
 
+        // Load ads settings to get latest status
+        _loadAdsSettings();
+
         // Debug OTP settings
         print(
           'Current OTP Settings - Expire: ${_otpExpireTime}s, Resend: ${_otpResendTime}s',
@@ -245,15 +385,19 @@ class _TenantDashboardScreenState extends ConsumerState<TenantDashboardScreen> {
         throw Exception('Failed to load dashboard');
       }
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to load dashboard: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted && !_isDisposed) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+      if (mounted && !_isDisposed) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load dashboard: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -299,10 +443,12 @@ class _TenantDashboardScreenState extends ConsumerState<TenantDashboardScreen> {
       }
     }
 
-    setState(() {
-      _profileCompletion = completion.clamp(0.0, 1.0);
-      _userLoaded = true;
-    });
+    if (mounted && !_isDisposed) {
+      setState(() {
+        _profileCompletion = completion.clamp(0.0, 1.0);
+        _userLoaded = true;
+      });
+    }
 
     print(
       'DEBUG: Profile completion calculated: $_profileCompletion ($completedFields/$totalFields)',
@@ -636,7 +782,7 @@ class _TenantDashboardScreenState extends ConsumerState<TenantDashboardScreen> {
               Container(
                 width: double.infinity,
                 margin: EdgeInsets.symmetric(horizontal: 16),
-                padding: EdgeInsets.all(14),
+                padding: EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(16),
@@ -655,7 +801,7 @@ class _TenantDashboardScreenState extends ConsumerState<TenantDashboardScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              SizedBox(height: 8),
+                              SizedBox(height: 6),
                               Row(
                                 children: [
                                   _subMiniStat(
@@ -671,56 +817,11 @@ class _TenantDashboardScreenState extends ConsumerState<TenantDashboardScreen> {
                                   ),
                                 ],
                               ),
-                              SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _subMiniStat(
-                                      icon: Icons.storefront,
-                                      label: 'Monthly Total',
-                                      value: _getTenantMonthlyTotal(),
-                                    ),
-                                  ),
-                                  SizedBox(width: 16),
-                                  GestureDetector(
-                                    onTap: () {
-                                      context.go('/tenant/rent-agreement');
-                                    },
-                                    child: Container(
-                                      padding: EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 8,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.2),
-                                        borderRadius: BorderRadius.circular(20),
-                                        border: Border.all(
-                                          color: Colors.white.withOpacity(0.3),
-                                          width: 1,
-                                        ),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            Icons.description_rounded,
-                                            color: Colors.white,
-                                            size: 16,
-                                          ),
-                                          SizedBox(width: 6),
-                                          Text(
-                                            'Agreement',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                              SizedBox(height: 6),
+                              _subMiniStat(
+                                icon: Icons.storefront,
+                                label: 'Monthly Total',
+                                value: _getTenantMonthlyTotal(),
                               ),
                             ],
                           ),
@@ -1030,10 +1131,12 @@ class _TenantDashboardScreenState extends ConsumerState<TenantDashboardScreen> {
       return;
     }
 
-    setState(() {
-      _otpBusy = true;
-      _userMobile = mobile;
-    });
+    if (mounted && !_isDisposed) {
+      setState(() {
+        _otpBusy = true;
+        _userMobile = mobile;
+      });
+    }
 
     try {
       final apiService = ref.read(apiServiceProvider);
@@ -1083,9 +1186,11 @@ class _TenantDashboardScreenState extends ConsumerState<TenantDashboardScreen> {
         );
       }
     } finally {
-      setState(() {
-        _otpBusy = false;
-      });
+      if (mounted && !_isDisposed) {
+        setState(() {
+          _otpBusy = false;
+        });
+      }
     }
   }
 
@@ -1462,6 +1567,8 @@ class _TenantDashboardScreenState extends ConsumerState<TenantDashboardScreen> {
       children: [
         _buildSummaryCards(),
         SizedBox(height: 16),
+        if (_isAdsEnabled) _buildAdsBanner(),
+        if (_isAdsEnabled) SizedBox(height: 16),
         _buildQuickActions(),
         SizedBox(height: 16),
         _buildRecentInvoices(),
@@ -1574,6 +1681,206 @@ class _TenantDashboardScreenState extends ConsumerState<TenantDashboardScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildAdsBanner() {
+    print(
+      '🔍 [Dashboard] Building ads banner - Enabled: $_isAdsEnabled, Data count: ${_adsData.length}',
+    );
+
+    // If ads are disabled, don't show anything
+    if (!_isAdsEnabled) {
+      print('🔍 [Dashboard] Ads disabled, hiding banner');
+      return const SizedBox.shrink();
+    }
+
+    // If no ads data, don't show anything
+    if (_adsData.isEmpty) {
+      print('🔍 [Dashboard] No ads data, hiding banner');
+      return const SizedBox.shrink();
+    }
+
+    print('🔍 [Dashboard] Showing ads banner with ${_adsData.length} ads');
+
+    // Show ads section with dashboard's ads data
+    return Container(
+      margin: const EdgeInsets.fromLTRB(5, 8, 5, 8),
+      child: Card(
+        color: Colors.white,
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Ads',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.text,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              _buildCustomAdsBanner(),
+              const SizedBox(height: 6),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Custom ads banner using dashboard's ads data
+  Widget _buildCustomAdsBanner() {
+    if (_adsData.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return SizedBox(
+      height: 160,
+      child: Column(
+        children: [
+          // Ads PageView
+          Expanded(
+            child: PageView.builder(
+              controller: _adsPageController,
+              onPageChanged: (index) {
+                setState(() {
+                  _currentAdsPage = index;
+                });
+              },
+              itemCount: _adsData.length,
+              itemBuilder: (context, index) {
+                final ad = _adsData[index];
+                return GestureDetector(
+                  onTap: () => _onAdTap(ad),
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Stack(
+                        children: [
+                          // Ad Image
+                          Image.network(
+                            ad['image_url'] ?? '',
+                            width: double.infinity,
+                            height: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                color: Colors.grey[300],
+                                child: const Icon(
+                                  Icons.image_not_supported,
+                                  size: 50,
+                                  color: Colors.grey,
+                                ),
+                              );
+                            },
+                          ),
+                          // Gradient overlay
+                          Positioned.fill(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Colors.transparent,
+                                    Colors.black.withOpacity(0.3),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          // Sliding dots below the image
+          if (_adsData.length > 1)
+            Container(
+              margin: const EdgeInsets.only(top: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(_adsData.length, (index) {
+                  return Container(
+                    width: 8,
+                    height: 8,
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: index == _currentAdsPage
+                          ? Colors.blue
+                          : Colors.grey.withOpacity(0.5),
+                    ),
+                  );
+                }),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // Handle ad tap
+  void _onAdTap(Map<String, dynamic> ad) async {
+    final url = ad['url'];
+    final title = ad['title'] ?? 'Ad';
+
+    if (url != null && url.toString().isNotEmpty) {
+      try {
+        // Show snackbar
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Opening: $title'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+
+        // Record click for analytics (non-blocking)
+        try {
+          final adId = ad['id'];
+          if (adId != null) {
+            await ref.read(adsProvider.notifier).recordAdClick(adId);
+            print('✅ Ad click recorded successfully: $title');
+          }
+        } catch (e) {
+          print('⚠️ Failed to record ad click (non-critical): $e');
+        }
+
+        print('Ad clicked: $title - URL: $url');
+      } catch (e) {
+        print('Failed to handle ad click: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to open ad: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildQuickActions() {

@@ -41,6 +41,8 @@ import 'features/tenant/presentation/screens/tenant_dashboard_screen.dart';
 import 'features/tenant/presentation/screens/tenant_profile_screen.dart';
 import 'features/tenant/presentation/screens/tenant_billing_screen.dart';
 import 'features/tenant/presentation/screens/tenant_rent_agreement_screen.dart';
+import 'features/tenant/presentation/screens/tenant_more_screen.dart';
+import 'core/widgets/auth_wrapper.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -603,7 +605,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                 }
                 return true; // Prevent default back behavior
               },
-              child: TenantDashboardScreen(),
+              child: AuthWrapper(child: TenantDashboardScreen()),
             ),
           ),
           GoRoute(
@@ -617,7 +619,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                 }
                 return true;
               },
-              child: TenantProfileScreen(),
+              child: AuthWrapper(child: TenantProfileScreen()),
             ),
           ),
           GoRoute(
@@ -631,7 +633,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                 }
                 return true;
               },
-              child: TenantBillingScreen(),
+              child: AuthWrapper(child: TenantBillingScreen()),
             ),
           ),
           GoRoute(
@@ -651,8 +653,10 @@ final routerProvider = Provider<GoRouter>((ref) {
                 }
                 return true; // Prevent default back behavior
               },
-              child:
-                  PropertyListScreen(), // Assuming tenant uses same property list
+              child: AuthWrapper(
+                child:
+                    PropertyListScreen(), // Assuming tenant uses same property list
+              ),
             ),
           ),
           GoRoute(
@@ -666,7 +670,21 @@ final routerProvider = Provider<GoRouter>((ref) {
                 }
                 return true;
               },
-              child: TenantRentAgreementScreen(),
+              child: AuthWrapper(child: TenantRentAgreementScreen()),
+            ),
+          ),
+          GoRoute(
+            path: '/tenant/more',
+            builder: (context, __) => BackButtonListener(
+              onBackButtonPressed: () async {
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/tenant/dashboard');
+                }
+                return true;
+              },
+              child: AuthWrapper(child: TenantMoreScreen()),
             ),
           ),
         ],

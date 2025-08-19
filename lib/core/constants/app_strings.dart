@@ -118,7 +118,7 @@ class AppStrings {
       'update': 'Update',
 
       // Dashboard
-      'dashboard': 'Dashboard',
+      'dashboard': 'Home',
       'welcome': 'Welcome',
       'total_properties': 'Total Properties',
       'active_properties': 'Active Properties',
@@ -357,7 +357,7 @@ class AppStrings {
       'update': 'আপডেট',
 
       // Dashboard
-      'dashboard': 'ড্যাশবোর্ড',
+      'dashboard': 'হোম',
       'welcome': 'স্বাগতম',
       'total_properties': 'মোট সম্পত্তি',
       'active_properties': 'সক্রিয় সম্পত্তি',

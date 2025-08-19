@@ -140,19 +140,6 @@ class _TenantRentAgreementScreenState
               _rentDetails?['monthly_rent'] ?? 'N/A',
             ),
             _buildDetailRow(
-              'Security Deposit',
-              _rentDetails?['security_deposit'] ?? 'N/A',
-            ),
-            _buildDetailRow(
-              'Advance Rent',
-              _rentDetails?['advance_rent'] ?? 'N/A',
-            ),
-            _buildDetailRow(
-              'Rent Due Date',
-              _rentDetails?['rent_due_date'] ?? 'N/A',
-            ),
-            _buildDetailRow('Late Fee', _rentDetails?['late_fee'] ?? 'N/A'),
-            _buildDetailRow(
               'Payment Method',
               _rentDetails?['payment_method'] ?? 'N/A',
             ),

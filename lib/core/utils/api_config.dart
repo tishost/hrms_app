@@ -50,6 +50,7 @@ class ApiConfig {
 
   // Get base URL
   static String getBaseUrl() {
+    print('🔍 [ApiConfig] getBaseUrl() called, returning: $baseUrl');
     return baseUrl;
   }
 

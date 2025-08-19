@@ -6,9 +6,13 @@ import 'package:hrms_app/core/providers/session_provider.dart';
 
 // Dio Provider with interceptors
 final dioProvider = Provider((ref) {
+  print('🔍 [ApiService] Creating Dio instance');
+  final baseUrl = ApiConfig.getBaseUrl();
+  print('🔍 [ApiService] Got baseUrl from ApiConfig: $baseUrl');
+
   final dio = Dio(
     BaseOptions(
-      baseUrl: ApiConfig.getBaseUrl(),
+      baseUrl: baseUrl,
       connectTimeout: const Duration(seconds: 30),
       receiveTimeout: const Duration(seconds: 30),
       headers: {
@@ -51,8 +55,21 @@ final dioProvider = Provider((ref) {
         );
         print('❌ Error Message: ${error.message}');
 
-        // Handle 401 Unauthorized
+        // Handle 401 Unauthorized - but exclude login-related endpoints
         if (error.response?.statusCode == 401) {
+          final path = error.requestOptions.path.toLowerCase();
+
+          // Don't auto-logout for login, signup, password reset, or ads endpoints
+          if (path.contains('login') ||
+              path.contains('signup') ||
+              path.contains('password') ||
+              path.contains('otp') ||
+              path.contains('verify') ||
+              path.contains('ads')) {
+            print('🔐 401 on protected endpoint, not auto-logging out: $path');
+            return handler.next(error);
+          }
+
           print('🔐 Token expired or session killed, logging out user');
 
           // Check if this is a session kill response
@@ -83,6 +100,9 @@ final dioProvider = Provider((ref) {
     ),
   );
 
+  print(
+    '🔍 [ApiService] Dio instance created with baseUrl: ${dio.options.baseUrl}',
+  );
   return dio;
 });
 

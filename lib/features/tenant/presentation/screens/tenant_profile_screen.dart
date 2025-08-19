@@ -231,6 +231,40 @@ class _TenantProfileScreenState extends ConsumerState<TenantProfileScreen> {
                         if (_getBrotherName() != 'N/A')
                           _buildInfoTile('Brother Name', _getBrotherName()),
                         _buildInfoTile('Emergency Contact', _getAltMobile()),
+                        SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: Padding(
+                            padding: EdgeInsets.only(right: 10, bottom: 10),
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        const TenantProfileUpdateScreen(
+                                          initialTabIndex: 1, // Family tab
+                                        ),
+                                  ),
+                                );
+                              },
+                              icon: Icon(Icons.edit, size: 18),
+                              label: Text('Edit'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: Colors.white,
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
+                                minimumSize: Size(0, 0),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                     SizedBox(height: 12),
@@ -996,16 +1030,20 @@ class _TenantProfileScreenState extends ConsumerState<TenantProfileScreen> {
   String _getMonthlyRent() {
     final info = _tenantInfo;
     if (info == null) return 'N/A';
+
+    // Get base rent
     dynamic rentRaw =
         info['monthly_rent'] ??
         info['rent'] ??
         info['monthly_amount'] ??
         info['total_rent'] ??
         info['total_monthly_rent'];
+
     // nested under unit
     final unitObj = info['unit'] is Map ? info['unit'] as Map : null;
     rentRaw ??=
         unitObj?['rent'] ?? unitObj?['monthly_rent'] ?? unitObj?['total_rent'];
+
     // nested under lease/tenancy
     final leaseObj = info['lease'] is Map
         ? info['lease'] as Map
@@ -1014,8 +1052,56 @@ class _TenantProfileScreenState extends ConsumerState<TenantProfileScreen> {
         leaseObj?['rent'] ??
         leaseObj?['monthly_rent'] ??
         leaseObj?['total_rent'];
+
+    // Get additional fees from unit charges
+    num totalFees = 0;
+    if (unitObj != null && unitObj['charges'] != null) {
+      final charges = unitObj['charges'] as List;
+      for (final charge in charges) {
+        if (charge is Map) {
+          try {
+            final amount = charge['amount'] is num
+                ? charge['amount'] as num
+                : num.parse(charge['amount'].toString());
+            totalFees += amount;
+          } catch (_) {
+            // Skip invalid charges
+          }
+        }
+      }
+    }
+
+    // Calculate total (rent + fees)
     if (rentRaw == null) return 'N/A';
-    return rentRaw.toString();
+    try {
+      final num rent = rentRaw is num ? rentRaw : num.parse(rentRaw.toString());
+      final num total = rent + totalFees;
+      return _formatCurrency(total);
+    } catch (_) {
+      return rentRaw.toString();
+    }
+  }
+
+  String _formatCurrency(num amount) {
+    final String symbol = _getCurrencySymbol();
+    final int decimals = _getCurrencyDecimals();
+    final String amountStr = amount.toStringAsFixed(decimals);
+    final bool prefix = _isCurrencyPrefix();
+    if (symbol.isEmpty) return amountStr;
+    return prefix ? '$symbol$amountStr' : '$amountStr $symbol';
+  }
+
+  String _getCurrencySymbol() {
+    // Simple fallback - you can enhance this based on your needs
+    return '৳'; // Default to BDT symbol
+  }
+
+  bool _isCurrencyPrefix() {
+    return true; // Default to prefix
+  }
+
+  int _getCurrencyDecimals() {
+    return 2; // Default to 2 decimal places
   }
 
   String _getAdvanceAmount() {
@@ -1028,12 +1114,103 @@ class _TenantProfileScreenState extends ConsumerState<TenantProfileScreen> {
   }
 
   String _getStartMonth() {
-    return _resolveString([
+    final rawValue = _resolveString([
       _tenantInfo?['start_month'],
       _tenantInfo?['lease_start'],
       _tenantInfo?['start_date'],
       _tenantInfo?['check_in_date'],
     ]);
+
+    if (rawValue == 'N/A' || rawValue.isEmpty) return 'N/A';
+
+    try {
+      // Try to parse as DateTime
+      DateTime? date;
+
+      // Try different date formats
+      if (rawValue.contains('-')) {
+        // Format: YYYY-MM-DD or YYYY-MM
+        date = DateTime.tryParse(rawValue);
+      } else if (rawValue.contains('/')) {
+        // Format: MM/DD/YYYY or DD/MM/YYYY
+        final parts = rawValue.split('/');
+        if (parts.length == 3) {
+          // Assume MM/DD/YYYY format
+          date = DateTime.tryParse(
+            '${parts[2]}-${parts[0].padLeft(2, '0')}-${parts[1].padLeft(2, '0')}',
+          );
+        }
+      } else if (rawValue.length == 4) {
+        // Format: YYYY (year only)
+        date = DateTime.tryParse('${rawValue}-01-01');
+      }
+
+      if (date != null) {
+        // Return month name with year
+        const months = [
+          'January',
+          'February',
+          'March',
+          'April',
+          'May',
+          'June',
+          'July',
+          'August',
+          'September',
+          'October',
+          'November',
+          'December',
+        ];
+        return '${months[date.month - 1]}-${date.year}';
+      }
+
+      // If it's already a month name, return as is
+      final monthNames = [
+        'january',
+        'february',
+        'march',
+        'april',
+        'may',
+        'june',
+        'july',
+        'august',
+        'september',
+        'october',
+        'november',
+        'december',
+      ];
+
+      final lowerValue = rawValue.toLowerCase();
+      if (monthNames.contains(lowerValue)) {
+        return rawValue.substring(0, 1).toUpperCase() +
+            rawValue.substring(1).toLowerCase();
+      }
+
+      // If it's a month number (1-12), convert to month name with current year
+      final monthNumber = int.tryParse(rawValue);
+      if (monthNumber != null && monthNumber >= 1 && monthNumber <= 12) {
+        const months = [
+          'January',
+          'February',
+          'March',
+          'April',
+          'May',
+          'June',
+          'July',
+          'August',
+          'September',
+          'October',
+          'November',
+          'December',
+        ];
+        final currentYear = DateTime.now().year;
+        return '${months[monthNumber - 1]}-$currentYear';
+      }
+
+      return rawValue; // Return original if can't parse
+    } catch (e) {
+      return rawValue; // Return original if parsing fails
+    }
   }
 
   String _getRentFrequency() {

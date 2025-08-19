@@ -31,7 +31,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   void initState() {
     super.initState();
     // FIXED: Pre-fill credentials for easier development
-    _mobileController.text = 'owner@hrms.com';
+    _mobileController.text = '';
     _passwordController.text = '123456';
   }
 

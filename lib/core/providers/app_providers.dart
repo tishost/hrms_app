@@ -3,6 +3,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../services/security_service.dart';
 import '../services/api_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:async';
 
 part 'app_providers.g.dart';
 
@@ -11,13 +12,31 @@ part 'app_providers.g.dart';
 class AuthState extends _$AuthState {
   @override
   AuthStateData build() {
-    // Start with loading state and immediately check auth
-    Future.microtask(() => checkAuthStatus());
+    // Don't immediately check auth status - let login process handle it
+    // This prevents race conditions during login
+
+    // Set up periodic token validation check (every 5 minutes) with initial delay
+    Timer.periodic(const Duration(minutes: 5), (timer) {
+      // Only validate if still authenticated and not disposed
+      if (state.isAuthenticated && !state.isDisposed) {
+        _validateTokenPeriodically();
+      }
+    });
+
+    // Add initial delay before first token validation to avoid conflicts with login
+    Timer(const Duration(minutes: 1), () {
+      if (state.isAuthenticated && !state.isDisposed) {
+        _validateTokenPeriodically();
+      }
+    });
+
     return const AuthStateData(
       isAuthenticated: false,
-      isLoading: true, // Start with loading true
+      isLoading:
+          false, // Start with loading false since we're not checking auth immediately
       user: null,
       error: null,
+      isDisposed: false,
     );
   }
 
@@ -27,6 +46,10 @@ class AuthState extends _$AuthState {
     Map<String, dynamic>? userData,
   }) async {
     print('🔐 Starting login process...');
+
+    // Set loading state to prevent auth conflicts
+    state = state.copyWith(isLoading: true);
+
     try {
       // Store JWT token
       await SecurityService.storeJwtToken(token);
@@ -47,9 +70,10 @@ class AuthState extends _$AuthState {
 
       print('🔐 Auth State Updated - Role: $role, Name: $name, Email: $email');
 
-      // Update state with authentication complete - DO NOT touch isLoading
+      // Update state with authentication complete
       state = state.copyWith(
         isAuthenticated: true,
+        isLoading: false, // Clear loading state
         user: UserData(email: email, name: name, role: role),
         error: null, // Clear any previous errors
       );
@@ -57,7 +81,11 @@ class AuthState extends _$AuthState {
       print('✅ Login process completed successfully');
     } catch (e) {
       print('❌ Login process failed: $e');
-      state = state.copyWith(isAuthenticated: false, error: e.toString());
+      state = state.copyWith(
+        isAuthenticated: false,
+        isLoading: false, // Clear loading state on error
+        error: e.toString(),
+      );
     }
   }
 
@@ -69,6 +97,7 @@ class AuthState extends _$AuthState {
       isLoading: false,
       user: null,
       error: null,
+      isDisposed: true,
     );
     print('🚪 User logged out successfully');
   }
@@ -110,6 +139,34 @@ class AuthState extends _$AuthState {
         'isLoading: ${state.isLoading}',
       );
     }
+  }
+
+  Future<void> _validateTokenPeriodically() async {
+    try {
+      final token = await SecurityService.getJwtToken();
+
+      if (token == null) {
+        print('🔄 No token found during validation, skipping');
+        return;
+      }
+
+      if (!SecurityService.isJwtTokenValid(token)) {
+        print('🔄 Token expired during validation, forcing logout');
+        await logout();
+      } else {
+        print('✅ Token validation successful');
+      }
+    } catch (e) {
+      print('❌ Error during periodic token validation: $e');
+      // Don't immediately logout on validation errors, just log them
+      // This prevents false positives from causing logout
+    }
+  }
+
+  // Method to manually check auth status (called from app startup)
+  Future<void> initializeAuthCheck() async {
+    print('DEBUG: initializeAuthCheck called');
+    await checkAuthStatus();
   }
 }
 
@@ -214,12 +271,14 @@ class AuthStateData {
   final bool isLoading;
   final UserData? user;
   final String? error;
+  final bool isDisposed;
 
   const AuthStateData({
     required this.isAuthenticated,
     required this.isLoading,
     this.user,
     this.error,
+    this.isDisposed = false,
   });
 
   AuthStateData copyWith({
@@ -227,12 +286,14 @@ class AuthStateData {
     bool? isLoading,
     UserData? user,
     String? error,
+    bool? isDisposed,
   }) {
     return AuthStateData(
       isAuthenticated: isAuthenticated ?? this.isAuthenticated,
       isLoading: isLoading ?? this.isLoading,
       user: user ?? this.user,
       error: error ?? this.error,
+      isDisposed: isDisposed ?? this.isDisposed,
     );
   }
 }
