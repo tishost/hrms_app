@@ -36,12 +36,32 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
       String? token = await AuthService.getToken();
       if (token == null) throw Exception('Not authenticated');
 
+      final requestUrl = ApiConfig.getApiUrl(ApiConfig.ownerInvoices);
+      // DEBUG: Request details
+      // ignore: avoid_print
+      print('[InvoiceList] GET ' + requestUrl);
+      // ignore: avoid_print
+      print('[InvoiceList] Token length: ' + token.length.toString());
+
       final response = await http.get(
-        Uri.parse(ApiConfig.getApiUrl('/invoices')),
+        Uri.parse(requestUrl),
         headers: {
           'Authorization': 'Bearer $token',
           'Accept': 'application/json',
         },
+      );
+
+      // DEBUG: Response details
+      // ignore: avoid_print
+      print('[InvoiceList] Status: ' + response.statusCode.toString());
+      // ignore: avoid_print
+      print('[InvoiceList] Body length: ' + response.body.length.toString());
+      // ignore: avoid_print
+      print(
+        '[InvoiceList] Body (first 500 chars): ' +
+            (response.body.length > 500
+                ? response.body.substring(0, 500) + '…'
+                : response.body),
       );
 
       if (response.statusCode == 200) {
@@ -50,17 +70,26 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
           _invoices = List<Map<String, dynamic>>.from(data['invoices'] ?? []);
           _isLoading = false;
         });
+        // DEBUG: Parsed length
+        // ignore: avoid_print
+        print('[InvoiceList] Parsed invoices: ' + _invoices.length.toString());
       } else {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Failed to load invoices')),
         );
+        // DEBUG: Non-200 status
+        // ignore: avoid_print
+        print('[InvoiceList][ERROR] HTTP ' + response.statusCode.toString());
       }
     } catch (e) {
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Network error: $e')));
+      // DEBUG: Exception
+      // ignore: avoid_print
+      print('[InvoiceList][EXCEPTION] ' + e.toString());
     }
   }
 

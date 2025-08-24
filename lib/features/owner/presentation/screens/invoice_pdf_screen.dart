@@ -17,7 +17,11 @@ class InvoicePdfScreen extends StatefulWidget {
   final int invoiceId;
   final bool forceTenant; // when true, always use tenant endpoint
 
-  const InvoicePdfScreen({super.key, required this.invoiceId, this.forceTenant = false});
+  const InvoicePdfScreen({
+    super.key,
+    required this.invoiceId,
+    this.forceTenant = false,
+  });
 
   @override
   State<InvoicePdfScreen> createState() => _InvoicePdfScreenState();

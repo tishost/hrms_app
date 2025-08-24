@@ -55,18 +55,26 @@ final dioProvider = Provider((ref) {
         );
         print('❌ Error Message: ${error.message}');
 
-        // Handle 401 Unauthorized - but exclude login-related endpoints
+        // Handle 401 Unauthorized - but exclude login-related and non-critical endpoints
         if (error.response?.statusCode == 401) {
           final path = error.requestOptions.path.toLowerCase();
 
-          // Don't auto-logout for login, signup, password reset, or ads endpoints
-          if (path.contains('login') ||
+          // Do NOT auto-logout for these paths
+          final shouldBypassAutoLogout =
+              // Auth/public flows
+              path.contains('login') ||
               path.contains('signup') ||
               path.contains('password') ||
               path.contains('otp') ||
               path.contains('verify') ||
-              path.contains('ads')) {
-            print('🔐 401 on protected endpoint, not auto-logging out: $path');
+              path.contains('ads') ||
+              // Invoice-related endpoints (avoid logging out on permission issues)
+              path.contains('/invoices') ||
+              path.contains('/tenant/invoices') ||
+              path.contains('/owner/invoices');
+
+          if (shouldBypassAutoLogout) {
+            print('🔐 401 received on non-critical path, bypassing auto-logout: $path');
             return handler.next(error);
           }
 

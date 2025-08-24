@@ -508,14 +508,27 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       final apiService = ref.read(apiServiceProvider);
       final response = await apiService.get('/dashboard/stats');
 
+      // Update stats from /dashboard/stats
       setState(() {
         _dashboardStats = response.data['stats'] ?? {};
-        _recentTransactions = response.data['recent_transactions'] ?? [];
         _isLoading = false;
       });
-      print(
-        'DEBUG: Dashboard data loaded - stats: $_dashboardStats, transactions: ${_recentTransactions.length}',
-      );
+      print('DEBUG: Dashboard stats loaded: $_dashboardStats');
+
+      // Load recent transactions from dedicated endpoint
+      try {
+        final txRes = await apiService.get('/dashboard/recent-transactions');
+        final txList = (txRes.data is Map)
+            ? (txRes.data['transactions'] as List?) ?? []
+            : [];
+        setState(() => _recentTransactions = List<dynamic>.from(txList));
+        print(
+          'DEBUG: Recent transactions loaded: ${_recentTransactions.length}',
+        );
+      } catch (e) {
+        setState(() => _recentTransactions = []);
+        print('DEBUG: Failed to load recent transactions: $e');
+      }
     } catch (e) {
       print('DEBUG: Dashboard data load error: $e');
       setState(() {
