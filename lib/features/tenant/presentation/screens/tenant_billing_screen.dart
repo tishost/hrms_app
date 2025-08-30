@@ -45,6 +45,63 @@ class _TenantBillingScreenState extends ConsumerState<TenantBillingScreen> {
     super.initState();
     _dbg('initState → loading invoices');
     _loadInvoices();
+
+    // Check for initial filter parameter after a short delay
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkInitialFilter();
+    });
+  }
+
+  void _checkInitialFilter() {
+    try {
+      final routerState = GoRouterState.of(context);
+      final filter = routerState.uri.queryParameters['filter'];
+
+      _dbg('Initial Filter Check: $filter');
+
+      if (filter == 'unpaid' && _statusFilter != 'unpaid') {
+        _dbg('Setting initial filter to unpaid');
+        setState(() {
+          _statusFilter = 'unpaid';
+        });
+        _applyFilters();
+      } else if (filter == 'paid' && _statusFilter != 'paid') {
+        _dbg('Setting initial filter to paid');
+        setState(() {
+          _statusFilter = 'paid';
+        });
+        _applyFilters();
+      }
+    } catch (e) {
+      _dbg('Error checking initial filter: $e');
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Check URL parameters for filter using GoRouterState
+    final routerState = GoRouterState.of(context);
+    final location = routerState.uri.toString();
+    final filter = routerState.uri.queryParameters['filter'];
+
+    _dbg('URL Location: $location');
+    _dbg('Filter Parameter: $filter');
+    _dbg('Current Status Filter: $_statusFilter');
+
+    if (filter == 'unpaid' && _statusFilter != 'unpaid') {
+      _dbg('Setting filter to unpaid from URL parameter');
+      setState(() {
+        _statusFilter = 'unpaid';
+      });
+      _applyFilters();
+    } else if (filter == 'paid' && _statusFilter != 'paid') {
+      _dbg('Setting filter to paid from URL parameter');
+      setState(() {
+        _statusFilter = 'paid';
+      });
+      _applyFilters();
+    }
   }
 
   Future<void> _loadInvoices() async {
@@ -102,26 +159,6 @@ class _TenantBillingScreenState extends ConsumerState<TenantBillingScreen> {
       appBar: AppBar(
         title: Text('My Bills'),
         actions: [
-          IconButton(
-            icon: Icon(Icons.bug_report_outlined),
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (_) => AlertDialog(
-                  title: Text('Debug Log'),
-                  content: SingleChildScrollView(
-                    child: Text(_debugLog.toString()),
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: Text('Close'),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
           IconButton(icon: Icon(Icons.refresh), onPressed: _loadInvoices),
         ],
       ),
@@ -779,6 +816,10 @@ class _TenantBillingScreenState extends ConsumerState<TenantBillingScreen> {
         builder: (context) => InvoicePdfScreen(
           invoiceId: (invoice['id'] as num).toInt(),
           forceTenant: true,
+          onBackToBilling: () {
+            // Navigate back to billing page
+            context.go('/tenant/billing');
+          },
         ),
       ),
     );
@@ -807,8 +848,13 @@ class _TenantBillingScreenState extends ConsumerState<TenantBillingScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) =>
-            InvoicePdfScreen(invoiceId: (invoice['id'] as num).toInt()),
+        builder: (context) => InvoicePdfScreen(
+          invoiceId: (invoice['id'] as num).toInt(),
+          onBackToBilling: () {
+            // Navigate back to billing page
+            context.go('/tenant/billing');
+          },
+        ),
       ),
     );
   }

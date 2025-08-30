@@ -6,7 +6,7 @@ import 'package:hrms_app/core/utils/api_config.dart';
 import 'package:hrms_app/core/utils/app_colors.dart';
 import 'dart:async';
 import 'dart:convert';
-import 'package:hrms_app/features/tenant/presentation/screens/invoice_pdf_screen.dart';
+import 'package:hrms_app/features/owner/presentation/screens/invoice_pdf_screen.dart';
 import 'package:hrms_app/core/services/api_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hrms_app/core/services/security_service.dart';
@@ -54,6 +54,9 @@ class _TenantDashboardScreenState extends ConsumerState<TenantDashboardScreen> {
 
   // Flag to track if widget is being disposed
   bool _isDisposed = false;
+
+  // Navigation state for invoice viewing
+  bool _isViewingInvoice = false;
 
   void _showDailyLimitNotice() {
     // Close any existing popup (like OTP dialog), then show the notice on next frame
@@ -1569,8 +1572,7 @@ class _TenantDashboardScreenState extends ConsumerState<TenantDashboardScreen> {
         SizedBox(height: 16),
         if (_isAdsEnabled) _buildAdsBanner(),
         if (_isAdsEnabled) SizedBox(height: 16),
-        _buildQuickActions(),
-        SizedBox(height: 16),
+
         _buildRecentInvoices(),
         SizedBox(height: 16),
       ],
@@ -1597,29 +1599,40 @@ class _TenantDashboardScreenState extends ConsumerState<TenantDashboardScreen> {
           Row(
             children: [
               Expanded(
-                child: _buildSummaryCard(
-                  'Total Invoices',
-                  '${summary['total_invoices'] ?? 0}',
-                  Icons.receipt_rounded,
-                  AppColors.primary,
+                child: GestureDetector(
+                  onTap: () {
+                    // Set navigation state to billing
+                    setState(() {
+                      _isViewingInvoice = false;
+                    });
+                    context.go('/tenant/billing?filter=unpaid');
+                  },
+                  child: _buildSummaryCard(
+                    'Unpaid Amount',
+                    '${_getCurrencySymbol()}${summary['unpaid_amount'] ?? summary['pending_amount'] ?? 0}',
+                    Icons.receipt_rounded,
+                    _isViewingInvoice ? AppColors.primary : Colors.red,
+                    isSelected: _isViewingInvoice,
+                  ),
                 ),
               ),
               SizedBox(width: 16),
               Expanded(
-                child: _buildSummaryCard(
-                  'Paid',
-                  '${summary['paid_invoices'] ?? 0}',
-                  Icons.check_circle_rounded,
-                  Colors.green,
-                ),
-              ),
-              SizedBox(width: 16),
-              Expanded(
-                child: _buildSummaryCard(
-                  'Pending',
-                  '${summary['pending_invoices'] ?? 0}',
-                  Icons.pending_rounded,
-                  Colors.orange,
+                child: GestureDetector(
+                  onTap: () {
+                    // Set navigation state to billing
+                    setState(() {
+                      _isViewingInvoice = false;
+                    });
+                    context.go('/tenant/billing?filter=paid');
+                  },
+                  child: _buildSummaryCard(
+                    'Paid Amount',
+                    '${_getCurrencySymbol()}${summary['paid_amount'] ?? 0}',
+                    Icons.attach_money_rounded,
+                    _isViewingInvoice ? AppColors.primary : Colors.green,
+                    isSelected: _isViewingInvoice,
+                  ),
                 ),
               ),
             ],
@@ -1633,50 +1646,62 @@ class _TenantDashboardScreenState extends ConsumerState<TenantDashboardScreen> {
     String title,
     String value,
     IconData icon,
-    Color color,
-  ) {
+    Color color, {
+    bool isSelected = false,
+  }) {
     return Container(
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isSelected ? color.withOpacity(0.1) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: color.withOpacity(0.1),
-            blurRadius: 12,
-            offset: Offset(0, 6),
+            color: isSelected ? color.withOpacity(0.3) : color.withOpacity(0.1),
+            blurRadius: isSelected ? 16 : 12,
+            offset: Offset(0, isSelected ? 8 : 6),
           ),
         ],
-        border: Border.all(color: color.withOpacity(0.2), width: 1),
+        border: Border.all(
+          color: isSelected ? color : color.withOpacity(0.2),
+          width: isSelected ? 2 : 1,
+        ),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            padding: EdgeInsets.all(12),
+            padding: EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: color.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, color: color, size: 24),
+            child: Icon(icon, color: color, size: 20),
           ),
-          SizedBox(height: 16),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: color,
+          SizedBox(height: 12),
+          Flexible(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           SizedBox(height: 4),
           Text(
             title,
             style: TextStyle(
-              fontSize: 13,
+              fontSize: 12,
               color: AppColors.gray,
               fontWeight: FontWeight.w600,
             ),
             textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -1883,115 +1908,14 @@ class _TenantDashboardScreenState extends ConsumerState<TenantDashboardScreen> {
     }
   }
 
-  Widget _buildQuickActions() {
-    return Container(
-      margin: EdgeInsets.fromLTRB(16, 8, 16, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Quick Actions',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: AppColors.text,
-            ),
-          ),
-          SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _buildActionCard(
-                  'View Bills',
-                  Icons.receipt_long_rounded,
-                  Colors.blue,
-                  () => context.go('/tenant/billing'),
-                ),
-              ),
-              SizedBox(width: 16),
-              Expanded(
-                child: _buildActionCard(
-                  'My Profile',
-                  Icons.person_rounded,
-                  Colors.green,
-                  () => context.go('/tenant/profile'),
-                ),
-              ),
-              SizedBox(width: 16),
-              Expanded(
-                child: _buildActionCard(
-                  'Contact Owner',
-                  Icons.message_rounded,
-                  Colors.orange,
-                  () {
-                    // Handle contact owner
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Contact feature coming soon!'),
-                        backgroundColor: Colors.orange,
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionCard(
-    String title,
-    IconData icon,
-    Color color,
-    VoidCallback onTap,
-  ) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: color.withOpacity(0.1),
-              blurRadius: 12,
-              offset: Offset(0, 6),
-            ),
-          ],
-          border: Border.all(color: color.withOpacity(0.2), width: 1),
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: color.withOpacity(0.3), width: 1),
-              ),
-              child: Icon(icon, color: color, size: 24),
-            ),
-            SizedBox(height: 12),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppColors.text,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildRecentInvoices() {
     final recentInvoices = _dashboardData['recent_invoices'] ?? [];
+
+    // Debug: Print recent invoices data
+    print('🧾 Recent Invoices Data: $recentInvoices');
+    if (recentInvoices.isNotEmpty) {
+      print('🧾 First Invoice Sample: ${recentInvoices[0]}');
+    }
 
     return Container(
       margin: EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -2006,13 +1930,23 @@ class _TenantDashboardScreenState extends ConsumerState<TenantDashboardScreen> {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.text,
+                  color: _isViewingInvoice ? AppColors.primary : AppColors.text,
                 ),
               ),
               TextButton(
-                onPressed: () => context.go('/tenant/billing'),
+                onPressed: () {
+                  // Set navigation state to billing
+                  setState(() {
+                    _isViewingInvoice = false;
+                  });
+                  // Navigate to billing page with proper navigation
+                  context.go('/tenant/billing');
+                },
                 style: TextButton.styleFrom(
                   foregroundColor: AppColors.primary,
+                  backgroundColor: _isViewingInvoice
+                      ? AppColors.primary.withOpacity(0.1)
+                      : Colors.transparent,
                   padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 ),
                 child: Text(
@@ -2025,15 +1959,25 @@ class _TenantDashboardScreenState extends ConsumerState<TenantDashboardScreen> {
           SizedBox(height: 16),
           Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: _isViewingInvoice
+                  ? AppColors.primary.withOpacity(0.05)
+                  : Colors.white,
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.06),
-                  blurRadius: 12,
-                  offset: Offset(0, 4),
+                  color: _isViewingInvoice
+                      ? AppColors.primary.withOpacity(0.1)
+                      : Colors.black.withOpacity(0.06),
+                  blurRadius: _isViewingInvoice ? 16 : 12,
+                  offset: Offset(0, _isViewingInvoice ? 6 : 4),
                 ),
               ],
+              border: _isViewingInvoice
+                  ? Border.all(
+                      color: AppColors.primary.withOpacity(0.3),
+                      width: 1,
+                    )
+                  : null,
             ),
             child: recentInvoices.isEmpty
                 ? Padding(
@@ -2142,18 +2086,76 @@ class _TenantDashboardScreenState extends ConsumerState<TenantDashboardScreen> {
                           ),
                         ),
                         onTap: () {
-                          // Navigate to PDF viewer using the same function as owner
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => InvoicePdfScreen(
-                                invoiceId: invoice['id'],
-                                invoiceNumber:
-                                    invoice['invoice_number'] ??
-                                    'Invoice #${invoice['id']}',
+                          try {
+                            // Validate invoice data before navigation
+                            final invoiceId = invoice['id'];
+                            if (invoiceId == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Invalid invoice ID'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                              return;
+                            }
+
+                            print(
+                              '🧾 Tenant Invoice Click - ID: $invoiceId, Data: $invoice',
+                            );
+
+                            // Set navigation state to viewing invoice (this will highlight billing navigation)
+                            setState(() {
+                              _isViewingInvoice = true;
+                            });
+                            print(
+                              '🔵 Billing navigation highlighted - Invoice viewing active',
+                            );
+
+                            // Note: We don't navigate to billing page here
+                            // Just set the state to highlight billing navigation in the current dashboard
+                            // The main app navigation will be handled by the parent navigation system
+
+                            // Navigate to PDF viewer and set billing as selected
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => InvoicePdfScreen(
+                                  invoiceId: (invoiceId as num).toInt(),
+                                  forceTenant:
+                                      true, // Same as billing page - same design and functionality
+                                  onBackToBilling: () {
+                                    // Navigate back to billing page and reset state
+                                    setState(() {
+                                      _isViewingInvoice = false;
+                                    });
+                                    print(
+                                      '🔵 Billing navigation reset - Returning to billing page',
+                                    );
+                                    // Navigate to billing page when user explicitly wants to go back
+                                    context.go('/tenant/billing');
+                                  },
+                                ),
                               ),
-                            ),
-                          );
+                            ).then((_) {
+                              // Reset state when returning from PDF viewer
+                              if (mounted) {
+                                setState(() {
+                                  _isViewingInvoice = false;
+                                });
+                                // Note: Don't navigate to billing page here
+                                // Just reset the state and stay on dashboard
+                                // The main app navigation will handle billing selection
+                              }
+                            });
+                          } catch (e) {
+                            print('❌ Error opening invoice: $e');
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Error opening invoice: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
                         },
                       );
                     },

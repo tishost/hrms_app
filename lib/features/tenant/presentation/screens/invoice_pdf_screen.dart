@@ -10,11 +10,13 @@ import 'package:hrms_app/core/utils/app_colors.dart';
 class InvoicePdfScreen extends StatefulWidget {
   final String invoiceId;
   final String invoiceNumber;
+  final VoidCallback? onBackToBilling;
 
   const InvoicePdfScreen({
     Key? key,
     required this.invoiceId,
     required this.invoiceNumber,
+    this.onBackToBilling,
   }) : super(key: key);
 
   @override
@@ -34,22 +36,61 @@ class _InvoicePdfScreenState extends State<InvoicePdfScreen> {
 
   Future<void> _loadPdf() async {
     try {
+      print('🔍 Loading tenant invoice PDF - ID: ${widget.invoiceId}');
+
       final token = await AuthService.getToken();
       if (token == null) throw Exception('Token not found');
 
-      final url = ApiConfig.getApiUrl('/tenant/invoices/${widget.invoiceId}/pdf-file');
-      final resp = await http.get(Uri.parse(url), headers: {
-        'Authorization': 'Bearer $token',
-        'Accept': 'application/pdf',
-      });
+      final url = ApiConfig.getApiUrl(
+        '/tenant/invoices/${widget.invoiceId}/pdf-file',
+      );
+      print('🌐 Tenant PDF Request URL: $url');
 
-      if (resp.statusCode != 200 || resp.bodyBytes.isEmpty) {
-        throw Exception('HTTP ${resp.statusCode}');
+      final resp = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/pdf',
+        },
+      );
+
+      print(
+        '📄 Tenant PDF Response - Status: ${resp.statusCode}, Content-Length: ${resp.bodyBytes.length}',
+      );
+
+      if (resp.statusCode == 404) {
+        throw Exception('Invoice not found (404)');
+      } else if (resp.statusCode == 403) {
+        throw Exception('Access denied to this invoice (403)');
+      } else if (resp.statusCode != 200) {
+        throw Exception(
+          'Server error (${resp.statusCode}): ${resp.reasonPhrase}',
+        );
+      }
+
+      if (resp.bodyBytes.isEmpty) {
+        throw Exception('PDF file is empty');
+      }
+
+      // Check if response is actually a PDF
+      final contentType = resp.headers['content-type'] ?? '';
+      if (!contentType.contains('pdf')) {
+        print('⚠️ Unexpected content type: $contentType');
+        // Try to parse as JSON to see if it's an error response
+        try {
+          final responseText = String.fromCharCodes(resp.bodyBytes);
+          print('📝 Response text: $responseText');
+          throw Exception('Expected PDF but got: $contentType');
+        } catch (_) {
+          throw Exception('Invalid response format');
+        }
       }
 
       final dir = await getTemporaryDirectory();
       final file = File('${dir.path}/tenant_invoice_${widget.invoiceId}.pdf');
       await file.writeAsBytes(resp.bodyBytes);
+
+      print('✅ Tenant PDF saved to: ${file.path}');
 
       if (!mounted) return;
       setState(() {
@@ -57,6 +98,7 @@ class _InvoicePdfScreenState extends State<InvoicePdfScreen> {
         _isLoading = false;
       });
     } catch (e) {
+      print('❌ Tenant PDF Load Error: $e');
       if (!mounted) return;
       setState(() {
         _error = 'Failed to load PDF: $e';
@@ -70,6 +112,18 @@ class _InvoicePdfScreenState extends State<InvoicePdfScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Invoice #${widget.invoiceNumber}'),
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back),
+          onPressed: () {
+            // If onBackToBilling callback is provided, use it
+            if (widget.onBackToBilling != null) {
+              widget.onBackToBilling!();
+            } else {
+              // Default back navigation
+              Navigator.of(context).pop();
+            }
+          },
+        ),
         actions: [
           IconButton(
             icon: Icon(Icons.refresh),
@@ -80,18 +134,18 @@ class _InvoicePdfScreenState extends State<InvoicePdfScreen> {
               });
               _loadPdf();
             },
-          )
+          ),
         ],
       ),
       body: _isLoading
           ? Center(child: CircularProgressIndicator(color: AppColors.primary))
           : (_error != null)
-              ? Center(child: Text(_error!))
-              : PDFView(
-                  filePath: _pdfPath!,
-                  enableSwipe: true,
-                  swipeHorizontal: false,
-                ),
+          ? Center(child: Text(_error!))
+          : PDFView(
+              filePath: _pdfPath!,
+              enableSwipe: true,
+              swipeHorizontal: false,
+            ),
     );
   }
 }

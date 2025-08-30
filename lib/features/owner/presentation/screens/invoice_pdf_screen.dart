@@ -16,11 +16,13 @@ import 'package:hrms_app/core/services/permission_service.dart';
 class InvoicePdfScreen extends StatefulWidget {
   final int invoiceId;
   final bool forceTenant; // when true, always use tenant endpoint
+  final VoidCallback? onBackToBilling;
 
   const InvoicePdfScreen({
     super.key,
     required this.invoiceId,
     this.forceTenant = false,
+    this.onBackToBilling,
   });
 
   @override
@@ -337,10 +339,16 @@ class _InvoicePdfScreenState extends State<InvoicePdfScreen> {
                   // Back Button
                   GestureDetector(
                     onTap: () {
-                      if (context.canPop()) {
-                        context.pop();
+                      // If onBackToBilling callback is provided, use it
+                      if (widget.onBackToBilling != null) {
+                        widget.onBackToBilling!();
                       } else {
-                        context.go('/properties');
+                        // Default back navigation
+                        if (context.canPop()) {
+                          context.pop();
+                        } else {
+                          context.go('/properties');
+                        }
                       }
                     },
                     child: Container(

@@ -66,11 +66,31 @@ class SecurityService {
     return digest.toString();
   }
 
-  // JWT Token Validation
+  // JWT Token Validation (supports both JWT and Laravel Sanctum tokens)
   static bool isJwtTokenValid(String token) {
     try {
+      // Check if it's a Laravel Sanctum token (format: ID|TOKEN)
+      if (token.contains('|')) {
+        final parts = token.split('|');
+        if (parts.length == 2) {
+          print('🔐 Token validation: Laravel Sanctum token detected');
+          // For Sanctum tokens, we rely on backend validation
+          // The token is valid if it exists and has proper format
+          return true;
+        } else {
+          print('🔐 Token validation: Invalid Sanctum token format');
+          return false;
+        }
+      }
+
+      // Standard JWT validation
       final parts = token.split('.');
-      if (parts.length != 3) return false;
+      if (parts.length != 3) {
+        print(
+          '🔐 JWT validation: Invalid JWT token format (${parts.length} parts)',
+        );
+        return false;
+      }
 
       final payload = parts[1];
       final normalized = base64Url.normalize(payload);
@@ -78,11 +98,28 @@ class SecurityService {
       final payloadMap = json.decode(resp);
 
       final exp = payloadMap['exp'];
-      if (exp == null) return false;
+      if (exp == null) {
+        print(
+          '🔐 JWT validation: No expiration field found, token may be valid indefinitely',
+        );
+        // If no expiration field, consider token valid (backend handles expiration)
+        return true;
+      }
 
       final expiry = DateTime.fromMillisecondsSinceEpoch(exp * 1000);
-      return DateTime.now().isBefore(expiry);
+      final now = DateTime.now();
+      final isValid = now.isBefore(expiry);
+
+      if (isValid) {
+        final daysLeft = expiry.difference(now).inDays;
+        print('🔐 JWT validation: Token valid for $daysLeft more days');
+      } else {
+        print('🔐 JWT validation: Token expired on ${expiry.toString()}');
+      }
+
+      return isValid;
     } catch (e) {
+      print('🔐 JWT validation error: $e');
       return false;
     }
   }
