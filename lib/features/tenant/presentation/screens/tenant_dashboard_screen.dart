@@ -1,18 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:hrms_app/features/auth/data/services/auth_service.dart';
 import 'package:hrms_app/core/utils/api_config.dart';
 import 'package:hrms_app/core/utils/app_colors.dart';
 import 'dart:async';
-import 'dart:convert';
-import 'package:hrms_app/features/owner/presentation/screens/invoice_pdf_screen.dart';
-import 'package:hrms_app/core/services/api_service.dart';
+
+// Duplicate import removed
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hrms_app/core/services/security_service.dart';
-import 'package:hrms_app/core/widgets/ads_banner.dart';
 import 'package:hrms_app/core/providers/ads_provider.dart';
 import 'package:hrms_app/core/services/api_service.dart';
+import 'package:hrms_app/core/providers/back_button_provider.dart';
 // import 'package:hrms_app/features/tenant/presentation/screens/debug_screen.dart';
 
 class TenantDashboardScreen extends ConsumerStatefulWidget {
@@ -57,6 +55,13 @@ class _TenantDashboardScreenState extends ConsumerState<TenantDashboardScreen> {
 
   // Navigation state for invoice viewing
   bool _isViewingInvoice = false;
+
+  // Individual selection states for summary cards
+  bool _isUnpaidCardSelected = false;
+  bool _isPaidCardSelected = false;
+
+  // Debounce state for OTP tap
+  DateTime? _lastOtpTapTime;
 
   void _showDailyLimitNotice() {
     // Close any existing popup (like OTP dialog), then show the notice on next frame
@@ -1106,7 +1111,6 @@ class _TenantDashboardScreenState extends ConsumerState<TenantDashboardScreen> {
 
   Future<void> _startMobileVerificationFlow() async {
     // Debounce to prevent rapid multiple taps creating multiple OTP sends
-    DateTime? _lastOtpTapTime;
     final now = DateTime.now();
     if (_lastOtpTapTime != null &&
         now.difference(_lastOtpTapTime!).inSeconds < 2) {
@@ -1206,6 +1210,7 @@ class _TenantDashboardScreenState extends ConsumerState<TenantDashboardScreen> {
 
     await showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (ctx) {
         bool timersInitialized = false;
         bool verifying = false;
@@ -1233,290 +1238,315 @@ class _TenantDashboardScreenState extends ConsumerState<TenantDashboardScreen> {
             final m = secondsLeft ~/ 60;
             final s = secondsLeft % 60;
 
-            return AlertDialog(
-              title: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('Verify Mobile'),
-                  const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: secondsLeft > 0
-                          ? Colors.blue.withOpacity(0.1)
-                          : Colors.red.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      secondsLeft > 0
-                          ? 'Expires in ${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}'
-                          : 'OTP expired',
-                      style: TextStyle(
-                        color: secondsLeft > 0 ? Colors.blue : Colors.red,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                ],
-              ),
-              content: SingleChildScrollView(
-                child: Column(
+            return WillPopScope(
+              onWillPop: () async {
+                countdownTimer?.cancel();
+                cooldownTimer?.cancel();
+                return true;
+              },
+              child: AlertDialog(
+                title: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    TextField(
-                      keyboardType: TextInputType.number,
-                      maxLength: _otpLength,
-                      decoration: InputDecoration(
-                        labelText: 'Enter OTP (${_otpLength} digits)',
-                        counterText: '',
+                    const Text('Verify Mobile'),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
                       ),
-                      onChanged: (v) => code = v.trim(),
-                    ),
-                    const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton.icon(
-                        onPressed: (resendCooldown > 0)
-                            ? null
-                            : () async {
-                                try {
-                                  final apiService = ref.read(
-                                    apiServiceProvider,
-                                  );
-                                  final resendResponse = await apiService.post(
-                                    '/resend-otp',
-                                    data: {
-                                      'phone': mobile,
-                                      'type': 'profile_update',
-                                    },
-                                  );
-
-                                  final resendData = resendResponse.data;
-                                  print(
-                                    '🔍 DEBUG: Resend response status: ${resendResponse.statusCode}',
-                                  );
-                                  print(
-                                    '🔍 DEBUG: Resend response data: $resendData',
-                                  );
-
-                                  if (resendResponse.statusCode == 200 &&
-                                      resendData['success'] == true) {
-                                    setState(() {
-                                      resendCooldown =
-                                          _otpResendTime; // From OTP settings
-                                    });
-                                  } else {
-                                    print('🔍 DEBUG: Error response detected');
-                                    print(
-                                      '🔍 DEBUG: Status code: ${resendResponse.statusCode}',
-                                    );
-                                    print('🔍 DEBUG: Error data: $resendData');
-
-                                    // Check for daily limit in response
-                                    final errorMsg =
-                                        resendData['message'] ??
-                                        'Failed to resend OTP';
-                                    final isDailyLimit =
-                                        resendData['error_type'] ==
-                                            'daily_limit' ||
-                                        errorMsg.contains('daily_limit') ||
-                                        errorMsg.contains(
-                                          'Daily OTP limit reached',
-                                        );
-
-                                    print('🔍 DEBUG: Error message: $errorMsg');
-                                    print(
-                                      '🔍 DEBUG: Error type: ${resendData['error_type']}',
-                                    );
-                                    print(
-                                      '🔍 DEBUG: Is daily limit: $isDailyLimit',
-                                    );
-
-                                    if (isDailyLimit) {
-                                      _showDailyLimitNotice();
-                                      return; // Don't throw exception
-                                    }
-
-                                    throw Exception(errorMsg);
-                                  }
-                                  cooldownTimer?.cancel();
-                                  cooldownTimer = Timer.periodic(
-                                    const Duration(seconds: 1),
-                                    (_) {
-                                      if (resendCooldown > 0) {
-                                        setState(() => resendCooldown--);
-                                      } else {
-                                        cooldownTimer?.cancel();
-                                      }
-                                    },
-                                  );
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('OTP resent'),
-                                        backgroundColor: Colors.green,
-                                      ),
-                                    );
-                                  }
-                                } catch (e) {
-                                  print('🔍 DEBUG: Exception caught: $e');
-                                  print(
-                                    '🔍 DEBUG: Exception type: ${e.runtimeType}',
-                                  );
-
-                                  if (mounted) {
-                                    final errorMsg = e.toString();
-                                    print('🔍 DEBUG: Error message: $errorMsg');
-
-                                    final isDailyLimit =
-                                        errorMsg.contains('daily_limit') ||
-                                        errorMsg.contains(
-                                          'Daily OTP limit reached',
-                                        ) ||
-                                        errorMsg.contains('429') ||
-                                        errorMsg.contains('HTTP 429') ||
-                                        errorMsg.contains('Client error') ||
-                                        errorMsg.contains('status code of 429');
-
-                                    print(
-                                      '🔍 DEBUG: Is daily limit: $isDailyLimit',
-                                    );
-
-                                    if (isDailyLimit) {
-                                      _showDailyLimitNotice();
-                                    } else {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            'Failed to resend OTP: $e',
-                                          ),
-                                          backgroundColor: Colors.red,
-                                        ),
-                                      );
-                                    }
-                                  }
-                                }
-                              },
-                        icon: const Icon(Icons.refresh),
-                        label: Text(
-                          resendCooldown > 0
-                              ? 'Resend in ${resendCooldown}s (${(_otpResendTime / 60).round()} min)'
-                              : 'Resend OTP (${(_otpResendTime / 60).round()} min)',
+                      decoration: BoxDecoration(
+                        color: secondsLeft > 0
+                            ? Colors.blue.withOpacity(0.1)
+                            : Colors.red.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        secondsLeft > 0
+                            ? 'Expires in ${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}'
+                            : 'OTP expired',
+                        style: TextStyle(
+                          color: secondsLeft > 0 ? Colors.blue : Colors.red,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
                         ),
                       ),
                     ),
+                    const SizedBox(height: 4),
                   ],
                 ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    countdownTimer?.cancel();
-                    cooldownTimer?.cancel();
-                    Navigator.pop(ctx);
-                  },
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: (code.length == 6 && secondsLeft > 0 && !verifying)
-                      ? () async {
-                          setState(() => verifying = true);
-                          try {
-                            print('🔍 DEBUG: Starting OTP verification...');
-                            print('📱 DEBUG: Phone: $mobile');
-                            print('🔢 DEBUG: OTP: $code');
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextField(
+                        keyboardType: TextInputType.number,
+                        maxLength: _otpLength,
+                        decoration: InputDecoration(
+                          labelText: 'Enter OTP (${_otpLength} digits)',
+                          counterText: '',
+                        ),
+                        onChanged: (v) => code = v.trim(),
+                      ),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton.icon(
+                          onPressed: (resendCooldown > 0)
+                              ? null
+                              : () async {
+                                  try {
+                                    final apiService = ref.read(
+                                      apiServiceProvider,
+                                    );
+                                    final resendResponse = await apiService
+                                        .post(
+                                          '/resend-otp',
+                                          data: {
+                                            'phone': mobile,
+                                            'type': 'profile_update',
+                                          },
+                                        );
 
-                            final apiService = ref.read(apiServiceProvider);
-                            final requestData = {
-                              'phone': mobile,
-                              'otp': code,
-                              'type': 'profile_update',
-                              'user_id':
-                                  (await SecurityService.getStoredUserData())?['id'],
-                            };
+                                    final resendData = resendResponse.data;
+                                    print(
+                                      '🔍 DEBUG: Resend response status: ${resendResponse.statusCode}',
+                                    );
+                                    print(
+                                      '🔍 DEBUG: Resend response data: $resendData',
+                                    );
 
-                            print('📤 DEBUG: Request data: $requestData');
+                                    if (resendResponse.statusCode == 200 &&
+                                        resendData['success'] == true) {
+                                      setState(() {
+                                        resendCooldown =
+                                            _otpResendTime; // From OTP settings
+                                      });
+                                    } else {
+                                      print(
+                                        '🔍 DEBUG: Error response detected',
+                                      );
+                                      print(
+                                        '🔍 DEBUG: Status code: ${resendResponse.statusCode}',
+                                      );
+                                      print(
+                                        '🔍 DEBUG: Error data: $resendData',
+                                      );
 
-                            final response = await apiService.post(
-                              '/verify-otp',
-                              data: requestData,
-                            );
+                                      // Check for daily limit in response
+                                      final errorMsg =
+                                          resendData['message'] ??
+                                          'Failed to resend OTP';
+                                      final isDailyLimit =
+                                          resendData['error_type'] ==
+                                              'daily_limit' ||
+                                          errorMsg.contains('daily_limit') ||
+                                          errorMsg.contains(
+                                            'Daily OTP limit reached',
+                                          );
 
-                            print(
-                              '📥 DEBUG: Response status: ${response.statusCode}',
-                            );
-                            print('📥 DEBUG: Response data: ${response.data}');
+                                      print(
+                                        '🔍 DEBUG: Error message: $errorMsg',
+                                      );
+                                      print(
+                                        '🔍 DEBUG: Error type: ${resendData['error_type']}',
+                                      );
+                                      print(
+                                        '🔍 DEBUG: Is daily limit: $isDailyLimit',
+                                      );
 
-                            final responseData = response.data;
-                            if (response.statusCode == 200 &&
-                                responseData['success'] == true) {
-                              countdownTimer?.cancel();
-                              cooldownTimer?.cancel();
-                              if (mounted) Navigator.pop(ctx);
+                                      if (isDailyLimit) {
+                                        _showDailyLimitNotice();
+                                        return; // Don't throw exception
+                                      }
 
-                              // Refresh tenant info to update verification status
-                              await _loadDashboardData();
+                                      throw Exception(errorMsg);
+                                    }
+                                    cooldownTimer?.cancel();
+                                    cooldownTimer = Timer.periodic(
+                                      const Duration(seconds: 1),
+                                      (_) {
+                                        if (resendCooldown > 0) {
+                                          setState(() => resendCooldown--);
+                                        } else {
+                                          cooldownTimer?.cancel();
+                                        }
+                                      },
+                                    );
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('OTP resent'),
+                                          backgroundColor: Colors.green,
+                                        ),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    print('🔍 DEBUG: Exception caught: $e');
+                                    print(
+                                      '🔍 DEBUG: Exception type: ${e.runtimeType}',
+                                    );
 
-                              if (mounted) {
-                                // OTP verification successful - no additional dialog needed
-                              }
-                            } else {
-                              final message =
-                                  responseData['message'] ??
-                                  'Verification failed';
-                              throw Exception(message);
-                            }
-                          } catch (e) {
-                            print('❌ DEBUG: Error in OTP verification: $e');
-                            final msg = e.toString();
-                            final isLimit =
-                                msg.contains('HTTP 429') ||
-                                msg.toLowerCase().contains('429') ||
-                                msg.toLowerCase().contains('limit');
-                            if (isLimit) {
-                              print(
-                                '⚠️ DEBUG: Rate limit detected, showing message',
-                              );
-                            }
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    isLimit
-                                        ? 'OTP attempt limit exceeded. Please wait and try again.'
-                                        : 'Verification failed: $e',
-                                  ),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
-                            }
-                          } finally {
-                            setState(() => verifying = false);
-                          }
-                        }
-                      : null,
-                  child: verifying
-                      ? SizedBox(
-                          height: 18,
-                          width: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.white,
-                            ),
+                                    if (mounted) {
+                                      final errorMsg = e.toString();
+                                      print(
+                                        '🔍 DEBUG: Error message: $errorMsg',
+                                      );
+
+                                      final isDailyLimit =
+                                          errorMsg.contains('daily_limit') ||
+                                          errorMsg.contains(
+                                            'Daily OTP limit reached',
+                                          ) ||
+                                          errorMsg.contains('429') ||
+                                          errorMsg.contains('HTTP 429') ||
+                                          errorMsg.contains('Client error') ||
+                                          errorMsg.contains(
+                                            'status code of 429',
+                                          );
+
+                                      print(
+                                        '🔍 DEBUG: Is daily limit: $isDailyLimit',
+                                      );
+
+                                      if (isDailyLimit) {
+                                        _showDailyLimitNotice();
+                                      } else {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              'Failed to resend OTP: $e',
+                                            ),
+                                            backgroundColor: Colors.red,
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  }
+                                },
+                          icon: const Icon(Icons.refresh),
+                          label: Text(
+                            resendCooldown > 0
+                                ? 'Resend in ${resendCooldown}s (${(_otpResendTime / 60).round()} min)'
+                                : 'Resend OTP (${(_otpResendTime / 60).round()} min)',
                           ),
-                        )
-                      : Text('Verify'),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ],
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      countdownTimer?.cancel();
+                      cooldownTimer?.cancel();
+                      Navigator.pop(ctx);
+                    },
+                    child: const Text('Cancel'),
+                  ),
+                  ElevatedButton(
+                    onPressed:
+                        (code.length == _otpLength &&
+                            secondsLeft > 0 &&
+                            !verifying)
+                        ? () async {
+                            setState(() => verifying = true);
+                            try {
+                              print('🔍 DEBUG: Starting OTP verification...');
+                              print('📱 DEBUG: Phone: $mobile');
+                              print('🔢 DEBUG: OTP: $code');
+
+                              final apiService = ref.read(apiServiceProvider);
+                              final requestData = {
+                                'phone': mobile,
+                                'otp': code,
+                                'type': 'profile_update',
+                                'user_id':
+                                    (await SecurityService.getStoredUserData())?['id'],
+                              };
+
+                              print('📤 DEBUG: Request data: $requestData');
+
+                              final response = await apiService.post(
+                                '/verify-otp',
+                                data: requestData,
+                              );
+
+                              print(
+                                '📥 DEBUG: Response status: ${response.statusCode}',
+                              );
+                              print(
+                                '📥 DEBUG: Response data: ${response.data}',
+                              );
+
+                              final responseData = response.data;
+                              if (response.statusCode == 200 &&
+                                  responseData['success'] == true) {
+                                countdownTimer?.cancel();
+                                cooldownTimer?.cancel();
+                                if (mounted) Navigator.pop(ctx);
+
+                                // Refresh tenant info to update verification status
+                                await _loadDashboardData();
+
+                                if (mounted) {
+                                  // OTP verification successful - no additional dialog needed
+                                }
+                              } else {
+                                final message =
+                                    responseData['message'] ??
+                                    'Verification failed';
+                                throw Exception(message);
+                              }
+                            } catch (e) {
+                              print('❌ DEBUG: Error in OTP verification: $e');
+                              final msg = e.toString();
+                              final isLimit =
+                                  msg.contains('HTTP 429') ||
+                                  msg.toLowerCase().contains('429') ||
+                                  msg.toLowerCase().contains('limit');
+                              if (isLimit) {
+                                print(
+                                  '⚠️ DEBUG: Rate limit detected, showing message',
+                                );
+                              }
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      isLimit
+                                          ? 'OTP attempt limit exceeded. Please wait and try again.'
+                                          : 'Verification failed: $e',
+                                    ),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            } finally {
+                              setState(() => verifying = false);
+                            }
+                          }
+                        : null,
+                    child: verifying
+                        ? SizedBox(
+                            height: 18,
+                            width: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
+                            ),
+                          )
+                        : Text('Verify'),
+                  ),
+                ],
+              ),
             );
           },
         );
@@ -1601,18 +1631,24 @@ class _TenantDashboardScreenState extends ConsumerState<TenantDashboardScreen> {
               Expanded(
                 child: GestureDetector(
                   onTap: () {
-                    // Set navigation state to billing
+                    // Set individual card selection state
                     setState(() {
+                      _isUnpaidCardSelected = true;
+                      _isPaidCardSelected = false;
                       _isViewingInvoice = false;
                     });
+                    print(
+                      '🔵 Dashboard: Unpaid card selected, navigating to billing',
+                    );
+                    // Navigate to billing page
                     context.go('/tenant/billing?filter=unpaid');
                   },
                   child: _buildSummaryCard(
                     'Unpaid Amount',
                     '${_getCurrencySymbol()}${summary['unpaid_amount'] ?? summary['pending_amount'] ?? 0}',
                     Icons.receipt_rounded,
-                    _isViewingInvoice ? AppColors.primary : Colors.red,
-                    isSelected: _isViewingInvoice,
+                    _isUnpaidCardSelected ? AppColors.primary : Colors.red,
+                    isSelected: _isUnpaidCardSelected,
                   ),
                 ),
               ),
@@ -1620,18 +1656,24 @@ class _TenantDashboardScreenState extends ConsumerState<TenantDashboardScreen> {
               Expanded(
                 child: GestureDetector(
                   onTap: () {
-                    // Set navigation state to billing
+                    // Set individual card selection state
                     setState(() {
+                      _isPaidCardSelected = true;
+                      _isUnpaidCardSelected = false;
                       _isViewingInvoice = false;
                     });
+                    print(
+                      '🔵 Dashboard: Paid card selected, navigating to billing',
+                    );
+                    // Navigate to billing page
                     context.go('/tenant/billing?filter=paid');
                   },
                   child: _buildSummaryCard(
                     'Paid Amount',
                     '${_getCurrencySymbol()}${summary['paid_amount'] ?? 0}',
                     Icons.attach_money_rounded,
-                    _isViewingInvoice ? AppColors.primary : Colors.green,
-                    isSelected: _isViewingInvoice,
+                    _isPaidCardSelected ? AppColors.primary : Colors.green,
+                    isSelected: _isPaidCardSelected,
                   ),
                 ),
               ),
@@ -2050,7 +2092,14 @@ class _TenantDashboardScreenState extends ConsumerState<TenantDashboardScreen> {
                           ),
                         ),
                         subtitle: Text(
-                          'Amount: \$${invoice['amount']}',
+                          'Amount: ${(() {
+                            try {
+                              final num amt = invoice['amount'] is num ? invoice['amount'] : num.parse(invoice['amount'].toString());
+                              return _formatCurrency(amt);
+                            } catch (_) {
+                              return _formatCurrencyFallback((invoice['amount'] ?? '').toString());
+                            }
+                          })()}',
                           style: TextStyle(
                             color: AppColors.textSecondary,
                             fontSize: 13,
@@ -2103,50 +2152,42 @@ class _TenantDashboardScreenState extends ConsumerState<TenantDashboardScreen> {
                               '🧾 Tenant Invoice Click - ID: $invoiceId, Data: $invoice',
                             );
 
-                            // Set navigation state to viewing invoice (this will highlight billing navigation)
+                            // Set navigation state to viewing invoice
+                            ref
+                                .read(backButtonProvider.notifier)
+                                .setViewingInvoice(true);
                             setState(() {
                               _isViewingInvoice = true;
+                              _isUnpaidCardSelected = false;
+                              _isPaidCardSelected = false;
                             });
+
+                            // IMPORTANT: Using GoRouter ONLY for navigation consistency
+                            // NEVER use Navigator.push() - breaks bottom navigation
+                            // See: NAVIGATION_GUIDELINES.md for details
+                            final invoiceIdStr = invoiceId.toString();
                             print(
-                              '🔵 Billing navigation highlighted - Invoice viewing active',
+                              '🔍 DEBUG: Navigating to /tenant/invoice/$invoiceIdStr',
                             );
+                            print(
+                              '🔍 DEBUG: Invoice data type: ${invoiceId.runtimeType}',
+                            );
+                            print('🔍 DEBUG: Invoice value: $invoiceId');
 
-                            // Note: We don't navigate to billing page here
-                            // Just set the state to highlight billing navigation in the current dashboard
-                            // The main app navigation will be handled by the parent navigation system
-
-                            // Navigate to PDF viewer and set billing as selected
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => InvoicePdfScreen(
-                                  invoiceId: (invoiceId as num).toInt(),
-                                  forceTenant:
-                                      true, // Same as billing page - same design and functionality
-                                  onBackToBilling: () {
-                                    // Navigate back to billing page and reset state
-                                    setState(() {
-                                      _isViewingInvoice = false;
-                                    });
-                                    print(
-                                      '🔵 Billing navigation reset - Returning to billing page',
-                                    );
-                                    // Navigate to billing page when user explicitly wants to go back
-                                    context.go('/tenant/billing');
-                                  },
+                            try {
+                              context.go('/tenant/invoice/$invoiceIdStr');
+                            } catch (routeError) {
+                              print('❌ Route Error: $routeError');
+                              // Fallback to old method if route fails
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Route error: Using fallback navigation',
+                                  ),
+                                  backgroundColor: Colors.orange,
                                 ),
-                              ),
-                            ).then((_) {
-                              // Reset state when returning from PDF viewer
-                              if (mounted) {
-                                setState(() {
-                                  _isViewingInvoice = false;
-                                });
-                                // Note: Don't navigate to billing page here
-                                // Just reset the state and stay on dashboard
-                                // The main app navigation will handle billing selection
-                              }
-                            });
+                              );
+                            }
                           } catch (e) {
                             print('❌ Error opening invoice: $e');
                             ScaffoldMessenger.of(context).showSnackBar(

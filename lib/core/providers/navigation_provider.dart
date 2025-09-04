@@ -17,7 +17,7 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
       final newHistory = List<String>.from(state.navigationHistory);
       newHistory.removeLast();
       final previousRoute = newHistory.last;
-      
+
       state = state.copyWith(
         currentRoute: previousRoute,
         navigationHistory: newHistory,
@@ -36,7 +36,7 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
     if (state.navigationHistory.isNotEmpty) {
       final newHistory = List<String>.from(state.navigationHistory);
       newHistory[newHistory.length - 1] = route;
-      
+
       state = state.copyWith(
         currentRoute: route,
         navigationHistory: newHistory,
@@ -56,37 +56,49 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
   }
 
   void resetToRoute(String route) {
-    state = state.copyWith(
-      currentRoute: route,
-      navigationHistory: [route],
-    );
+    state = state.copyWith(currentRoute: route, navigationHistory: [route]);
+  }
+
+  // Set selected tab for navigation highlighting
+  void setSelectedTab(String tab) {
+    state = state.copyWith(selectedTab: tab);
+  }
+
+  // Get current selected tab
+  String getSelectedTab() {
+    return state.selectedTab;
   }
 }
 
 class NavigationState {
   final String currentRoute;
   final List<String> navigationHistory;
+  final String selectedTab; // Add selected tab tracking
 
   NavigationState({
     this.currentRoute = '/',
     this.navigationHistory = const ['/'],
+    this.selectedTab = 'home', // Default to home
   });
 
   NavigationState copyWith({
     String? currentRoute,
     List<String>? navigationHistory,
+    String? selectedTab,
   }) {
     return NavigationState(
       currentRoute: currentRoute ?? this.currentRoute,
       navigationHistory: navigationHistory ?? this.navigationHistory,
+      selectedTab: selectedTab ?? this.selectedTab,
     );
   }
 }
 
 // Provider
-final navigationProvider = StateNotifierProvider<NavigationNotifier, NavigationState>((ref) {
-  return NavigationNotifier();
-});
+final navigationProvider =
+    StateNotifierProvider<NavigationNotifier, NavigationState>((ref) {
+      return NavigationNotifier();
+    });
 
 // Navigation service provider
 final navigationServiceProvider = Provider<NavigationService>((ref) {

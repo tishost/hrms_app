@@ -19,8 +19,11 @@ class TenantBottomNav extends ConsumerWidget {
     final currentLanguage = ref.watch(languageProvider);
     final code = currentLanguage.code;
 
+    // Debug: Log current index for navigation highlighting
+    print('🔵 TenantBottomNav: Building with currentIndex: $currentIndex');
+
     return BottomNavigationBar(
-      currentIndex: currentIndex,
+      currentIndex: currentIndex, // Use local currentIndex directly
       onTap: onTap,
       type: BottomNavigationBarType.fixed,
       backgroundColor: Colors.white,

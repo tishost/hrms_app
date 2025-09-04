@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:hrms_app/core/utils/api_config.dart';
@@ -109,43 +110,60 @@ class _InvoicePdfScreenState extends State<InvoicePdfScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Invoice #${widget.invoiceNumber}'),
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back),
-          onPressed: () {
-            // If onBackToBilling callback is provided, use it
-            if (widget.onBackToBilling != null) {
-              widget.onBackToBilling!();
-            } else {
-              // Default back navigation
-              Navigator.of(context).pop();
-            }
-          },
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.refresh),
-            onPressed: () {
-              setState(() {
-                _isLoading = true;
-                _error = null;
-              });
-              _loadPdf();
-            },
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? Center(child: CircularProgressIndicator(color: AppColors.primary))
-          : (_error != null)
-          ? Center(child: Text(_error!))
-          : PDFView(
-              filePath: _pdfPath!,
-              enableSwipe: true,
-              swipeHorizontal: false,
+    return Consumer(
+      builder: (context, ref, _) => WillPopScope(
+        onWillPop: () async {
+          // If onBackToBilling callback is provided, use it for back button
+          if (widget.onBackToBilling != null) {
+            widget.onBackToBilling!();
+            return false; // Prevent default pop behavior
+          } else {
+            // Default back navigation
+            Navigator.of(context).pop();
+            return false; // Prevent default pop behavior
+          }
+        },
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text('Invoice #${widget.invoiceNumber}'),
+            leading: IconButton(
+              icon: Icon(Icons.arrow_back),
+              onPressed: () {
+                // If onBackToBilling callback is provided, use it
+                if (widget.onBackToBilling != null) {
+                  widget.onBackToBilling!();
+                } else {
+                  // Default back navigation
+                  Navigator.of(context).pop();
+                }
+              },
             ),
+            actions: [
+              IconButton(
+                icon: Icon(Icons.refresh),
+                onPressed: () {
+                  setState(() {
+                    _isLoading = true;
+                    _error = null;
+                  });
+                  _loadPdf();
+                },
+              ),
+            ],
+          ),
+          body: _isLoading
+              ? Center(
+                  child: CircularProgressIndicator(color: AppColors.primary),
+                )
+              : (_error != null)
+              ? Center(child: Text(_error!))
+              : PDFView(
+                  filePath: _pdfPath!,
+                  enableSwipe: true,
+                  swipeHorizontal: false,
+                ),
+        ),
+      ),
     );
   }
 }

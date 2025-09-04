@@ -813,13 +813,22 @@ class _TenantBillingScreenState extends ConsumerState<TenantBillingScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => InvoicePdfScreen(
-          invoiceId: (invoice['id'] as num).toInt(),
-          forceTenant: true,
-          onBackToBilling: () {
-            // Navigate back to billing page
-            context.go('/tenant/billing');
+        builder: (context) => WillPopScope(
+          onWillPop: () async {
+            // Handle hardware back button - return to billing page
+            print('🔵 Hardware back button pressed from invoice (billing)');
+
+            // Allow default pop behavior
+            return true;
           },
+          child: InvoicePdfScreen(
+            invoiceId: (invoice['id'] as num).toInt(),
+            forceTenant: true,
+            onBackToBilling: () {
+              // Navigate back to billing page
+              context.go('/tenant/billing');
+            },
+          ),
         ),
       ),
     );
@@ -848,12 +857,21 @@ class _TenantBillingScreenState extends ConsumerState<TenantBillingScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => InvoicePdfScreen(
-          invoiceId: (invoice['id'] as num).toInt(),
-          onBackToBilling: () {
-            // Navigate back to billing page
-            context.go('/tenant/billing');
+        builder: (context) => WillPopScope(
+          onWillPop: () async {
+            // Handle hardware back button - return to billing page
+            print('🔵 Hardware back button pressed from invoice (download)');
+
+            // Allow default pop behavior
+            return true;
           },
+          child: InvoicePdfScreen(
+            invoiceId: (invoice['id'] as num).toInt(),
+            onBackToBilling: () {
+              // Navigate back to billing page
+              context.go('/tenant/billing');
+            },
+          ),
         ),
       ),
     );

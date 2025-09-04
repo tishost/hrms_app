@@ -10,6 +10,7 @@ import 'core/constants/app_constants.dart';
 import 'core/utils/performance_config.dart';
 import 'core/theme/app_theme.dart';
 import 'core/providers/app_providers.dart';
+import 'core/providers/back_button_provider.dart';
 import 'core/widgets/main_app_shell.dart';
 import 'core/widgets/tenant_app_shell.dart';
 
@@ -37,6 +38,7 @@ import 'features/owner/presentation/screens/property_entry_screen.dart';
 import 'features/owner/presentation/screens/tenant_entry_screen.dart';
 import 'features/owner/presentation/screens/checkout_form_screen.dart';
 import 'features/owner/presentation/screens/invoice_payment_screen.dart';
+import 'features/owner/presentation/screens/invoice_pdf_screen.dart';
 import 'features/tenant/presentation/screens/tenant_dashboard_screen.dart';
 import 'features/tenant/presentation/screens/tenant_profile_screen.dart';
 import 'features/tenant/presentation/screens/tenant_billing_screen.dart';
@@ -567,45 +569,62 @@ final routerProvider = Provider<GoRouter>((ref) {
         ],
       ),
 
-      // Tenant Shell
+      // Tenant Shell - ALL tenant navigation MUST use GoRouter
+      // NEVER use Navigator.push() in tenant pages - breaks bottom nav
+      // See: NAVIGATION_GUIDELINES.md for complete rules
       ShellRoute(
         builder: (_, __, child) => TenantAppShell(child: child),
         routes: [
           GoRoute(
             path: '/tenant/dashboard',
-            builder: (context, __) => BackButtonListener(
-              onBackButtonPressed: () async {
-                print(
-                  'DEBUG: Tenant Dashboard BackButtonListener - Back button pressed',
-                );
+            builder: (context, __) => Consumer(
+              builder: (context, ref, child) {
+                return BackButtonListener(
+                  onBackButtonPressed: () async {
+                    print(
+                      'DEBUG: Tenant Dashboard BackButtonListener - Back button pressed',
+                    );
 
-                // Show confirmation dialog
-                final shouldExit = await showDialog<bool>(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('Exit App'),
-                    content: const Text(
-                      'Are you sure you want to exit the app?',
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(false),
-                        child: const Text('Cancel'),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(true),
-                        child: const Text('Exit'),
-                      ),
-                    ],
-                  ),
-                );
+                    // Check if viewing invoice - delegate to back button provider
+                    final backButtonState = ref.read(backButtonProvider);
+                    if (backButtonState.isViewingInvoice) {
+                      print(
+                        'DEBUG: Invoice viewing detected, delegating to provider',
+                      );
+                      return await ref
+                          .read(backButtonProvider.notifier)
+                          .handleBackPress(context, '/tenant/dashboard');
+                    }
 
-                if (shouldExit == true) {
-                  SystemNavigator.pop();
-                }
-                return true; // Prevent default back behavior
+                    // Show confirmation dialog for normal dashboard exit
+                    final shouldExit = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Exit App'),
+                        content: const Text(
+                          'Are you sure you want to exit the app?',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(false),
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(true),
+                            child: const Text('Exit'),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (shouldExit == true) {
+                      SystemNavigator.pop();
+                    }
+                    return true; // Prevent default back behavior
+                  },
+                  child: AuthWrapper(child: TenantDashboardScreen()),
+                );
               },
-              child: AuthWrapper(child: TenantDashboardScreen()),
             ),
           ),
           GoRoute(
@@ -685,6 +704,40 @@ final routerProvider = Provider<GoRouter>((ref) {
                 return true;
               },
               child: AuthWrapper(child: TenantMoreScreen()),
+            ),
+          ),
+          GoRoute(
+            path: '/tenant/invoice/:invoiceId',
+            builder: (context, state) => Consumer(
+              builder: (context, ref, _) {
+                return BackButtonListener(
+                  onBackButtonPressed: () async {
+                    // Reset invoice viewing state and go to billing
+                    ref
+                        .read(backButtonProvider.notifier)
+                        .setViewingInvoice(false);
+                    context.go('/tenant/billing');
+                    return true;
+                  },
+                  child: AuthWrapper(
+                    child: InvoicePdfScreen(
+                      invoiceId:
+                          int.tryParse(
+                            state.pathParameters['invoiceId'] ?? '0',
+                          ) ??
+                          0,
+                      forceTenant: true,
+                      onBackToBilling: () {
+                        // Reset states and navigate to billing
+                        ref
+                            .read(backButtonProvider.notifier)
+                            .setViewingInvoice(false);
+                        context.go('/tenant/billing');
+                      },
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ],

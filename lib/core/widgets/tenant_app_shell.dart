@@ -1,20 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:hrms_app/features/auth/data/services/auth_service.dart';
 import 'package:go_router/go_router.dart';
-import '../../features/tenant/presentation/widgets/tenant_bottom_nav.dart';
-import 'package:hrms_app/core/utils/app_colors.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/back_button_provider.dart';
 
-class TenantAppShell extends StatefulWidget {
+import '../../features/tenant/presentation/widgets/tenant_bottom_nav.dart';
+
+/// CRITICAL: This shell manages tenant navigation using GoRouter ONLY
+/// NEVER use Navigator.push() for page navigation in tenant pages
+/// Always use context.go() to maintain shell navigation consistency
+/// See: NAVIGATION_GUIDELINES.md for complete rules
+class TenantAppShell extends ConsumerStatefulWidget {
   final Widget child;
 
   const TenantAppShell({required this.child, super.key});
 
   @override
-  State<TenantAppShell> createState() => _TenantAppShellState();
+  ConsumerState<TenantAppShell> createState() => _TenantAppShellState();
 }
 
-class _TenantAppShellState extends State<TenantAppShell> {
+class _TenantAppShellState extends ConsumerState<TenantAppShell> {
   int _currentIndex = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
@@ -40,12 +45,18 @@ class _TenantAppShellState extends State<TenantAppShell> {
   }
 
   void _onItemTapped(int index) {
+    print('🔵 Navigation: Tab $index tapped, current: $_currentIndex');
+
+    // Reset invoice viewing state when navigating away from invoice
+    final backButtonState = ref.read(backButtonProvider);
+    if (backButtonState.isViewingInvoice) {
+      ref.read(backButtonProvider.notifier).setViewingInvoice(false);
+      print('🔵 Navigation: Reset invoice viewing state');
+    }
+
     // If 'More' tapped, navigate to more page
     if (index == 3) {
-      setState(() {
-        _currentIndex = 3;
-      });
-      context.go('/tenant/more');
+      _updateNavigationState(3, '/tenant/more');
       return;
     }
 
@@ -65,22 +76,42 @@ class _TenantAppShellState extends State<TenantAppShell> {
     }
 
     final currentRoute = GoRouterState.of(context).matchedLocation;
-    // Debounce: if already on the target route, just update index and return
-    if (currentRoute == desiredRoute) {
-      setState(() => _currentIndex = index);
-      return;
-    }
+    print(
+      '🔵 Navigation: Current route: $currentRoute, Desired: $desiredRoute',
+    );
 
-    setState(() => _currentIndex = index);
-    context.go(desiredRoute);
+    // Update navigation state and navigate
+    _updateNavigationState(index, desiredRoute);
+  }
+
+  void _updateNavigationState(int index, String route) {
+    print('🔵 Navigation: Updating state to index=$index, route=$route');
+
+    // Update local state
+    setState(() {
+      _currentIndex = index;
+    });
+
+    // Update local state only
+
+    // Navigate to route
+    context.go(route);
+
+    print(
+      '🔵 Navigation: State updated and navigated to $route (index: $index)',
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final currentRoute = GoRouterState.of(context).matchedLocation;
+    final backButtonState = ref.watch(backButtonProvider);
 
-    // Update current index based on route
-    if (currentRoute.contains('dashboard')) {
+    // Update current index based on route and invoice viewing state
+    if (currentRoute.contains('invoice') && backButtonState.isViewingInvoice) {
+      // When on invoice page, keep billing tab selected
+      _currentIndex = 1;
+    } else if (currentRoute.contains('dashboard')) {
       _currentIndex = 0;
     } else if (currentRoute.contains('billing')) {
       _currentIndex = 1;
@@ -91,24 +122,29 @@ class _TenantAppShellState extends State<TenantAppShell> {
     }
 
     return PopScope(
-      canPop: false,
+      canPop: true,
       onPopInvoked: (didPop) async {
         if (didPop) return;
+
+        // Check if viewing invoice - handle through back button provider
+        if (backButtonState.isViewingInvoice) {
+          final handled = await ref
+              .read(backButtonProvider.notifier)
+              .handleBackPress(context, currentRoute);
+          if (!handled) return;
+        }
 
         // Check current route - if we're at tenant dashboard, show exit dialog
         final currentLocation = GoRouterState.of(context).matchedLocation;
 
         if (currentLocation == '/tenant/dashboard') {
-          // We're at the tenant dashboard route, show exit dialog
           final shouldExit = await _showExitDialog(context);
           if (shouldExit && context.mounted) {
             SystemNavigator.pop();
           }
         } else if (context.canPop()) {
-          // For other routes, navigate back
           context.pop();
         } else {
-          // If can't pop, go to tenant dashboard
           context.go('/tenant/dashboard');
         }
       },

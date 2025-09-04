@@ -501,7 +501,7 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
         return false;
       },
       child: Container(
-        margin: EdgeInsets.only(bottom: 16),
+        margin: EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(
           color: AppColors.white,
           borderRadius: BorderRadius.circular(12),
@@ -548,7 +548,7 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
               }
             },
             child: Padding(
-              padding: EdgeInsets.all(16),
+              padding: EdgeInsets.all(12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -561,17 +561,9 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
                             Text(
                               property['name'] ?? 'Unnamed Property',
                               style: TextStyle(
-                                fontSize: 18,
+                                fontSize: 16,
                                 fontWeight: FontWeight.bold,
                                 color: AppColors.text,
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              property['property_type'] ?? 'Unknown Type',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: AppColors.textSecondary,
                               ),
                             ),
                           ],
@@ -580,7 +572,7 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
                       _buildStatusChip(property['status'] ?? 'active'),
                     ],
                   ),
-                  SizedBox(height: 12),
+                  SizedBox(height: 8),
                   Row(
                     children: [
                       Icon(Icons.location_on, size: 16, color: AppColors.hint),
@@ -598,13 +590,13 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
                       ),
                     ],
                   ),
-                  SizedBox(height: 8),
+                  SizedBox(height: 6),
                   Row(
                     children: [
                       Icon(Icons.apartment, size: 16, color: AppColors.hint),
                       SizedBox(width: 4),
                       Text(
-                        '${property['total_units'] ?? 0} units',
+                        _buildUnitCountText(property),
                         style: TextStyle(
                           fontSize: 14,
                           color: AppColors.textSecondary,
@@ -678,6 +670,12 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
         ),
       ),
     );
+  }
+
+  String _buildUnitCountText(Map<String, dynamic> property) {
+    final actualCount = property['actual_units_count'] ?? 0;
+    final totalUnits = property['total_units'] ?? 0;
+    return '$actualCount/$totalUnits Units';
   }
 
   String _formatDate(String? dateString) {

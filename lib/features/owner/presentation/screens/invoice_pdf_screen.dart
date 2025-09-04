@@ -316,142 +316,152 @@ class _InvoicePdfScreenState extends State<InvoicePdfScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Custom Header
-            Container(
-              padding: EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  // Back Button
-                  GestureDetector(
-                    onTap: () {
-                      // If onBackToBilling callback is provided, use it
-                      if (widget.onBackToBilling != null) {
-                        widget.onBackToBilling!();
-                      } else {
-                        // Default back navigation
-                        if (context.canPop()) {
-                          context.pop();
+    return WillPopScope(
+      onWillPop: () async {
+        if (widget.onBackToBilling != null) {
+          try {
+            widget.onBackToBilling!();
+          } catch (_) {}
+        }
+        return true;
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        body: SafeArea(
+          child: Column(
+            children: [
+              // Custom Header
+              Container(
+                padding: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    // Back Button
+                    GestureDetector(
+                      onTap: () {
+                        // If onBackToBilling callback is provided, use it
+                        if (widget.onBackToBilling != null) {
+                          widget.onBackToBilling!();
                         } else {
-                          context.go('/properties');
+                          // Default back navigation
+                          if (context.canPop()) {
+                            context.pop();
+                          } else {
+                            context.go('/properties');
+                          }
                         }
-                      }
-                    },
-                    child: Container(
-                      padding: EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        Icons.arrow_back,
-                        color: AppColors.primary,
-                        size: 20,
+                      },
+                      child: Container(
+                        padding: EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.arrow_back,
+                          color: AppColors.primary,
+                          size: 20,
+                        ),
                       ),
                     ),
-                  ),
-                  SizedBox(width: 12),
-                  // Title
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    SizedBox(width: 12),
+                    // Title
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Invoice PDF',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          Text(
+                            'INV-2025-${widget.invoiceId.toString().padLeft(4, '0')}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Action Buttons
+                    Row(
                       children: [
-                        Text(
-                          'Invoice PDF',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary,
+                        GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _error = null;
+                              _isLoading = true;
+                            });
+                            _loadPdf();
+                          },
+                          child: Container(
+                            padding: EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.refresh,
+                              color: AppColors.primary,
+                              size: 20,
+                            ),
                           ),
                         ),
-                        Text(
-                          'INV-2025-${widget.invoiceId.toString().padLeft(4, '0')}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textSecondary,
+                        SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: _downloadPDF,
+                          child: Container(
+                            padding: EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppColors.blue.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.download,
+                              color: AppColors.blue,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: _sharePDF,
+                          child: Container(
+                            padding: EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppColors.green.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.share,
+                              color: AppColors.green,
+                              size: 20,
+                            ),
                           ),
                         ),
                       ],
                     ),
-                  ),
-                  // Action Buttons
-                  Row(
-                    children: [
-                      GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _error = null;
-                            _isLoading = true;
-                          });
-                          _loadPdf();
-                        },
-                        child: Container(
-                          padding: EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Icon(
-                            Icons.refresh,
-                            color: AppColors.primary,
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                      SizedBox(width: 8),
-                      GestureDetector(
-                        onTap: _downloadPDF,
-                        child: Container(
-                          padding: EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppColors.blue.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Icon(
-                            Icons.download,
-                            color: AppColors.blue,
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                      SizedBox(width: 8),
-                      GestureDetector(
-                        onTap: _sharePDF,
-                        child: Container(
-                          padding: EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppColors.green.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Icon(
-                            Icons.share,
-                            color: AppColors.green,
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            // Content
-            Expanded(child: _buildBody()),
-          ],
+              // Content
+              Expanded(child: _buildBody()),
+            ],
+          ),
         ),
       ),
     );
