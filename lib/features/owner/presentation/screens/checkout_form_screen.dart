@@ -346,9 +346,8 @@ class _CheckoutFormScreenState extends State<CheckoutFormScreen> {
         SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey[300]!),
-            borderRadius: BorderRadius.circular(12),
             color: Colors.white,
+            borderRadius: BorderRadius.zero,
           ),
           child: Column(
             children: [
@@ -357,10 +356,7 @@ class _CheckoutFormScreenState extends State<CheckoutFormScreen> {
                 padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
                   color: Colors.grey[100],
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(12),
-                    topRight: Radius.circular(12),
-                  ),
+                  borderRadius: BorderRadius.zero,
                 ),
                 child: Row(
                   children: [
@@ -395,11 +391,7 @@ class _CheckoutFormScreenState extends State<CheckoutFormScreen> {
                         horizontal: 16,
                         vertical: 12,
                       ),
-                      decoration: BoxDecoration(
-                        border: Border(
-                          top: BorderSide(color: Colors.grey[200]!),
-                        ),
-                      ),
+                      decoration: BoxDecoration(),
                       child: Row(
                         children: [
                           Expanded(
@@ -461,57 +453,77 @@ class _CheckoutFormScreenState extends State<CheckoutFormScreen> {
         ),
         elevation: 0,
       ),
+      backgroundColor: Colors.grey[100],
       body: _isDataLoading
           ? Center(child: CircularProgressIndicator())
-          : Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.blue[600]!, Colors.blue[50]!],
-                ),
-              ),
-              child: SafeArea(
-                child: Form(
-                  key: _formKey,
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildSectionTitle(
-                          'Tenant & Unit Information',
-                          Icons.person,
-                        ),
-                        SizedBox(height: 20),
+          : SafeArea(
+              child: Form(
+                key: _formKey,
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildSectionTitle(
+                        'Tenant & Unit Information',
+                        Icons.person,
+                      ),
+                      SizedBox(height: 20),
 
-                        // Tenant Name (Read Only)
-                        _buildReadOnlyField(
-                          label: 'Tenant Name',
-                          value: _tenantData != null
-                              ? '${_tenantData!['first_name'] ?? ''} ${_tenantData!['last_name'] ?? ''}'
-                              : 'N/A',
-                          icon: Icons.person,
-                        ),
+                      // Tenant Name (Read Only)
+                      _buildReadOnlyField(
+                        label: 'Tenant Name',
+                        value: _tenantData != null
+                            ? '${_tenantData!['first_name'] ?? ''} ${_tenantData!['last_name'] ?? ''}'
+                            : 'N/A',
+                        icon: Icons.person,
+                      ),
 
-                        SizedBox(height: 6),
+                      SizedBox(height: 6),
 
-                        // Property & Unit Info (Responsive)
-                        LayoutBuilder(
-                          builder: (context, constraints) {
-                            // Mobile: Stack vertically
-                            if (constraints.maxWidth < 600) {
-                              return Column(
-                                children: [
-                                  _buildReadOnlyField(
+                      // Property & Unit Info (Responsive)
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          // Mobile: Stack vertically
+                          if (constraints.maxWidth < 600) {
+                            return Column(
+                              children: [
+                                _buildReadOnlyField(
+                                  label: 'Property',
+                                  value: _propertyData != null
+                                      ? '${_propertyData!['name'] ?? ''}'
+                                      : 'N/A',
+                                  icon: Icons.business,
+                                ),
+                                SizedBox(height: 6),
+                                _buildReadOnlyField(
+                                  label: 'Unit',
+                                  value: _unitData != null
+                                      ? (_unitData!['name'] ??
+                                            _unitData!['unit_number'] ??
+                                            'N/A')
+                                      : 'N/A',
+                                  icon: Icons.door_front_door,
+                                ),
+                              ],
+                            );
+                          }
+                          // Desktop/Tablet: Side by side
+                          else {
+                            return Row(
+                              children: [
+                                Expanded(
+                                  child: _buildReadOnlyField(
                                     label: 'Property',
                                     value: _propertyData != null
                                         ? '${_propertyData!['name'] ?? ''}'
                                         : 'N/A',
                                     icon: Icons.business,
                                   ),
-                                  SizedBox(height: 6),
-                                  _buildReadOnlyField(
+                                ),
+                                SizedBox(width: 6),
+                                Expanded(
+                                  child: _buildReadOnlyField(
                                     label: 'Unit',
                                     value: _unitData != null
                                         ? (_unitData!['name'] ??
@@ -520,102 +532,103 @@ class _CheckoutFormScreenState extends State<CheckoutFormScreen> {
                                         : 'N/A',
                                     icon: Icons.door_front_door,
                                   ),
-                                ],
-                              );
-                            }
-                            // Desktop/Tablet: Side by side
-                            else {
-                              return Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildReadOnlyField(
-                                      label: 'Property',
-                                      value: _propertyData != null
-                                          ? '${_propertyData!['name'] ?? ''}'
-                                          : 'N/A',
-                                      icon: Icons.business,
-                                    ),
-                                  ),
-                                  SizedBox(width: 6),
-                                  Expanded(
-                                    child: _buildReadOnlyField(
-                                      label: 'Unit',
-                                      value: _unitData != null
-                                          ? (_unitData!['name'] ??
-                                                _unitData!['unit_number'] ??
-                                                'N/A')
-                                          : 'N/A',
-                                      icon: Icons.door_front_door,
-                                    ),
-                                  ),
-                                ],
-                              );
-                            }
-                          },
-                        ),
+                                ),
+                              ],
+                            );
+                          }
+                        },
+                      ),
 
+                      SizedBox(height: 10),
+
+                      _buildSectionTitle(
+                        'Financial Settlement',
+                        Icons.account_balance_wallet,
+                      ),
+                      SizedBox(height: 10),
+
+                      // Advance Amount (Read Only)
+                      _buildReadOnlyField(
+                        label: 'Advance Amount',
+                        value: _advanceAmountController.text.isNotEmpty
+                            ? '৳${_advanceAmountController.text}'
+                            : '৳0',
+                        icon: Icons.attach_money,
+                      ),
+
+                      SizedBox(height: 8),
+
+                      // Total Outstanding (Read Only)
+                      _buildReadOnlyField(
+                        label: 'Total Outstanding',
+                        value: _getTotalOutstandingWithCharges(),
+                        icon: Icons.money_off,
+                      ),
+
+                      SizedBox(height: 16),
+
+                      // Due Bills List
+                      if (_dueBills.isNotEmpty) ...[
+                        _buildDueBillsList(),
                         SizedBox(height: 10),
-
-                        _buildSectionTitle(
-                          'Financial Settlement',
-                          Icons.account_balance_wallet,
-                        ),
-                        SizedBox(height: 10),
-
-                        // Advance Amount (Read Only)
-                        _buildReadOnlyField(
-                          label: 'Advance Amount',
-                          value: _advanceAmountController.text.isNotEmpty
-                              ? '৳${_advanceAmountController.text}'
-                              : '৳0',
-                          icon: Icons.attach_money,
-                        ),
-
-                        SizedBox(height: 8),
-
-                        // Total Outstanding (Read Only)
-                        _buildReadOnlyField(
-                          label: 'Total Outstanding',
-                          value: _getTotalOutstandingWithCharges(),
-                          icon: Icons.money_off,
-                        ),
-
-                        SizedBox(height: 16),
-
-                        // Due Bills List
-                        if (_dueBills.isNotEmpty) ...[
-                          _buildDueBillsList(),
-                          SizedBox(height: 10),
-                        ] else ...[
-                          Container(
-                            padding: EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey[300]!),
-                              borderRadius: BorderRadius.circular(12),
-                              color: Colors.grey[50],
-                            ),
-                            child: Text(
-                              'No due bills found',
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 14,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
+                      ] else ...[
+                        Container(
+                          padding: EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey[300]!),
+                            borderRadius: BorderRadius.circular(12),
+                            color: Colors.grey[50],
                           ),
-                          SizedBox(height: 16),
-                        ],
-
+                          child: Text(
+                            'No due bills found',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 14,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
                         SizedBox(height: 16),
+                      ],
 
-                        // Charge Fields (Responsive)
-                        LayoutBuilder(
-                          builder: (context, constraints) {
-                            if (constraints.maxWidth < 600) {
-                              // Mobile: Stack vertically
-                              return Column(
-                                children: [
-                                  _buildTextField(
+                      SizedBox(height: 16),
+
+                      // Charge Fields (Responsive)
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          if (constraints.maxWidth < 600) {
+                            // Mobile: Stack vertically
+                            return Column(
+                              children: [
+                                _buildTextField(
+                                  controller: _cleaningChargesController,
+                                  label: 'Cleaning Charges (৳)',
+                                  hint: 'Enter cleaning charges',
+                                  icon: Icons.cleaning_services,
+                                  keyboardType: TextInputType.number,
+                                  onChanged: (value) {
+                                    _updateOutstandingDues();
+                                  },
+                                ),
+                                SizedBox(height: 16),
+                                _buildTextField(
+                                  controller: _damageChargesController,
+                                  label: 'Damage/Others Charge (৳)',
+                                  hint: 'Enter damage or other charges',
+                                  icon: Icons.build,
+                                  keyboardType: TextInputType.number,
+                                  onChanged: (value) {
+                                    _updateOutstandingDues();
+                                  },
+                                ),
+                              ],
+                            );
+                          } else {
+                            // Desktop/Tablet: Side by side
+                            return Row(
+                              children: [
+                                Expanded(
+                                  child: _buildTextField(
                                     controller: _cleaningChargesController,
                                     label: 'Cleaning Charges (৳)',
                                     hint: 'Enter cleaning charges',
@@ -625,8 +638,10 @@ class _CheckoutFormScreenState extends State<CheckoutFormScreen> {
                                       _updateOutstandingDues();
                                     },
                                   ),
-                                  SizedBox(height: 16),
-                                  _buildTextField(
+                                ),
+                                SizedBox(width: 16),
+                                Expanded(
+                                  child: _buildTextField(
                                     controller: _damageChargesController,
                                     label: 'Damage/Others Charge (৳)',
                                     hint: 'Enter damage or other charges',
@@ -636,79 +651,82 @@ class _CheckoutFormScreenState extends State<CheckoutFormScreen> {
                                       _updateOutstandingDues();
                                     },
                                   ),
-                                ],
-                              );
-                            } else {
-                              // Desktop/Tablet: Side by side
-                              return Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildTextField(
-                                      controller: _cleaningChargesController,
-                                      label: 'Cleaning Charges (৳)',
-                                      hint: 'Enter cleaning charges',
-                                      icon: Icons.cleaning_services,
-                                      keyboardType: TextInputType.number,
-                                      onChanged: (value) {
-                                        _updateOutstandingDues();
-                                      },
-                                    ),
+                                ),
+                              ],
+                            );
+                          }
+                        },
+                      ),
+
+                      SizedBox(height: 16),
+
+                      // Outstanding Dues or Refund Amount (Read Only - Auto Calculated)
+                      _buildReadOnlyField(
+                        label: _getOutstandingDuesLabel(),
+                        value: _getOutstandingDuesValue(),
+                        icon: _getOutstandingDuesIcon(),
+                        backgroundColor: _getOutstandingDuesBackgroundColor(),
+                        textColor: _getOutstandingDuesTextColor(),
+                      ),
+
+                      // Formula explanation
+                      SizedBox(height: 15),
+
+                      _buildSectionTitle('Checkout Details', Icons.exit_to_app),
+                      SizedBox(height: 20),
+
+                      // Checkout Date & Reason (Responsive)
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          if (constraints.maxWidth < 600) {
+                            // Mobile: Stack vertically
+                            return Column(
+                              children: [
+                                _buildDateField(
+                                  controller: _checkoutDateController,
+                                  label: 'Checkout Date *',
+                                  hint: 'Select checkout date',
+                                  icon: Icons.calendar_today,
+                                  isRequired: true,
+                                ),
+                                SizedBox(height: 16),
+                                _buildDropdownField(
+                                  value: _selectedCheckoutReason,
+                                  label: 'Checkout Reason *',
+                                  hint: 'Select checkout reason',
+                                  icon: Icons.help_outline,
+                                  items: [
+                                    'Contract Expired',
+                                    'Personal Reasons',
+                                    'Job Transfer',
+                                    'Family Emergency',
+                                    'Property Issues',
+                                    'Financial Problems',
+                                    'Other',
+                                  ],
+                                  onChanged: (value) => setState(
+                                    () => _selectedCheckoutReason = value,
                                   ),
-                                  SizedBox(width: 16),
-                                  Expanded(
-                                    child: _buildTextField(
-                                      controller: _damageChargesController,
-                                      label: 'Damage/Others Charge (৳)',
-                                      hint: 'Enter damage or other charges',
-                                      icon: Icons.build,
-                                      keyboardType: TextInputType.number,
-                                      onChanged: (value) {
-                                        _updateOutstandingDues();
-                                      },
-                                    ),
-                                  ),
-                                ],
-                              );
-                            }
-                          },
-                        ),
-
-                        SizedBox(height: 16),
-
-                        // Outstanding Dues or Refund Amount (Read Only - Auto Calculated)
-                        _buildReadOnlyField(
-                          label: _getOutstandingDuesLabel(),
-                          value: _getOutstandingDuesValue(),
-                          icon: _getOutstandingDuesIcon(),
-                          backgroundColor: _getOutstandingDuesBackgroundColor(),
-                          textColor: _getOutstandingDuesTextColor(),
-                        ),
-
-                        // Formula explanation
-                        SizedBox(height: 15),
-
-                        _buildSectionTitle(
-                          'Checkout Details',
-                          Icons.exit_to_app,
-                        ),
-                        SizedBox(height: 20),
-
-                        // Checkout Date & Reason (Responsive)
-                        LayoutBuilder(
-                          builder: (context, constraints) {
-                            if (constraints.maxWidth < 600) {
-                              // Mobile: Stack vertically
-                              return Column(
-                                children: [
-                                  _buildDateField(
+                                  isRequired: true,
+                                ),
+                              ],
+                            );
+                          } else {
+                            // Desktop/Tablet: Side by side
+                            return Row(
+                              children: [
+                                Expanded(
+                                  child: _buildDateField(
                                     controller: _checkoutDateController,
                                     label: 'Checkout Date *',
                                     hint: 'Select checkout date',
                                     icon: Icons.calendar_today,
                                     isRequired: true,
                                   ),
-                                  SizedBox(height: 16),
-                                  _buildDropdownField(
+                                ),
+                                SizedBox(width: 16),
+                                Expanded(
+                                  child: _buildDropdownField(
                                     value: _selectedCheckoutReason,
                                     label: 'Checkout Reason *',
                                     hint: 'Select checkout reason',
@@ -727,176 +745,136 @@ class _CheckoutFormScreenState extends State<CheckoutFormScreen> {
                                     ),
                                     isRequired: true,
                                   ),
-                                ],
-                              );
-                            } else {
-                              // Desktop/Tablet: Side by side
-                              return Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildDateField(
-                                      controller: _checkoutDateController,
-                                      label: 'Checkout Date *',
-                                      hint: 'Select checkout date',
-                                      icon: Icons.calendar_today,
-                                      isRequired: true,
-                                    ),
-                                  ),
-                                  SizedBox(width: 16),
-                                  Expanded(
-                                    child: _buildDropdownField(
-                                      value: _selectedCheckoutReason,
-                                      label: 'Checkout Reason *',
-                                      hint: 'Select checkout reason',
-                                      icon: Icons.help_outline,
-                                      items: [
-                                        'Contract Expired',
-                                        'Personal Reasons',
-                                        'Job Transfer',
-                                        'Family Emergency',
-                                        'Property Issues',
-                                        'Financial Problems',
-                                        'Other',
-                                      ],
-                                      onChanged: (value) => setState(
-                                        () => _selectedCheckoutReason = value,
-                                      ),
-                                      isRequired: true,
-                                    ),
-                                  ),
-                                ],
-                              );
-                            }
-                          },
-                        ),
+                                ),
+                              ],
+                            );
+                          }
+                        },
+                      ),
 
-                        SizedBox(height: 32),
+                      SizedBox(height: 32),
 
-                        _buildSectionTitle(
-                          'Handover Information',
-                          Icons.handshake,
-                        ),
-                        SizedBox(height: 20),
+                      _buildSectionTitle(
+                        'Handover Information',
+                        Icons.handshake,
+                      ),
+                      SizedBox(height: 20),
 
-                        // Handover Date & Condition (Responsive)
-                        LayoutBuilder(
-                          builder: (context, constraints) {
-                            if (constraints.maxWidth < 600) {
-                              // Mobile: Stack vertically
-                              return Column(
-                                children: [
-                                  _buildDateField(
+                      // Handover Date & Condition (Responsive)
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          if (constraints.maxWidth < 600) {
+                            // Mobile: Stack vertically
+                            return Column(
+                              children: [
+                                _buildDateField(
+                                  controller: _handoverDateController,
+                                  label: 'Handover Date *',
+                                  hint: 'Select handover date',
+                                  icon: Icons.event,
+                                  isRequired: true,
+                                ),
+                                SizedBox(height: 16),
+                                _buildTextField(
+                                  controller: _propertyConditionController,
+                                  label: 'Unit/Property Condition',
+                                  hint: 'Describe property condition',
+                                  icon: Icons.description,
+                                  maxLines: 3,
+                                ),
+                              ],
+                            );
+                          } else {
+                            // Desktop/Tablet: Side by side
+                            return Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: _buildDateField(
                                     controller: _handoverDateController,
                                     label: 'Handover Date *',
                                     hint: 'Select handover date',
                                     icon: Icons.event,
                                     isRequired: true,
                                   ),
-                                  SizedBox(height: 16),
-                                  _buildTextField(
+                                ),
+                                SizedBox(width: 16),
+                                Expanded(
+                                  child: _buildTextField(
                                     controller: _propertyConditionController,
                                     label: 'Unit/Property Condition',
                                     hint: 'Describe property condition',
                                     icon: Icons.description,
                                     maxLines: 3,
                                   ),
-                                ],
-                              );
-                            } else {
-                              // Desktop/Tablet: Side by side
-                              return Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(
-                                    child: _buildDateField(
-                                      controller: _handoverDateController,
-                                      label: 'Handover Date *',
-                                      hint: 'Select handover date',
-                                      icon: Icons.event,
-                                      isRequired: true,
-                                    ),
-                                  ),
-                                  SizedBox(width: 16),
-                                  Expanded(
-                                    child: _buildTextField(
-                                      controller: _propertyConditionController,
-                                      label: 'Unit/Property Condition',
-                                      hint: 'Describe property condition',
-                                      icon: Icons.description,
-                                      maxLines: 3,
-                                    ),
-                                  ),
-                                ],
-                              );
-                            }
-                          },
-                        ),
+                                ),
+                              ],
+                            );
+                          }
+                        },
+                      ),
 
-                        SizedBox(height: 16),
+                      SizedBox(height: 16),
 
-                        // Property Image
-                        _buildImageField(
-                          label: 'Property Photo',
-                          hint: 'Take photo of property condition',
-                          icon: Icons.camera_alt,
-                          image: _propertyImage,
-                          onTap: () => _pickImage(),
-                        ),
+                      // Property Image
+                      _buildImageField(
+                        label: 'Property Photo',
+                        hint: 'Take photo of property condition',
+                        icon: Icons.camera_alt,
+                        image: _propertyImage,
+                        onTap: () => _pickImage(),
+                      ),
 
-                        SizedBox(height: 32),
+                      SizedBox(height: 32),
 
-                        _buildSectionTitle(
-                          'Additional Information',
-                          Icons.note,
-                        ),
-                        SizedBox(height: 20),
+                      _buildSectionTitle('Additional Information', Icons.note),
+                      SizedBox(height: 20),
 
-                        // Additional Note
-                        _buildTextField(
-                          controller: _additionalNoteController,
-                          label: 'Additional Note',
-                          hint: 'Any additional comments or notes',
-                          icon: Icons.note,
-                          maxLines: 4,
-                        ),
+                      // Additional Note
+                      _buildTextField(
+                        controller: _additionalNoteController,
+                        label: 'Additional Note',
+                        hint: 'Any additional comments or notes',
+                        icon: Icons.note,
+                        maxLines: 4,
+                      ),
 
-                        SizedBox(height: 40),
+                      SizedBox(height: 40),
 
-                        // Submit Button
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: _isLoading ? null : _submitCheckout,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue[600],
-                              foregroundColor: Colors.white,
-                              padding: EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
+                      // Submit Button
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _isLoading ? null : _submitCheckout,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue[600],
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                            child: _isLoading
-                                ? SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : Text(
-                                    'Submit Checkout',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
                           ),
+                          child: _isLoading
+                              ? SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : Text(
+                                  'Submit Checkout',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                         ),
+                      ),
 
-                        SizedBox(height: 20),
-                      ],
-                    ),
+                      SizedBox(height: 20),
+                    ],
                   ),
                 ),
               ),
@@ -931,9 +909,8 @@ class _CheckoutFormScreenState extends State<CheckoutFormScreen> {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[300]!),
-        borderRadius: BorderRadius.circular(8),
-        color: backgroundColor ?? Colors.grey[50],
+        color: backgroundColor ?? Colors.white,
+        borderRadius: BorderRadius.zero,
       ),
       child: Row(
         children: [
@@ -1196,13 +1173,12 @@ class _CheckoutFormScreenState extends State<CheckoutFormScreen> {
           child: Container(
             height: 120,
             decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey[300]!),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.zero,
               color: Colors.white,
             ),
             child: image != null
                 ? ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.zero,
                     child: Image.file(
                       image,
                       width: double.infinity,
@@ -1279,30 +1255,40 @@ class _CheckoutFormScreenState extends State<CheckoutFormScreen> {
       return;
     }
 
-    // Show payment dialog before submitting
+    // Always show payment dialog before submitting checkout
     final outstandingDues =
         double.tryParse(_outstandingDuesController.text) ?? 0;
 
     Map<String, String>? paymentResult;
 
-    if (outstandingDues != 0) {
-      paymentResult = await showDialog<Map<String, String>>(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => PaymentDialog(
-          amount: outstandingDues,
-          title: outstandingDues > 0 ? 'Payment Collection' : 'Refund Payment',
-          onConfirm: (reference, paymentMethod) {
-            Navigator.of(
-              context,
-            ).pop({'reference': reference, 'paymentMethod': paymentMethod});
-          },
+    // Show payment dialog for all cases (payment, refund, or settlement)
+    paymentResult = await showDialog<Map<String, String>>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => PaymentDialog(
+        amount: outstandingDues,
+        title: outstandingDues > 0
+            ? 'Payment Collection'
+            : outstandingDues < 0
+            ? 'Refund Payment'
+            : 'Settlement Confirmation',
+        onConfirm: (reference, paymentMethod) {
+          Navigator.of(
+            context,
+          ).pop({'reference': reference, 'paymentMethod': paymentMethod});
+        },
+      ),
+    );
+
+    if (paymentResult == null) {
+      // User cancelled payment dialog - checkout is cancelled
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Checkout cancelled'),
+          backgroundColor: Colors.orange,
         ),
       );
-
-      if (paymentResult == null) {
-        return; // User cancelled
-      }
+      return;
     }
 
     setState(() {
@@ -1315,14 +1301,12 @@ class _CheckoutFormScreenState extends State<CheckoutFormScreen> {
         throw Exception('No authentication token found');
       }
 
-      // Payment data already collected from dialog above
+      // Payment data collected from dialog above
       String? paymentReference;
       String? paymentMethod;
 
-      if (outstandingDues != 0 && paymentResult != null) {
-        paymentReference = paymentResult['reference'];
-        paymentMethod = paymentResult['paymentMethod'];
-      }
+      paymentReference = paymentResult['reference'];
+      paymentMethod = paymentResult['paymentMethod'];
 
       // Prepare checkout data with proper validation
       final checkoutData = {

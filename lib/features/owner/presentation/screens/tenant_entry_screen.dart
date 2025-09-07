@@ -1,25 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dropdown_search/dropdown_search.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'dart:io';
+import 'dart:typed_data';
 import '../../../../core/utils/country_helper.dart';
 import '../../../../core/utils/api_config.dart';
 import '../../../auth/data/services/auth_service.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:intl/intl.dart';
+import 'package:hrms_app/core/widgets/search_picker.dart';
+import 'package:hrms_app/core/services/api_service.dart';
 
-class TenantEntryScreen extends StatefulWidget {
+class TenantEntryScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic>? tenant;
 
   const TenantEntryScreen({super.key, this.tenant});
 
   @override
-  State<TenantEntryScreen> createState() => _TenantEntryScreenState();
+  ConsumerState<TenantEntryScreen> createState() => _TenantEntryScreenState();
 }
 
-class _TenantEntryScreenState extends State<TenantEntryScreen> {
+class _TenantEntryScreenState extends ConsumerState<TenantEntryScreen> {
   final _formKey = GlobalKey<FormState>();
 
   // Basic Information Controllers
@@ -44,6 +49,25 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
   final _stateController = TextEditingController();
   final _zipController = TextEditingController();
   final _countryController = TextEditingController();
+
+  // District and Thana
+  String? _selectedDistrict;
+  String? _selectedThana;
+  List<String> _districtOptions = [];
+  List<String> _thanaOptions = [];
+  bool _isLoadingDistricts = false;
+  bool _isLoadingThanas = false;
+
+  // Country
+  String? _selectedCountry = 'Bangladesh';
+  List<String> _countryOptions = [];
+
+  // Validation Error States
+  bool _nameError = false;
+  bool _phoneError = false;
+  bool _nidError = false;
+  bool _genderError = false;
+  String? _phoneErrorMessage;
 
   // Work Information Controllers
   final _occupationController = TextEditingController();
@@ -87,11 +111,7 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.tenant != null) {
-      _fetchTenantData();
-      // Edit mode will start from step 1 (Basic Information)
-      _currentStep = 0;
-    }
+
     // Set default values
     _selectedStatus = 'Active';
     _familyMemberController.text = '1';
@@ -101,11 +121,39 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
       _genderController.text = 'Male';
     }
 
-    // Load properties and units on init - first properties, then units
-    _loadPropertiesAndUnits();
+    // Set loading state immediately for edit mode
+    if (widget.tenant != null) {
+      _isLoading = true;
+    }
 
-    // Clear unit selection to avoid duplicate value issues
-    _selectedUnitId = null;
+    // Load districts and countries
+    _loadDistricts();
+    _loadCountries();
+
+    // Initialize data loading - handle edit mode properly
+    _initializeData();
+  }
+
+  Future<void> _initializeData() async {
+    if (widget.tenant != null) {
+      // Edit mode: Load properties and units first, then fetch tenant data
+      _currentStep = 0;
+      await _loadPropertiesAndUnits();
+      await _fetchTenantData();
+
+      // Try to calculate fees if unit is selected
+      if (_selectedUnitId != null) {
+        _calculateFeesForSelectedUnit();
+      } else {
+        // Fallback: Try to manually set property and unit if they're still null
+        if (_selectedPropertyId == null || _selectedUnitId == null) {
+          _attemptFallbackSelection();
+        }
+      }
+    } else {
+      // Create mode: Just load properties and units
+      await _loadPropertiesAndUnits();
+    }
   }
 
   Future<void> _loadPropertiesAndUnits() async {
@@ -123,6 +171,40 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
         _pendingSelections!['startMonth'],
       );
       _pendingSelections = null; // Clear pending selections
+    } else {}
+  }
+
+  void _attemptFallbackSelection() {
+    // Try to find property and unit by name instead of ID
+    if (widget.tenant != null) {
+      final tenant = widget.tenant!;
+      final propertyName = tenant['property_name']?.toString();
+      final unitName = tenant['unit_name']?.toString();
+
+      if (propertyName != null && _properties.isNotEmpty) {
+        final property = _properties.firstWhere(
+          (p) => p['name'] == propertyName,
+          orElse: () => {},
+        );
+        if (property.isNotEmpty) {
+          _selectedPropertyId = property['name'] as String;
+        }
+      }
+
+      if (unitName != null && _allUnits.isNotEmpty) {
+        final unit = _allUnits.firstWhere(
+          (u) => u['name'] == unitName,
+          orElse: () => {},
+        );
+        if (unit.isNotEmpty) {
+          _selectedUnitId = unit['name'] as String;
+
+          // Calculate fees for the selected unit
+          _calculateFeesForSelectedUnit();
+        }
+      }
+
+      setState(() {});
     }
   }
 
@@ -131,21 +213,27 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
     String? unitId,
     String? startMonth,
   ) {
-    print('DEBUG: _setPropertyAndUnitSelections called');
-    print(
-      'DEBUG: propertyId: $propertyId, unitId: $unitId, startMonth: $startMonth',
-    );
-    print('DEBUG: _properties length: ${_properties.length}');
-    print('DEBUG: _allUnits length: ${_allUnits.length}');
+    // Debug: Show available property IDs
+    if (_properties.isNotEmpty) {}
+
+    // Debug: Show available unit IDs
+    if (_allUnits.isNotEmpty) {}
 
     if (propertyId != null && _properties.isNotEmpty) {
       // Find property by ID
       final property = _properties.firstWhere(
         (p) => p['id'].toString() == propertyId,
-        orElse: () => _properties.first,
+        orElse: () => {},
       );
-      _selectedPropertyId = property['name'] as String;
-      print('DEBUG: Set selected property: $_selectedPropertyId');
+
+      if (property.isNotEmpty) {
+        _selectedPropertyId = property['name'] as String;
+
+        // Filter units for this property
+        _filterUnitsForProperty(propertyId);
+      } else {
+        _selectedPropertyId = null;
+      }
     } else {
       _selectedPropertyId = null;
     }
@@ -154,15 +242,18 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
       // Find unit by ID
       final unit = _allUnits.firstWhere(
         (u) => u['id'].toString() == unitId,
-        orElse: () => _allUnits.first,
+        orElse: () => {},
       );
-      _selectedUnitId = unit['name'] as String;
-      print('DEBUG: Set selected unit ID: $_selectedUnitId');
-      print('DEBUG: Unit data: $unit');
 
-      // Also update _units list to include this unit for fees calculation
-      if (!_units.any((u) => u['id'] == unit['id'])) {
-        _units.add(unit);
+      if (unit.isNotEmpty) {
+        _selectedUnitId = unit['name'] as String;
+
+        // Also update _units list to include this unit for fees calculation
+        if (!_units.any((u) => u['id'] == unit['id'])) {
+          _units.add(unit);
+        }
+      } else {
+        _selectedUnitId = null;
       }
     } else {
       _selectedUnitId = null;
@@ -170,23 +261,37 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
 
     if (startMonth != null) {
       // Convert "07-2025" format to "July-25" format for dropdown
-      _selectedStartMonth = _convertDateToMonthYear(startMonth);
+      final convertedMonth = _convertDateToMonthYear(startMonth);
+      final availableOptions = _getMonthYearOptions();
+
+      // Only set if the converted value exists in available options
+      if (availableOptions.contains(convertedMonth)) {
+        _selectedStartMonth = convertedMonth;
+      } else {
+        _selectedStartMonth = null;
+      }
     }
 
     // Calculate fees for edit mode
     if (_selectedUnitId != null) {
       _calculateFeesForSelectedUnit();
+    } else {
+      if (widget.tenant == null) {
+        _feesController.text = '0.00';
+      }
     }
 
     setState(() {});
   }
 
+  void _filterUnitsForProperty(String propertyId) {
+    _units = _allUnits.where((unit) {
+      return unit['property_id']?.toString() == propertyId;
+    }).toList();
+  }
+
   Future<void> _fetchTenantData() async {
     if (widget.tenant == null) return;
-
-    setState(() {
-      _isLoading = true;
-    });
 
     try {
       final token = await AuthService.getToken();
@@ -195,7 +300,6 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
       }
 
       final url = ApiConfig.getApiUrl('/tenants/${widget.tenant!['id']}');
-      print('DEBUG: Fetching tenant data from: $url');
 
       final response = await http
           .get(
@@ -208,38 +312,43 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
           )
           .timeout(Duration(seconds: 10));
 
-      print('DEBUG: Tenant fetch response status: ${response.statusCode}');
-      print('DEBUG: Tenant fetch response body: ${response.body}');
+      // Debug: Check if response contains expected fields
+      if (response.body.isNotEmpty) {
+        try {
+          final responseData = json.decode(response.body);
+          if (responseData['tenant'] != null) {
+            final tenant = responseData['tenant'];
+          }
+        } catch (e) {}
+      }
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        print('DEBUG: Parsed tenant data: $data');
-        print('DEBUG: Data keys: ${data.keys.toList()}');
-        print('DEBUG: Has tenant key: ${data.containsKey('tenant')}');
 
         if (data['tenant'] != null) {
           final tenantData = data['tenant'];
-          print('DEBUG: Tenant data found, calling _populateFormWithData');
-          _populateFormWithData(tenantData);
-        } else {
-          print('DEBUG: No tenant data found in response');
-          print('DEBUG: Full response structure: $data');
-        }
+
+          await _populateFormWithData(tenantData);
+        } else {}
       } else {
-        print('DEBUG: Failed to fetch tenant data: ${response.statusCode}');
-        _showErrorMessage('Failed to load tenant data');
+        if (mounted) {
+          _showErrorMessage('Failed to load tenant data');
+        }
       }
     } catch (e) {
-      print('DEBUG: Error fetching tenant data: $e');
-      _showErrorMessage('Error loading tenant data: $e');
+      if (mounted) {
+        _showErrorMessage('Error loading tenant data: $e');
+      }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
-  void _populateFormWithData(Map<String, dynamic> tenant) {
+  Future<void> _populateFormWithData(Map<String, dynamic> tenant) async {
     // Basic Information
     String firstName = tenant['first_name']?.toString() ?? '';
     String lastName = tenant['last_name']?.toString() ?? '';
@@ -258,6 +367,43 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
     _zipController.text = tenant['zip']?.toString() ?? '';
     _countryController.text = tenant['country']?.toString() ?? 'Bangladesh';
 
+    // District and Thana - Set after districts are loaded
+    // Try multiple possible field names for district
+    _selectedDistrict =
+        tenant['district']?.toString() ?? tenant['district_name']?.toString();
+
+    // Try multiple possible field names for upazila/thana
+    _selectedThana =
+        tenant['upazila']?.toString() ??
+        tenant['upozila']?.toString() ??
+        tenant['thana']?.toString() ??
+        tenant['upazila_name']?.toString();
+
+    // Check if selected values are in available options
+    if (_selectedDistrict != null && _districtOptions.isNotEmpty) {
+      final districtMatch = _districtOptions.any((d) => d == _selectedDistrict);
+      if (!districtMatch) {}
+    }
+
+    if (_selectedThana != null && _thanaOptions.isNotEmpty) {
+      final thanaMatch = _thanaOptions.any((t) => t == _selectedThana);
+      if (!thanaMatch) {}
+    }
+
+    // Force UI update for district and thana
+    setState(() {});
+
+    // If we have a selected district, load its thanas
+    if (_selectedDistrict != null && _districtOptions.isNotEmpty) {
+      await _loadThanas(_selectedDistrict!);
+
+      // Check again if selected thana is now available
+      if (_selectedThana != null && _thanaOptions.isNotEmpty) {
+        final thanaMatch = _thanaOptions.any((t) => t == _selectedThana);
+        if (!thanaMatch) {}
+      }
+    }
+
     // Work Information
     _occupationController.text = tenant['occupation']?.toString() ?? '';
     _companyName = tenant['company_name']?.toString() ?? '';
@@ -271,14 +417,6 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
         tenant['is_driver'] == 1 ||
         tenant['is_driver'] == '1';
     _driverNameController.text = tenant['driver_name']?.toString() ?? '';
-
-    print('DEBUG: Driver Information from API:');
-    print('DEBUG: is_driver from API: ${tenant['is_driver']}');
-    print('DEBUG: driver_name from API: ${tenant['driver_name']}');
-    print('DEBUG: _isDriver set to: $_isDriver');
-    print(
-      'DEBUG: _driverNameController.text set to: ${_driverNameController.text}',
-    );
 
     // Family Information
     _familyMemberController.text =
@@ -294,8 +432,18 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
     _selectedStartMonth = null; // Set to null to avoid dropdown errors
 
     // Store original property and unit IDs for later selection
-    final originalPropertyId = tenant['property_id']?.toString();
-    final originalUnitId = tenant['unit_id']?.toString();
+    // Extract IDs from nested objects since API doesn't send separate ID fields
+    final originalPropertyId =
+        (tenant['property'] is Map
+            ? tenant['property']['id']?.toString()
+            : null) ??
+        tenant['property_id']?.toString() ??
+        tenant['building_id']?.toString();
+
+    final originalUnitId =
+        (tenant['unit'] is Map ? tenant['unit']['id']?.toString() : null) ??
+        tenant['unit_id']?.toString();
+
     final originalStartMonth = tenant['start_month']?.toString();
 
     // Wait for properties and units to load before setting values
@@ -306,22 +454,105 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
       'startMonth': originalStartMonth,
     };
     _selectedStatus = tenant['status']?.toString() ?? 'Active';
-    _advanceAmountController.text = tenant['advance_amount']?.toString() ?? '';
-    if (tenant['start_month'] != null) {
-      _selectedStartMonth = tenant['start_month'].toString();
+
+    // Try different possible field names for advance amount
+    final advanceAmount =
+        tenant['advance_amount'] ??
+        tenant['security_deposit'] ??
+        tenant['deposit'] ??
+        tenant['advance'] ??
+        '';
+    _advanceAmountController.text = advanceAmount.toString();
+
+    // Try to get fees from tenant data if available
+    final tenantFees =
+        tenant['total_fees'] ??
+        tenant['fees'] ??
+        tenant['monthly_rent'] ??
+        tenant['rent'] ??
+        '';
+    if (tenantFees.toString().isNotEmpty) {
+      _feesController.text = tenantFees.toString();
+      print('DEBUG: Set fees from tenant data: ${_feesController.text}');
     }
+
+    // Set start month - convert from "10-2025" to "October-25" format
+    if (tenant['start_month'] != null) {
+      final originalStartMonth = tenant['start_month'].toString();
+      _selectedStartMonth = _convertDateToMonthYear(originalStartMonth);
+      print('DEBUG: Original start month from tenant: $originalStartMonth');
+      print('DEBUG: Converted start month: $_selectedStartMonth');
+    }
+
     _selectedFrequency = tenant['frequency']?.toString();
     _remarksController.text = tenant['remarks']?.toString() ?? '';
 
+    print('DEBUG: Advance amount set to: ${_advanceAmountController.text}');
+    print('DEBUG: Start month set to: $_selectedStartMonth');
+    print('DEBUG: Frequency set to: $_selectedFrequency');
+
     // NID Images - Note: These will be loaded from URLs, not local files
     // For edit mode, we'll show existing images if available
-    if (tenant['nid_front_picture'] != null) {
-      _existingNidFrontUrl = tenant['nid_front_picture'];
-      print('DEBUG: NID front picture exists: ${tenant['nid_front_picture']}');
+    print('DEBUG: Checking NID images in tenant data:');
+    print('DEBUG: nid_front_picture: ${tenant['nid_front_picture']}');
+    print('DEBUG: nid_back_picture: ${tenant['nid_back_picture']}');
+
+    if (tenant['nid_front_picture'] != null &&
+        tenant['nid_front_picture'].toString().isNotEmpty) {
+      String imagePath = tenant['nid_front_picture'].toString();
+      print('DEBUG: Original image path from API: "$imagePath"');
+      print('DEBUG: Image path length: ${imagePath.length}');
+      print(
+        'DEBUG: Image path starts with storage/: ${imagePath.startsWith('storage/')}',
+      );
+
+      // Convert to media endpoint URL
+      if (imagePath.startsWith('storage/')) {
+        // Remove 'storage/' prefix and use media endpoint
+        String cleanPath = imagePath.substring(8); // Remove 'storage/'
+        print('DEBUG: Clean path after removing storage/: "$cleanPath"');
+        _existingNidFrontUrl = 'https://barimanager.com/api/media/$cleanPath';
+      } else if (imagePath.startsWith('http')) {
+        _existingNidFrontUrl = imagePath;
+        print('DEBUG: Using full HTTP URL as-is');
+      } else {
+        _existingNidFrontUrl = 'https://barimanager.com/api/media/$imagePath';
+        print('DEBUG: Adding media/ prefix to path: "$imagePath"');
+      }
+      print('DEBUG: Final NID front picture URL: $_existingNidFrontUrl');
+    } else {
+      print(
+        'DEBUG: No NID front picture found - tenant has no NID front image',
+      );
+      _existingNidFrontUrl = null; // Explicitly set to null
     }
-    if (tenant['nid_back_picture'] != null) {
-      _existingNidBackUrl = tenant['nid_back_picture'];
-      print('DEBUG: NID back picture exists: ${tenant['nid_back_picture']}');
+
+    if (tenant['nid_back_picture'] != null &&
+        tenant['nid_back_picture'].toString().isNotEmpty) {
+      String imagePath = tenant['nid_back_picture'].toString();
+      print('DEBUG: Original back image path from API: "$imagePath"');
+      print('DEBUG: Back image path length: ${imagePath.length}');
+      print(
+        'DEBUG: Back image path starts with storage/: ${imagePath.startsWith('storage/')}',
+      );
+
+      // Convert to media endpoint URL
+      if (imagePath.startsWith('storage/')) {
+        // Remove 'storage/' prefix and use media endpoint
+        String cleanPath = imagePath.substring(8); // Remove 'storage/'
+        print('DEBUG: Clean back path after removing storage/: "$cleanPath"');
+        _existingNidBackUrl = 'https://barimanager.com/api/media/$cleanPath';
+      } else if (imagePath.startsWith('http')) {
+        _existingNidBackUrl = imagePath;
+        print('DEBUG: Using full HTTP URL for back image as-is');
+      } else {
+        _existingNidBackUrl = 'https://barimanager.com/api/media/$imagePath';
+        print('DEBUG: Adding media/ prefix to back image path: "$imagePath"');
+      }
+      print('DEBUG: Final NID back picture URL: $_existingNidBackUrl');
+    } else {
+      print('DEBUG: No NID back picture found - tenant has no NID back image');
+      _existingNidBackUrl = null; // Explicitly set to null
     }
 
     // Don't set property and unit IDs here - they will be set in _setPropertyAndUnitSelections
@@ -525,6 +756,9 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
           print(
             'DEBUG: Available status values: ${units.map((u) => u['status']).toSet()}',
           );
+          print('DEBUG: First unit data: ${units.first}');
+          print('DEBUG: First unit rent: ${units.first['rent']}');
+          print('DEBUG: First unit charges: ${units.first['charges']}');
         }
 
         setState(() {
@@ -787,6 +1021,17 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
     return widgets;
   }
 
+  List<String>? _cachedMonthYearOptions;
+
+  List<String> _getMonthYearOptions() {
+    if (_cachedMonthYearOptions != null) {
+      return _cachedMonthYearOptions!;
+    }
+
+    _cachedMonthYearOptions = _generateMonthYearOptions();
+    return _cachedMonthYearOptions!;
+  }
+
   List<String> _generateMonthYearOptions() {
     final months = [
       'January',
@@ -804,7 +1049,7 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
     ];
 
     final currentYear = DateTime.now().year;
-    List<String> options = [];
+    Set<String> optionsSet = <String>{}; // Use Set to avoid duplicates
 
     // Generate options for current year and next year
     for (int year = currentYear; year <= currentYear + 1; year++) {
@@ -813,8 +1058,26 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
         if (year == currentYear && month < DateTime.now().month - 1) {
           continue;
         }
-        options.add('${months[month]}-${year.toString().substring(2)}');
+        final option = '${months[month]}-${year.toString().substring(2)}';
+        optionsSet.add(option); // Set automatically handles duplicates
       }
+    }
+
+    // Convert Set back to List and sort
+    List<String> options = optionsSet.toList();
+    options.sort();
+
+    print('DEBUG: Generated month-year options: $options');
+    print('DEBUG: Options count: ${options.length}');
+    print('DEBUG: Unique options count: ${options.toSet().length}');
+
+    // Double-check for duplicates
+    final uniqueOptions = options.toSet().toList();
+    if (uniqueOptions.length != options.length) {
+      print('DEBUG: WARNING - Found duplicates in month-year options!');
+      print('DEBUG: Original: $options');
+      print('DEBUG: Unique: $uniqueOptions');
+      return uniqueOptions;
     }
 
     return options;
@@ -937,6 +1200,7 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
 
     if (_selectedUnitId == null) {
       print('DEBUG: _selectedUnitId is null, returning');
+      _feesController.text = '0.00';
       return;
     }
 
@@ -951,37 +1215,56 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
 
     print('DEBUG: Selected unit: $selectedUnit');
     if (selectedUnit.isEmpty) {
-      print('DEBUG: Selected unit is empty, returning');
+      print('DEBUG: Selected unit is empty, setting fees to 0');
+      _feesController.text = '0.00';
       return;
     }
+
+    print('DEBUG: Unit rent field: ${selectedUnit['rent']}');
+    print('DEBUG: Unit charges field: ${selectedUnit['charges']}');
+    print('DEBUG: Unit charges type: ${selectedUnit['charges'].runtimeType}');
 
     double totalFees = 0.0;
 
     // Add rent
     if (selectedUnit['rent'] != null) {
-      totalFees += (selectedUnit['rent'] is double)
+      final rent = (selectedUnit['rent'] is double)
           ? selectedUnit['rent']
           : double.tryParse(selectedUnit['rent'].toString()) ?? 0.0;
+      totalFees += rent;
+      print('DEBUG: Added rent: $rent');
     }
 
     // Add charges
-    if (selectedUnit['charges'] != null) {
+    if (selectedUnit['charges'] != null && selectedUnit['charges'] is List) {
       for (var charge in selectedUnit['charges']) {
         if (charge['amount'] != null) {
           double chargeAmount = (charge['amount'] is double)
               ? charge['amount']
               : double.tryParse(charge['amount'].toString()) ?? 0.0;
           totalFees += chargeAmount;
+          print('DEBUG: Added charge: $chargeAmount');
         }
       }
     }
 
+    print('DEBUG: Total fees calculated: $totalFees');
     setState(() {
       _feesController.text = totalFees.toStringAsFixed(2);
     });
   }
 
-  // NID Image Picker Methods
+  // Get fallback image URL if media endpoint fails
+  String? _getFallbackImageUrl(String mediaUrl) {
+    // If it's a media URL, try the direct storage path
+    if (mediaUrl.contains('/api/media/')) {
+      String path = mediaUrl.split('/api/media/')[1];
+      return 'https://barimanager.com/storage/$path';
+    }
+    return null;
+  }
+
+  // NID Image Picker Methods with Compression
   Future<void> _pickNidImage(ImageSource source, bool isFront) async {
     try {
       final XFile? image = await _imagePicker.pickImage(
@@ -992,20 +1275,55 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
       );
 
       if (image != null) {
+        // Compress the image
+        final compressedImage = await _compressImage(File(image.path));
+
         setState(() {
           if (isFront) {
-            _nidFrontImage = File(image.path);
+            _nidFrontImage = compressedImage;
           } else {
-            _nidBackImage = File(image.path);
+            _nidBackImage = compressedImage;
           }
         });
         print(
-          'DEBUG: NID ${isFront ? 'front' : 'back'} image selected: ${image.path}',
+          'DEBUG: NID ${isFront ? 'front' : 'back'} image selected and compressed: ${compressedImage.path}',
         );
       }
     } catch (e) {
       print('DEBUG: Error picking NID image: $e');
       _showErrorMessage('Error picking image: $e');
+    }
+  }
+
+  // Image Compression Method
+  Future<File> _compressImage(File imageFile) async {
+    try {
+      // Get temporary directory
+      final tempDir = Directory.systemTemp;
+      final targetPath =
+          '${tempDir.path}/compressed_${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+      // Compress image
+      final compressedFile = await FlutterImageCompress.compressAndGetFile(
+        imageFile.absolute.path,
+        targetPath,
+        quality: 80, // 80% quality
+        minWidth: 800, // Max width 800px
+        minHeight: 600, // Max height 600px
+        format: CompressFormat.jpeg,
+        keepExif: false, // Remove EXIF data for privacy
+      );
+
+      if (compressedFile != null) {
+        print('DEBUG: Image compressed successfully: ${compressedFile.path}');
+        return File(compressedFile.path);
+      } else {
+        print('DEBUG: Compression failed, using original image');
+        return imageFile;
+      }
+    } catch (e) {
+      print('DEBUG: Error compressing image: $e');
+      return imageFile; // Return original if compression fails
     }
   }
 
@@ -1058,12 +1376,37 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
     _driverNameController.dispose();
     _familyMemberController.dispose();
     _advanceAmountController.dispose();
+    _feesController.dispose();
     _remarksController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    // Show loading state for edit mode while data is being fetched
+    if (widget.tenant != null && _isLoading) {
+      return Scaffold(
+        backgroundColor: Colors.grey[100],
+        appBar: _buildAppBar(),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(
+                color: Colors.blue[600],
+                strokeWidth: 3,
+              ),
+              SizedBox(height: 16),
+              Text(
+                'Loading tenant data...',
+                style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: _buildAppBar(),
@@ -1128,7 +1471,7 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
       elevation: 0,
       title: Text(widget.tenant != null ? 'Edit Tenant' : 'Add New Tenant'),
       leading: IconButton(
-        icon: Icon(Icons.arrow_back_ios, color: Colors.black87),
+        icon: Icon(Icons.arrow_back_ios, color: Colors.white),
         onPressed: () {
           if (context.canPop()) {
             context.pop();
@@ -1291,6 +1634,15 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
           icon: Icons.person_outline,
           isRequired: true,
           floatingLabelBehavior: FloatingLabelBehavior.always,
+          hasError: _nameError,
+          errorMessage: _nameError ? 'Full name is required' : null,
+          onChanged: (value) {
+            if (_nameError && value.trim().isNotEmpty) {
+              setState(() {
+                _nameError = false;
+              });
+            }
+          },
         ),
 
         SizedBox(height: 20),
@@ -1301,9 +1653,18 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
           hint: 'Select your gender',
           icon: Icons.wc_outlined,
           items: ['Male', 'Female', 'Other'],
-          onChanged: (value) => _genderController.text = value ?? '',
-          isRequired: false,
+          onChanged: (value) {
+            _genderController.text = value ?? '';
+            if (_genderError && value != null && value.isNotEmpty) {
+              setState(() {
+                _genderError = false;
+              });
+            }
+          },
+          isRequired: true,
           floatingLabelBehavior: FloatingLabelBehavior.always,
+          hasError: _genderError,
+          errorMessage: _genderError ? 'Gender is required' : null,
         ),
 
         SizedBox(height: 20),
@@ -1316,6 +1677,18 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
           isRequired: true,
           keyboardType: TextInputType.phone,
           floatingLabelBehavior: FloatingLabelBehavior.always,
+          hasError: _phoneError,
+          errorMessage: _phoneErrorMessage,
+          onChanged: (value) {
+            if (_phoneError &&
+                value.trim().isNotEmpty &&
+                _isValidMobileNumber(value)) {
+              setState(() {
+                _phoneError = false;
+                _phoneErrorMessage = null;
+              });
+            }
+          },
         ),
 
         SizedBox(height: 20),
@@ -1327,6 +1700,8 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
           icon: Icons.phone_outlined,
           keyboardType: TextInputType.phone,
           floatingLabelBehavior: FloatingLabelBehavior.always,
+          hasError: false,
+          errorMessage: null,
         ),
 
         SizedBox(height: 20),
@@ -1338,6 +1713,8 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
           icon: Icons.email_outlined,
           keyboardType: TextInputType.emailAddress,
           floatingLabelBehavior: FloatingLabelBehavior.always,
+          hasError: false,
+          errorMessage: null,
         ),
 
         SizedBox(height: 20),
@@ -1349,6 +1726,15 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
           icon: Icons.credit_card_outlined,
           isRequired: true,
           floatingLabelBehavior: FloatingLabelBehavior.always,
+          hasError: _nidError,
+          errorMessage: _nidError ? 'NID number is required' : null,
+          onChanged: (value) {
+            if (_nidError && value.trim().isNotEmpty) {
+              setState(() {
+                _nidError = false;
+              });
+            }
+          },
         ),
 
         SizedBox(height: 20),
@@ -1426,15 +1812,95 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
                             width: double.infinity,
                             height: double.infinity,
                             fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
                               return Container(
                                 width: double.infinity,
                                 height: double.infinity,
                                 color: Colors.grey[200],
-                                child: Icon(
-                                  Icons.broken_image,
-                                  size: 40,
-                                  color: Colors.grey[600],
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                    value:
+                                        loadingProgress.expectedTotalBytes !=
+                                            null
+                                        ? loadingProgress
+                                                  .cumulativeBytesLoaded /
+                                              loadingProgress
+                                                  .expectedTotalBytes!
+                                        : null,
+                                  ),
+                                ),
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) {
+                              print(
+                                'DEBUG: Error loading NID front image: $error',
+                              );
+                              print('DEBUG: Image URL: $_existingNidFrontUrl');
+
+                              // Try fallback URL if media endpoint fails
+                              String? fallbackUrl = _getFallbackImageUrl(
+                                _existingNidFrontUrl!,
+                              );
+                              if (fallbackUrl != null) {
+                                print(
+                                  'DEBUG: Trying fallback URL: $fallbackUrl',
+                                );
+                                return Image.network(
+                                  fallbackUrl,
+                                  width: double.infinity,
+                                  height: double.infinity,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      width: double.infinity,
+                                      height: double.infinity,
+                                      color: Colors.grey[200],
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Icons.broken_image,
+                                            size: 40,
+                                            color: Colors.grey[600],
+                                          ),
+                                          SizedBox(height: 8),
+                                          Text(
+                                            'Image file missing',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey[600],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                );
+                              }
+
+                              return Container(
+                                width: double.infinity,
+                                height: double.infinity,
+                                color: Colors.grey[200],
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.broken_image,
+                                      size: 40,
+                                      color: Colors.grey[600],
+                                    ),
+                                    SizedBox(height: 8),
+                                    Text(
+                                      'Failed to load image',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               );
                             },
@@ -1599,15 +2065,52 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
                             width: double.infinity,
                             height: double.infinity,
                             fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
                               return Container(
                                 width: double.infinity,
                                 height: double.infinity,
                                 color: Colors.grey[200],
-                                child: Icon(
-                                  Icons.broken_image,
-                                  size: 40,
-                                  color: Colors.grey[600],
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                    value:
+                                        loadingProgress.expectedTotalBytes !=
+                                            null
+                                        ? loadingProgress
+                                                  .cumulativeBytesLoaded /
+                                              loadingProgress
+                                                  .expectedTotalBytes!
+                                        : null,
+                                  ),
+                                ),
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) {
+                              print(
+                                'DEBUG: Error loading NID back image: $error',
+                              );
+                              print('DEBUG: Image URL: $_existingNidBackUrl');
+                              return Container(
+                                width: double.infinity,
+                                height: double.infinity,
+                                color: Colors.grey[200],
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.broken_image,
+                                      size: 40,
+                                      color: Colors.grey[600],
+                                    ),
+                                    SizedBox(height: 8),
+                                    Text(
+                                      'Failed to load image',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               );
                             },
@@ -1710,7 +2213,7 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
         _buildDropdownField(
           value: _occupationController.text.isEmpty
               ? null
-              : _occupationController.text,
+              : _getNormalizedOccupation(_occupationController.text),
           label: 'Occupation',
           hint: 'Select your occupation',
           icon: Icons.work_outline,
@@ -1739,6 +2242,8 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
             onChanged: (value) => setState(() => _companyName = value),
             isRequired: false,
             floatingLabelBehavior: FloatingLabelBehavior.always,
+            hasError: false,
+            errorMessage: null,
           ),
         ],
 
@@ -1752,6 +2257,8 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
             onChanged: (value) => setState(() => _collegeUniversity = value),
             isRequired: false,
             floatingLabelBehavior: FloatingLabelBehavior.always,
+            hasError: false,
+            errorMessage: null,
           ),
         ],
 
@@ -1765,6 +2272,8 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
             onChanged: (value) => setState(() => _businessName = value),
             isRequired: false,
             floatingLabelBehavior: FloatingLabelBehavior.always,
+            hasError: false,
+            errorMessage: null,
           ),
         ],
 
@@ -1782,6 +2291,8 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
           isRequired: false,
           floatingLabelBehavior: FloatingLabelBehavior.always,
           onChanged: (value) => setState(() {}),
+          hasError: false,
+          errorMessage: null,
         ),
 
         SizedBox(height: 16),
@@ -1806,28 +2317,139 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
           maxLines: 3,
           floatingLabelBehavior: FloatingLabelBehavior.always,
           onChanged: (value) => setState(() {}),
+          hasError: false,
+          errorMessage: null,
         ),
 
         SizedBox(height: 16),
 
-        _buildTextField(
-          controller: _cityController,
-          label: 'City',
-          hint: 'Enter your city',
-          icon: Icons.location_city_outlined,
-          floatingLabelBehavior: FloatingLabelBehavior.always,
-          onChanged: (value) => setState(() {}),
+        // District Selection with SearchPicker
+        Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            color: Colors.grey[50],
+            border: Border.all(color: Colors.grey[300]!),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'District',
+                style: TextStyle(fontSize: 12, color: Colors.black54),
+              ),
+              GestureDetector(
+                onTap: () async {
+                  final selected = await SearchPicker.showBottomSheet<String>(
+                    context: context,
+                    title: 'Select District',
+                    items: _districtOptions,
+                    initiallySelected: _selectedDistrict,
+                  );
+                  if (selected != null) {
+                    setState(() {
+                      _selectedDistrict = selected;
+                      _selectedThana =
+                          null; // Reset thana when district changes
+                    });
+                    // Load thanas for selected district
+                    await _loadThanas(selected);
+                  }
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _selectedDistrict ?? 'Tap to select district',
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                      ),
+                      if (_isLoadingDistricts)
+                        SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      else
+                        const Icon(Icons.arrow_drop_down),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
 
         SizedBox(height: 16),
 
-        _buildTextField(
-          controller: _stateController,
-          label: 'State/Division',
-          hint: 'Enter your state or division',
-          icon: Icons.map_outlined,
-          floatingLabelBehavior: FloatingLabelBehavior.always,
-          onChanged: (value) => setState(() {}),
+        // Thana Selection with SearchPicker
+        Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            color: Colors.grey[50],
+            border: Border.all(color: Colors.grey[300]!),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Thana/Upazila',
+                style: TextStyle(fontSize: 12, color: Colors.black54),
+              ),
+              GestureDetector(
+                onTap: _selectedDistrict == null
+                    ? null
+                    : () async {
+                        final selected =
+                            await SearchPicker.showBottomSheet<String>(
+                              context: context,
+                              title: 'Select Thana/Upazila',
+                              items: _thanaOptions,
+                              initiallySelected: _selectedThana,
+                            );
+                        if (selected != null) {
+                          setState(() {
+                            _selectedThana = selected;
+                          });
+                        }
+                      },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _selectedThana ?? 'Tap to select thana/upazila',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: _selectedDistrict == null
+                                ? Colors.grey[400]
+                                : Colors.black,
+                          ),
+                        ),
+                      ),
+                      if (_isLoadingThanas)
+                        SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      else
+                        Icon(
+                          Icons.arrow_drop_down,
+                          color: _selectedDistrict == null
+                              ? Colors.grey[400]
+                              : Colors.black,
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
 
         SizedBox(height: 16),
@@ -1840,17 +2462,59 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
           keyboardType: TextInputType.number,
           floatingLabelBehavior: FloatingLabelBehavior.always,
           onChanged: (value) => setState(() {}),
+          hasError: false,
+          errorMessage: null,
         ),
 
         SizedBox(height: 16),
 
-        _buildTextField(
-          controller: _countryController,
-          label: 'Country',
-          hint: 'Enter your country',
-          icon: Icons.public_outlined,
-          floatingLabelBehavior: FloatingLabelBehavior.always,
-          onChanged: (value) => setState(() {}),
+        // Country Selection with SearchPicker
+        Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            color: Colors.grey[50],
+            border: Border.all(color: Colors.grey[300]!),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Country *',
+                style: TextStyle(fontSize: 12, color: Colors.black54),
+              ),
+              GestureDetector(
+                onTap: () async {
+                  final selected = await SearchPicker.showBottomSheet<String>(
+                    context: context,
+                    title: 'Select Country',
+                    items: _countryOptions,
+                    initiallySelected: _selectedCountry,
+                  );
+                  if (selected != null) {
+                    setState(() {
+                      _selectedCountry = selected;
+                      _countryController.text = selected;
+                    });
+                  }
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _selectedCountry ?? 'Tap to select country',
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                      ),
+                      const Icon(Icons.arrow_drop_down),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
 
         SizedBox(height: 32),
@@ -1877,6 +2541,8 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
             icon: Icons.person_outline,
             floatingLabelBehavior: FloatingLabelBehavior.always,
             onChanged: (value) => setState(() {}),
+            hasError: false,
+            errorMessage: null,
           ),
         ],
       ],
@@ -2005,7 +2671,10 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
                       print('DEBUG: Set fees to: ${_feesController.text}');
                     }
                   } else {
-                    _advanceAmountController.clear();
+                    // Don't clear advance amount in edit mode - it should retain the loaded value
+                    if (widget.tenant == null) {
+                      _advanceAmountController.clear();
+                    }
                   }
                 },
           isLoading: _isLoadingUnits,
@@ -2023,6 +2692,8 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
           icon: Icons.attach_money_outlined,
           keyboardType: TextInputType.number,
           floatingLabelBehavior: FloatingLabelBehavior.always,
+          hasError: false,
+          errorMessage: null,
         ),
 
         SizedBox(height: 16),
@@ -2099,7 +2770,7 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
           label: 'Start Month',
           hint: 'Select start month',
           icon: Icons.calendar_today_outlined,
-          items: _generateMonthYearOptions(),
+          items: _getMonthYearOptions(),
           onChanged: (value) => setState(() => _selectedStartMonth = value),
           isRequired: true,
           isReadOnly: false,
@@ -2127,6 +2798,8 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
           icon: Icons.note_outlined,
           maxLines: 3,
           floatingLabelBehavior: FloatingLabelBehavior.always,
+          hasError: false,
+          errorMessage: null,
         ),
       ],
     );
@@ -2166,6 +2839,8 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
     int maxLines = 1,
     FloatingLabelBehavior? floatingLabelBehavior,
     Function(String)? onChanged,
+    bool hasError = false,
+    String? errorMessage,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2211,23 +2886,42 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
                   )
                 : null,
             hintText: hint,
-            prefixIcon: Icon(icon, color: Colors.grey[600]),
+            prefixIcon: Icon(
+              icon,
+              color: hasError ? Colors.red : Colors.grey[600],
+            ),
             floatingLabelBehavior: floatingLabelBehavior,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey[300]!),
+              borderSide: BorderSide(
+                color: hasError ? Colors.red : Colors.grey[300]!,
+              ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey[300]!),
+              borderSide: BorderSide(
+                color: hasError ? Colors.red : Colors.grey[300]!,
+              ),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.blue[600]!, width: 2),
+              borderSide: BorderSide(
+                color: hasError ? Colors.red : Colors.blue[600]!,
+                width: 2,
+              ),
             ),
             filled: true,
-            fillColor: Colors.grey[50],
+            fillColor: hasError ? Colors.red[50] : Colors.grey[50],
             contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            errorText: hasError ? errorMessage : null,
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.red, width: 2),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.red, width: 2),
+            ),
           ),
           validator: isRequired
               ? (value) => value?.isEmpty == true ? '$label is required' : null
@@ -2246,6 +2940,8 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
     bool isRequired = false,
     TextInputType? keyboardType,
     FloatingLabelBehavior? floatingLabelBehavior,
+    bool hasError = false,
+    String? errorMessage,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2292,23 +2988,42 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
                   )
                 : null,
             hintText: hint,
-            prefixIcon: Icon(icon, color: Colors.grey[600]),
+            prefixIcon: Icon(
+              icon,
+              color: hasError ? Colors.red : Colors.grey[600],
+            ),
             floatingLabelBehavior: floatingLabelBehavior,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey[300]!),
+              borderSide: BorderSide(
+                color: hasError ? Colors.red : Colors.grey[300]!,
+              ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey[300]!),
+              borderSide: BorderSide(
+                color: hasError ? Colors.red : Colors.grey[300]!,
+              ),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.blue[600]!, width: 2),
+              borderSide: BorderSide(
+                color: hasError ? Colors.red : Colors.blue[600]!,
+                width: 2,
+              ),
             ),
             filled: true,
-            fillColor: Colors.grey[50],
+            fillColor: hasError ? Colors.red[50] : Colors.grey[50],
             contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            errorText: hasError ? errorMessage : null,
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.red, width: 2),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.red, width: 2),
+            ),
           ),
           validator: isRequired
               ? (value) => value?.isEmpty == true ? '$label is required' : null
@@ -2329,6 +3044,8 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
     bool isLoading = false,
     bool isReadOnly = false,
     FloatingLabelBehavior? floatingLabelBehavior,
+    bool hasError = false,
+    String? errorMessage,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2358,7 +3075,7 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
           SizedBox(height: 6),
         ],
         DropdownButtonFormField<String>(
-          value: value,
+          value: value != null && items.contains(value) ? value : null,
           decoration: InputDecoration(
             labelText: floatingLabelBehavior != null
                 ? (isRequired ? '$label *' : label)
@@ -2404,10 +3121,39 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
             filled: true,
             fillColor: isReadOnly ? Colors.grey[100] : Colors.grey[50],
             contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            errorText: hasError ? errorMessage : null,
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.red, width: 2),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.red, width: 2),
+            ),
           ),
-          items: items.map((String item) {
-            return DropdownMenuItem<String>(value: item, child: Text(item));
-          }).toList(),
+          items: () {
+            final uniqueItems = items.toSet().toList();
+            print('DEBUG: Dropdown items for $label: $items');
+            print('DEBUG: Unique items for $label: $uniqueItems');
+            print(
+              'DEBUG: Items count: ${items.length}, Unique count: ${uniqueItems.length}',
+            );
+            print('DEBUG: Current value: $value');
+            print(
+              'DEBUG: Is value in unique items: ${uniqueItems.contains(value)}',
+            );
+            if (items.length != uniqueItems.length) {
+              print('DEBUG: WARNING - Duplicates found in $label dropdown!');
+            }
+            if (value != null && !uniqueItems.contains(value)) {
+              print(
+                'DEBUG: WARNING - Value $value not found in items for $label!',
+              );
+            }
+            return uniqueItems.map((String item) {
+              return DropdownMenuItem<String>(value: item, child: Text(item));
+            }).toList();
+          }(),
           onChanged: isReadOnly ? null : onChanged,
           validator: isRequired
               ? (value) => value?.isEmpty == true ? '$label is required' : null
@@ -2427,6 +3173,8 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
     required Function(String) onChanged,
     bool isRequired = false,
     FloatingLabelBehavior? floatingLabelBehavior,
+    bool hasError = false,
+    String? errorMessage,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2471,23 +3219,42 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
                   )
                 : null,
             hintText: hint,
-            prefixIcon: Icon(icon, color: Colors.grey[600]),
+            prefixIcon: Icon(
+              icon,
+              color: hasError ? Colors.red : Colors.grey[600],
+            ),
             floatingLabelBehavior: floatingLabelBehavior,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey[300]!),
+              borderSide: BorderSide(
+                color: hasError ? Colors.red : Colors.grey[300]!,
+              ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey[300]!),
+              borderSide: BorderSide(
+                color: hasError ? Colors.red : Colors.grey[300]!,
+              ),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.blue[600]!, width: 2),
+              borderSide: BorderSide(
+                color: hasError ? Colors.red : Colors.blue[600]!,
+                width: 2,
+              ),
             ),
             filled: true,
-            fillColor: Colors.grey[50],
+            fillColor: hasError ? Colors.red[50] : Colors.grey[50],
             contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            errorText: hasError ? errorMessage : null,
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.red, width: 2),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.red, width: 2),
+            ),
           ),
         ),
       ],
@@ -2502,6 +3269,8 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
     required Function(bool) onChanged,
     bool isRequired = false,
     FloatingLabelBehavior? floatingLabelBehavior,
+    bool hasError = false,
+    String? errorMessage,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2544,23 +3313,42 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
                   )
                 : null,
             hintText: hint,
-            prefixIcon: Icon(icon, color: Colors.grey[600]),
+            prefixIcon: Icon(
+              icon,
+              color: hasError ? Colors.red : Colors.grey[600],
+            ),
             floatingLabelBehavior: floatingLabelBehavior,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey[300]!),
+              borderSide: BorderSide(
+                color: hasError ? Colors.red : Colors.grey[300]!,
+              ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey[300]!),
+              borderSide: BorderSide(
+                color: hasError ? Colors.red : Colors.grey[300]!,
+              ),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.blue[600]!, width: 2),
+              borderSide: BorderSide(
+                color: hasError ? Colors.red : Colors.blue[600]!,
+                width: 2,
+              ),
             ),
             filled: true,
-            fillColor: Colors.grey[50],
+            fillColor: hasError ? Colors.red[50] : Colors.grey[50],
             contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            errorText: hasError ? errorMessage : null,
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.red, width: 2),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.red, width: 2),
+            ),
           ),
           items: [
             DropdownMenuItem<bool>(value: true, child: Text('Yes')),
@@ -2752,7 +3540,10 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
     );
   }
 
-  Widget _buildSearchableCountryField() {
+  Widget _buildSearchableCountryField({
+    bool hasError = false,
+    String? errorMessage,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2777,18 +3568,25 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
               floatingLabelBehavior: FloatingLabelBehavior.always,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey[300]!),
+                borderSide: BorderSide(
+                  color: hasError ? Colors.red : Colors.grey[300]!,
+                ),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey[300]!),
+                borderSide: BorderSide(
+                  color: hasError ? Colors.red : Colors.grey[300]!,
+                ),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.blue[600]!, width: 2),
+                borderSide: BorderSide(
+                  color: hasError ? Colors.red : Colors.blue[600]!,
+                  width: 2,
+                ),
               ),
               filled: true,
-              fillColor: Colors.grey[50],
+              fillColor: hasError ? Colors.red[50] : Colors.grey[50],
               contentPadding: EdgeInsets.symmetric(
                 horizontal: 12,
                 vertical: 10,
@@ -2842,6 +3640,8 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
     required Function(DateTime?) onChanged,
     bool isRequired = false,
     FloatingLabelBehavior? floatingLabelBehavior,
+    bool hasError = false,
+    String? errorMessage,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2884,23 +3684,42 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
                   )
                 : null,
             hintText: hint,
-            prefixIcon: Icon(icon, color: Colors.grey[600]),
+            prefixIcon: Icon(
+              icon,
+              color: hasError ? Colors.red : Colors.grey[600],
+            ),
             floatingLabelBehavior: floatingLabelBehavior,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey[300]!),
+              borderSide: BorderSide(
+                color: hasError ? Colors.red : Colors.grey[300]!,
+              ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey[300]!),
+              borderSide: BorderSide(
+                color: hasError ? Colors.red : Colors.grey[300]!,
+              ),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.blue[600]!, width: 2),
+              borderSide: BorderSide(
+                color: hasError ? Colors.red : Colors.blue[600]!,
+                width: 2,
+              ),
             ),
             filled: true,
-            fillColor: Colors.grey[50],
+            fillColor: hasError ? Colors.red[50] : Colors.grey[50],
             contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            errorText: hasError ? errorMessage : null,
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.red, width: 2),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.red, width: 2),
+            ),
           ),
           controller: TextEditingController(
             text: value != null
@@ -3035,11 +3854,6 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
   }
 
   void _handleNextStep() {
-    print('DEBUG: _handleNextStep called');
-    print('DEBUG: _currentStep: $_currentStep');
-    print('DEBUG: _totalSteps: $_totalSteps');
-    print('DEBUG: widget.tenant != null: ${widget.tenant != null}');
-
     if (_currentStep < _totalSteps - 1) {
       print('DEBUG: Moving to next step');
       if (_validateCurrentStep()) {
@@ -3053,14 +3867,69 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
     }
   }
 
+  // Mobile number validation
+  bool _isValidMobileNumber(String phone) {
+    // Remove all non-digit characters
+    String cleanPhone = phone.replaceAll(RegExp(r'[^\d]'), '');
+
+    // Check if it's a valid Bangladesh mobile number
+    // Bangladesh mobile numbers: 01XXXXXXXXX (11 digits starting with 01)
+    if (cleanPhone.length == 11 && cleanPhone.startsWith('01')) {
+      return true;
+    }
+
+    // Also accept 10 digits without leading 0
+    if (cleanPhone.length == 10 && cleanPhone.startsWith('1')) {
+      return true;
+    }
+
+    return false;
+  }
+
   bool _validateCurrentStep() {
+    // Reset error states
+    _nameError = false;
+    _phoneError = false;
+    _nidError = false;
+    _genderError = false;
+    _phoneErrorMessage = null;
+
     // Validate all steps properly for both create and edit modes
     if (_currentStep == 0) {
-      if (_nameController.text.isEmpty ||
-          _genderController.text.isEmpty ||
-          _phoneController.text.isEmpty ||
-          _nidController.text.isEmpty) {
-        _showErrorMessage('Please fill all required fields');
+      bool hasError = false;
+
+      // Name validation
+      if (_nameController.text.trim().isEmpty) {
+        _nameError = true;
+        hasError = true;
+      }
+
+      // Phone validation
+      if (_phoneController.text.trim().isEmpty) {
+        _phoneError = true;
+        _phoneErrorMessage = 'Mobile number is required';
+        hasError = true;
+      } else if (!_isValidMobileNumber(_phoneController.text)) {
+        _phoneError = true;
+        _phoneErrorMessage = 'Please enter a valid mobile number (01XXXXXXXXX)';
+        hasError = true;
+      }
+
+      // NID validation
+      if (_nidController.text.trim().isEmpty) {
+        _nidError = true;
+        hasError = true;
+      }
+
+      // Gender validation
+      if (_genderController.text.isEmpty) {
+        _genderError = true;
+        hasError = true;
+      }
+
+      if (hasError) {
+        setState(() {}); // Trigger rebuild to show errors
+        _showErrorMessage('Please fill all required fields correctly');
         return false;
       }
     } else if (_currentStep == 1) {
@@ -3158,8 +4027,40 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
         print('DEBUG: Added field $key = ${value?.toString() ?? 'empty'}');
       });
 
-      // Add NID images with error handling
-      await _addNidImagesToRequest(request);
+      // Debug: Show specific field values
+      print('DEBUG: Email field value: ${tenantData['email']}');
+      print('DEBUG: District field value: ${tenantData['district']}');
+      print('DEBUG: Upazila field value: ${tenantData['upazila']}');
+
+      // Step 1: Upload NID images first (if any) - with fallback
+      String? nidFrontUrl;
+      String? nidBackUrl;
+
+      if (_nidFrontImage != null) {
+        print('DEBUG: Attempting to upload NID front image...');
+        nidFrontUrl = await _uploadNidImage(_nidFrontImage!, 'front');
+        if (nidFrontUrl != null) {
+          request.fields['nid_front_picture'] = nidFrontUrl;
+          print('DEBUG: NID front image URL added to request: $nidFrontUrl');
+        } else {
+          print(
+            'DEBUG: NID front image upload failed, continuing without image',
+          );
+        }
+      }
+
+      if (_nidBackImage != null) {
+        print('DEBUG: Attempting to upload NID back image...');
+        nidBackUrl = await _uploadNidImage(_nidBackImage!, 'back');
+        if (nidBackUrl != null) {
+          request.fields['nid_back_picture'] = nidBackUrl;
+          print('DEBUG: NID back image URL added to request: $nidBackUrl');
+        } else {
+          print(
+            'DEBUG: NID back image upload failed, continuing without image',
+          );
+        }
+      }
 
       print('DEBUG: Sending request to: $url');
       print('DEBUG: Request method: ${request.method}');
@@ -3175,52 +4076,86 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
       await _handleApiResponse(response, responseBody, isEditMode);
     } catch (e) {
       print('DEBUG: Error in _submitForm: $e');
-      _showErrorMessage('Error saving tenant: $e');
+      if (mounted) {
+        _showErrorMessage('Error saving tenant: $e');
+      }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  // Upload NID image using two-step process (like profile image)
+  Future<String?> _uploadNidImage(File imageFile, String type) async {
+    try {
+      print('DEBUG: Uploading NID $type image: ${imageFile.path}');
+
+      final token = await AuthService.getToken();
+      if (token == null) {
+        throw Exception('No authentication token found');
+      }
+
+      // Create multipart request for upload
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('${ApiConfig.baseUrl}/common/upload'),
+      );
+
+      // Add headers
+      request.headers['Authorization'] = 'Bearer $token';
+      request.headers['Accept'] = 'application/json';
+
+      // Add file
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'file',
+          imageFile.path,
+          filename: 'nid_${type}_${DateTime.now().millisecondsSinceEpoch}.jpg',
+        ),
+      );
+
+      // Add folder
+      request.fields['folder'] = 'tenants/nid';
+
+      print('DEBUG: Sending NID $type image upload request');
+
+      // Send upload request
+      final response = await request.send().timeout(Duration(seconds: 30));
+      final responseBody = await response.stream.bytesToString();
+
+      print('DEBUG: NID $type upload response status: ${response.statusCode}');
+      print('DEBUG: NID $type upload response body: $responseBody');
+
+      if (response.statusCode == 200) {
+        final responseData = json.decode(responseBody);
+        final url = responseData['url'] ?? responseData['path'];
+        print('DEBUG: NID $type image uploaded successfully: $url');
+        return url;
+      } else {
+        print(
+          'DEBUG: Upload failed - Status: ${response.statusCode}, Body: $responseBody',
+        );
+        throw Exception(
+          'Upload failed with status: ${response.statusCode} - $responseBody',
+        );
+      }
+    } catch (e) {
+      print('DEBUG: Error uploading NID $type image: $e');
+      if (mounted) {
+        _showErrorMessage('Error uploading NID $type image: $e');
+      }
+      return null;
     }
   }
 
   Future<void> _addNidImagesToRequest(http.MultipartRequest request) async {
-    // Add NID front image if selected
-    if (_nidFrontImage != null) {
-      try {
-        final stream = http.ByteStream(_nidFrontImage!.openRead());
-        final length = await _nidFrontImage!.length();
-        final multipartFile = http.MultipartFile(
-          'nid_front_picture',
-          stream,
-          length,
-          filename: 'nid_front_${DateTime.now().millisecondsSinceEpoch}.jpg',
-        );
-        request.files.add(multipartFile);
-        print('DEBUG: NID front image added to request');
-      } catch (e) {
-        print('DEBUG: Error adding NID front image to request: $e');
-        _showErrorMessage('Error uploading NID front image: $e');
-      }
-    }
-
-    // Add NID back image if selected
-    if (_nidBackImage != null) {
-      try {
-        final stream = http.ByteStream(_nidBackImage!.openRead());
-        final length = await _nidBackImage!.length();
-        final multipartFile = http.MultipartFile(
-          'nid_back_picture',
-          stream,
-          length,
-          filename: 'nid_back_${DateTime.now().millisecondsSinceEpoch}.jpg',
-        );
-        request.files.add(multipartFile);
-        print('DEBUG: NID back image added to request');
-      } catch (e) {
-        print('DEBUG: Error adding NID back image to request: $e');
-        _showErrorMessage('Error uploading NID back image: $e');
-      }
-    }
+    // This method is now deprecated - using two-step process instead
+    print(
+      'DEBUG: _addNidImagesToRequest called but using two-step process now',
+    );
   }
 
   Future<void> _handleApiResponse(
@@ -3233,27 +4168,37 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
         final data = json.decode(responseBody);
 
         if (data['success'] == true) {
-          // Show success message
-          _showSuccessMessage(
-            isEditMode
-                ? 'Tenant updated successfully!'
-                : 'Tenant added successfully!',
-          );
+          // Check if widget is still mounted before showing message and navigating
+          if (mounted) {
+            // Show success message
+            _showSuccessMessage(
+              isEditMode
+                  ? 'Tenant updated successfully!'
+                  : 'Tenant added successfully!',
+            );
 
-          // Wait a bit for user to see the message
-          await Future.delayed(Duration(milliseconds: 500));
+            // Wait a bit for user to see the message
+            await Future.delayed(Duration(milliseconds: 500));
 
-          // Navigate back to tenant list with refresh flag
-          if (context.canPop()) {
-            context.pop(true); // Pass true to indicate successful save
-          } else {
-            context.go('/properties');
+            // Check again if widget is still mounted before navigating
+            if (mounted) {
+              // Navigate back to tenant list with refresh flag
+              if (context.canPop()) {
+                context.pop(true); // Pass true to indicate successful save
+              } else {
+                context.go('/properties');
+              }
+            }
           }
         } else {
-          _showErrorMessage(data['message'] ?? 'Failed to save tenant');
+          if (mounted) {
+            _showErrorMessage(data['message'] ?? 'Failed to save tenant');
+          }
         }
       } catch (e) {
-        _showErrorMessage('Error parsing response: $e');
+        if (mounted) {
+          _showErrorMessage('Error parsing response: $e');
+        }
       }
     } else {
       print('DEBUG: Error response: $responseBody');
@@ -3263,18 +4208,26 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
         if (details != null && details.isNotEmpty) {
           final firstKey = details.keys.first;
           final firstMsg = (details[firstKey] as List).first.toString();
-          _showErrorMessage(firstMsg);
+          if (mounted) {
+            _showErrorMessage(firstMsg);
+          }
         } else if (data['error'] != null) {
-          _showErrorMessage(data['error'].toString());
+          if (mounted) {
+            _showErrorMessage(data['error'].toString());
+          }
         } else {
+          if (mounted) {
+            _showErrorMessage(
+              'Failed to save tenant. Status: ${response.statusCode}',
+            );
+          }
+        }
+      } catch (_) {
+        if (mounted) {
           _showErrorMessage(
             'Failed to save tenant. Status: ${response.statusCode}',
           );
         }
-      } catch (_) {
-        _showErrorMessage(
-          'Failed to save tenant. Status: ${response.statusCode}',
-        );
       }
     }
   }
@@ -3305,7 +4258,10 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
       'alt_mobile': _altPhoneController.text.isNotEmpty
           ? _altPhoneController.text
           : null,
-      'email': _emailController.text.isNotEmpty ? _emailController.text : null,
+      'email':
+          _emailController.text.isNotEmpty && _emailController.text != 'N/A'
+          ? _emailController.text
+          : null,
       'nid_number': _nidController.text.isNotEmpty ? _nidController.text : null,
       'address': _streetAddressController.text.isNotEmpty
           ? _streetAddressController.text
@@ -3319,9 +4275,11 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
       'zip': _zipController.text.isNotEmpty
           ? _zipController.text
           : 'Not Specified',
-      'country': _countryController.text.isNotEmpty
-          ? _countryController.text
-          : 'Bangladesh',
+      'country': _selectedCountry ?? 'Bangladesh',
+      'district': _selectedDistrict?.isNotEmpty == true
+          ? _selectedDistrict
+          : null,
+      'upazila': _selectedThana?.isNotEmpty == true ? _selectedThana : null,
       'occupation': _occupationController.text.isNotEmpty
           ? _occupationController.text
           : 'Not Specified',
@@ -3654,6 +4612,8 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
           _cityController.text.isEmpty &&
           _stateController.text.isEmpty &&
           _zipController.text.isEmpty &&
+          (_selectedDistrict?.isEmpty ?? true) &&
+          (_selectedThana?.isEmpty ?? true) &&
           !_isDriver &&
           _driverNameController.text.isEmpty;
 
@@ -3786,9 +4746,6 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
           )
           .timeout(Duration(seconds: 10));
 
-      print('DEBUG: Vacant units response status: ${response.statusCode}');
-      print('DEBUG: Vacant units response body: ${response.body}');
-
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         print('DEBUG: Parsed vacant units data: $data');
@@ -3802,10 +4759,6 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
           units = List<Map<String, dynamic>>.from(data);
         }
 
-        print(
-          'DEBUG: Loaded ${units.length} vacant units for property $propertyName',
-        );
-
         setState(() {
           _units = units;
         });
@@ -3813,7 +4766,6 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
         throw Exception('Failed to load vacant units: ${response.statusCode}');
       }
     } catch (e) {
-      print('DEBUG: Error loading vacant units: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -3829,5 +4781,110 @@ class _TenantEntryScreenState extends State<TenantEntryScreen> {
         });
       }
     }
+  }
+
+  String? _getNormalizedOccupation(String occupation) {
+    if (occupation.isEmpty) return null;
+
+    final normalized = occupation.toLowerCase().trim();
+    if (normalized == 'service') return 'Service';
+    if (normalized == 'student') return 'Student';
+    if (normalized == 'business') return 'Business';
+
+    // If not matching, return null to avoid dropdown error
+    return null;
+  }
+
+  Future<void> _loadDistricts() async {
+    try {
+      setState(() {
+        _isLoadingDistricts = true;
+      });
+
+      // Try backend API first
+      final api = ref.read(apiServiceProvider);
+      final dResp = await api.get('/districts');
+      List<String> districts = [];
+      if (dResp.statusCode == 200 && dResp.data is List) {
+        final List dd = dResp.data as List;
+        districts = dd
+            .map((e) => (e['name'] ?? '').toString())
+            .where((s) => s.isNotEmpty)
+            .cast<String>()
+            .toList();
+      }
+
+      setState(() {
+        _districtOptions = districts;
+        _isLoadingDistricts = false;
+      });
+
+      // If we're in edit mode and have a selected district, load its thanas
+      if (widget.tenant != null && _selectedDistrict != null) {
+        await _loadThanas(_selectedDistrict!);
+      }
+    } catch (e) {
+      setState(() {
+        _districtOptions = [];
+        _isLoadingDistricts = false;
+      });
+    }
+  }
+
+  Future<void> _loadThanas(String district) async {
+    try {
+      setState(() {
+        _isLoadingThanas = true;
+      });
+
+      // Try backend API first
+      final api = ref.read(apiServiceProvider);
+      final dResp = await api.get('/districts');
+      List<String> thanas = [];
+      if (dResp.statusCode == 200 && dResp.data is List) {
+        // Find selected district id by name
+        String norm(String s) => s
+            .toLowerCase()
+            .replaceAll(' zila', '')
+            .replaceAll(' district', '')
+            .replaceAll('-', ' ')
+            .replaceAll('_', ' ')
+            .replaceAll(RegExp(r"\s+"), ' ')
+            .trim();
+        final list = (dResp.data as List);
+        final match = list.cast<Map>().firstWhere(
+          (e) => norm((e['name'] ?? '').toString()) == norm(district),
+          orElse: () => {},
+        );
+        if (match.isNotEmpty) {
+          final tResp = await api.get('/districts/${match['id']}/upazilas');
+          if (tResp.statusCode == 200 && tResp.data is List) {
+            final List tt = tResp.data as List;
+            thanas = tt
+                .map((e) => (e['name'] ?? '').toString())
+                .where((s) => s.isNotEmpty)
+                .cast<String>()
+                .toList();
+          }
+        }
+      }
+
+      setState(() {
+        _thanaOptions = thanas;
+        _isLoadingThanas = false;
+      });
+    } catch (e) {
+      print('DEBUG: Error loading thanas: $e');
+      setState(() {
+        _thanaOptions = [];
+        _isLoadingThanas = false;
+      });
+    }
+  }
+
+  void _loadCountries() {
+    setState(() {
+      _countryOptions = CountryHelper.getCountries();
+    });
   }
 }

@@ -90,6 +90,13 @@ class _OwnerTenantListScreenState extends State<OwnerTenantListScreen> {
         print('DEBUG: Parsed tenants data: $tenants');
         print('DEBUG: Loaded ${tenants.length} tenants');
 
+        // Debug due balance
+        for (var tenant in tenants) {
+          print(
+            'DEBUG: Tenant ${tenant['name']} - due_balance: ${tenant['due_balance']}',
+          );
+        }
+
         setState(() {
           _tenants = tenants;
           _filteredTenants = tenants; // Initialize filtered tenants
@@ -407,205 +414,104 @@ class _OwnerTenantListScreenState extends State<OwnerTenantListScreen> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
         onTap: () {
-          if (kDebugMode) {
-            print('DEBUG: Tenant tapped: ${tenant['name'] ?? 'Unknown'}');
-          }
+          _showTenantMenu(context, tenant);
         },
         child: Padding(
           padding: EdgeInsets.all(16),
           child: Column(
             children: [
-              // --- HEADER ROW ---
+              // --- MAIN ROW ---
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Tenant Name
-                  Text(
-                    tenant['name'] ?? 'Unknown Tenant',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.text,
+                  // Left Side: Tenant Info
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Tenant Name
+                        Text(
+                          tenant['name'] ?? 'Unknown Tenant',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.text,
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        // Property Info
+                        _buildInfoRow(
+                          Icons.home,
+                          tenant['property_name'] ?? 'No Property',
+                        ),
+                        SizedBox(height: 8),
+                        // Unit Info
+                        _buildInfoRow(
+                          Icons.door_front_door,
+                          tenant['unit_name'] ?? 'No Unit',
+                        ),
+                        SizedBox(height: 8),
+                        // Phone Info
+                        _buildInfoRow(
+                          Icons.phone,
+                          tenant['mobile'] ?? 'No Mobile',
+                        ),
+                      ],
                     ),
                   ),
-                  // Status Badge
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: statusBgColor,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      status.toUpperCase(),
-                      style: TextStyle(
-                        color: statusColor,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 12),
-              // --- PROPERTY INFO ---
-              _buildInfoRow(
-                Icons.home,
-                tenant['property_name'] ?? 'No Property',
-              ),
-              SizedBox(height: 8),
-              _buildInfoRow(
-                Icons.door_front_door,
-                tenant['unit_name'] ?? 'No Unit',
-              ),
-              SizedBox(height: 8),
-              _buildInfoRow(
-                Icons.attach_money,
-                '৳${tenant['rent']?.toString() ?? '0'} / month',
-              ),
-              SizedBox(height: 12),
-              // --- FOOTER ---
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Phone
-                  Row(
+                  // Right Side: Status and Total Rent
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Icon(
-                        Icons.phone,
-                        size: 16,
-                        color: AppColors.textSecondary,
+                      // Status Badge
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: statusBgColor,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          status.toUpperCase(),
+                          style: TextStyle(
+                            color: statusColor,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
                       ),
-                      SizedBox(width: 4),
+                      SizedBox(height: 8),
+                      // Total Rent Amount
                       Text(
-                        tenant['mobile'] ?? 'No Mobile',
+                        '৳${tenant['total_rent']?.toString() ?? tenant['rent']?.toString() ?? '0'}',
                         style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      Text(
+                        'Total Rent',
+                        style: TextStyle(
+                          fontSize: 10,
                           color: AppColors.textSecondary,
-                          fontSize: 14,
                         ),
                       ),
-                    ],
-                  ),
-                  // Action Menu
-                  PopupMenuButton<String>(
-                    onSelected: (value) async {
-                      switch (value) {
-                        case 'view':
-                          context.push('/tenant-details', extra: tenant);
-                          break;
-                        case 'edit':
-                          final result = await context.push(
-                            '/tenant-entry',
-                            extra: tenant,
-                          );
-                          if (result == true) {
-                            // Show loading indicator
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Refreshing tenant list...'),
-                                duration: Duration(seconds: 1),
-                                backgroundColor: AppColors.primary,
-                              ),
-                            );
-                            // Refresh tenant list
-                            await _fetchTenants();
-                          }
-                          break;
-                        case 'billing':
-                          context.push('/billing', extra: tenant);
-                          break;
-                        case 'checkout':
-                          context.push('/checkout', extra: tenant);
-                          break;
-                        case 'delete':
-                          _showDeleteConfirmation(tenant);
-                          break;
-                      }
-                    },
-                    itemBuilder: (context) => [
-                      PopupMenuItem(
-                        value: 'view',
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.visibility,
-                              size: 16,
-                              color: AppColors.primary,
-                            ),
-                            SizedBox(width: 8),
-                            Text(
-                              'View Details',
-                              style: TextStyle(color: AppColors.text),
-                            ),
-                          ],
+                      SizedBox(height: 8),
+                      // Due Balance Amount
+                      Text(
+                        '৳${tenant['due_balance']?.toString() ?? '0'}',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.red,
                         ),
                       ),
-                      PopupMenuItem(
-                        value: 'edit',
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.edit,
-                              size: 16,
-                              color: AppColors.primary,
-                            ),
-                            SizedBox(width: 8),
-                            Text(
-                              'Edit',
-                              style: TextStyle(color: AppColors.text),
-                            ),
-                          ],
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: 'billing',
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.receipt,
-                              size: 16,
-                              color: AppColors.primary,
-                            ),
-                            SizedBox(width: 8),
-                            Text(
-                              'Billing',
-                              style: TextStyle(color: AppColors.text),
-                            ),
-                          ],
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: 'checkout',
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.exit_to_app,
-                              size: 16,
-                              color: AppColors.primary,
-                            ),
-                            SizedBox(width: 8),
-                            Text(
-                              'Checkout',
-                              style: TextStyle(color: AppColors.text),
-                            ),
-                          ],
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.delete,
-                              size: 16,
-                              color: AppColors.error,
-                            ),
-                            SizedBox(width: 8),
-                            Text(
-                              'Delete',
-                              style: TextStyle(color: AppColors.error),
-                            ),
-                          ],
-                        ),
+                      Text(
+                        'Due Balance',
+                        style: TextStyle(fontSize: 10, color: Colors.red),
                       ),
                     ],
                   ),
@@ -634,6 +540,119 @@ class _OwnerTenantListScreenState extends State<OwnerTenantListScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  void _showTenantMenu(BuildContext context, Map<String, dynamic> tenant) {
+    showModalBottomSheet(
+      context: context,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            SizedBox(height: 20),
+            // Menu items
+            _buildMenuItem(
+              context,
+              Icons.visibility,
+              'View Details',
+              AppColors.primary,
+              () {
+                Navigator.pop(context);
+                context.push('/tenant-details', extra: tenant);
+              },
+            ),
+            _buildMenuItem(
+              context,
+              Icons.edit,
+              'Edit',
+              AppColors.primary,
+              () async {
+                Navigator.pop(context);
+                final result = await context.push(
+                  '/tenant-entry',
+                  extra: tenant,
+                );
+                if (result == true) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Refreshing tenant list...'),
+                      duration: Duration(seconds: 1),
+                      backgroundColor: AppColors.primary,
+                    ),
+                  );
+                  await _fetchTenants();
+                }
+              },
+            ),
+            _buildMenuItem(
+              context,
+              Icons.receipt,
+              'Billing',
+              AppColors.primary,
+              () {
+                Navigator.pop(context);
+                context.push('/billing', extra: tenant);
+              },
+            ),
+            _buildMenuItem(
+              context,
+              Icons.exit_to_app,
+              'Checkout',
+              AppColors.primary,
+              () {
+                Navigator.pop(context);
+                context.push('/checkout', extra: tenant);
+              },
+            ),
+            _buildMenuItem(
+              context,
+              Icons.delete,
+              'Delete',
+              AppColors.error,
+              () {
+                Navigator.pop(context);
+                _showDeleteConfirmation(tenant);
+              },
+            ),
+            SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMenuItem(
+    BuildContext context,
+    IconData icon,
+    String title,
+    Color color,
+    VoidCallback onTap,
+  ) {
+    return ListTile(
+      leading: Icon(icon, color: color, size: 24),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+          color: AppColors.text,
+        ),
+      ),
+      onTap: onTap,
     );
   }
 

@@ -26,11 +26,11 @@ class _UnitListScreenState extends State<UnitListScreen> {
   bool _unlimitedUnits = false;
   String _selectedFilter = 'All';
   final List<String> _filterOptions = [
-    'All', // shows Rent + Vacant
+    'All', // shows all units
     'Rented',
     'Vacant',
+    'Maintained',
     'Archived',
-    'Maintenance',
   ];
 
   @override
@@ -54,11 +54,11 @@ class _UnitListScreenState extends State<UnitListScreen> {
         case 'Vacant':
           statusParam = 'vacant';
           break;
+        case 'Maintained':
+          statusParam = 'maintained';
+          break;
         case 'Archived':
           statusParam = 'archived';
-          break;
-        case 'Maintenance':
-          statusParam = 'maintenance';
           break;
         case 'All':
         default:
@@ -139,45 +139,40 @@ class _UnitListScreenState extends State<UnitListScreen> {
     double totalRent = baseRent + totalCharges;
 
     // Status configuration
-    String status = unit['status'] ?? 'vacant';
+    String status = unit['status'] ?? 'free';
     Color statusColor;
-    Color statusBgColor;
-    IconData statusIcon;
 
     switch (status.toLowerCase()) {
-      case 'rented':
+      case 'rent':
         statusColor = AppColors.orange;
-        statusBgColor = AppColors.orange.withOpacity(0.1);
-        statusIcon = Icons.person;
         break;
-      case 'vacant':
-        statusColor = AppColors.green;
-        statusBgColor = AppColors.green.withOpacity(0.1);
-        statusIcon = Icons.home_outlined;
+      case 'free':
+        statusColor = AppColors.success;
+        break;
+      case 'archived':
+        statusColor = AppColors.hint;
         break;
       default:
-        statusColor = AppColors.gray;
-        statusBgColor = AppColors.gray.withOpacity(0.1);
-        statusIcon = Icons.help_outline;
+        statusColor = AppColors.textSecondary;
     }
 
     return Container(
-      margin: EdgeInsets.only(bottom: 16),
+      margin: EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 12,
-            offset: Offset(0, 4),
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: Offset(0, 2),
           ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           onTap: () async {
             final index = _units.indexOf(unit);
             final isDisabled =
@@ -207,200 +202,135 @@ class _UnitListScreenState extends State<UnitListScreen> {
             }
           },
           child: Padding(
-            padding: EdgeInsets.all(20),
+            padding: EdgeInsets.all(12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header with Unit Name and Status
+                // Main Row: Unit Info + Status & Rent
                 Row(
                   children: [
+                    // Unit Info
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            unit['name'] ?? 'Unnamed Unit',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.text,
-                            ),
-                          ),
-                          SizedBox(height: 4),
-                          Text(
-                            unit['property_name'] ?? 'No Property',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Status Badge
-                    Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: statusBgColor,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: statusColor.withOpacity(0.3),
-                          width: 1,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(statusIcon, size: 16, color: statusColor),
-                          SizedBox(width: 6),
-                          Text(
-                            status.toUpperCase(),
-                            style: TextStyle(
-                              color: statusColor,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 16),
-
-                // Rent Information
-                Container(
-                  padding: EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.background,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.attach_money,
-                        size: 20,
-                        color: AppColors.primary,
-                      ),
-                      SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Total Rent',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                            Text(
-                              '৳${totalRent.toStringAsFixed(0)}',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.text,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            'Base: ৳${baseRent.toStringAsFixed(0)}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                          if (totalCharges > 0)
-                            Text(
-                              '+৳${totalCharges.toStringAsFixed(0)} charges',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: AppColors.orange,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Tenant Information (if rented)
-                if (unit['tenant_name'] != null) ...[
-                  SizedBox(height: 12),
-                  Container(
-                    padding: EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.green.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: AppColors.green.withOpacity(0.2),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.person, size: 16, color: AppColors.green),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          Row(
                             children: [
-                              Text(
-                                unit['tenant_name'],
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.text,
+                              Icon(
+                                Icons.home_work,
+                                size: 16,
+                                color: AppColors.primary,
+                              ),
+                              SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  unit['name'] ?? 'Unnamed Unit',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.text,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              if (unit['tenant_mobile'] != null)
-                                Text(
-                                  unit['tenant_mobile'],
+                            ],
+                          ),
+                          SizedBox(height: 2),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.business,
+                                size: 14,
+                                color: AppColors.hint,
+                              ),
+                              SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  unit['property_name'] ?? 'No Property',
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: AppColors.textSecondary,
                                   ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
+                              ),
                             ],
+                          ),
+                          if (unit['tenant_name'] != null) ...[
+                            SizedBox(height: 2),
+                            Text(
+                              '👤 ${unit['tenant_name']}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: AppColors.orange,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+
+                    // Status and Total Rent (Right Side)
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        // Status Badge
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            gradient: _getStatusGradient(status),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: statusColor.withOpacity(0.3),
+                                blurRadius: 4,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _getStatusIcon(status),
+                                color: Colors.white,
+                                size: 12,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                _getStatusText(status),
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'Total Rent',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        Text(
+                          '৳${totalRent.toStringAsFixed(0)}',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primary,
                           ),
                         ),
                       ],
                     ),
-                  ),
-                ],
-
-                // Additional Info
-                SizedBox(height: 12),
-                Row(
-                  children: [
-                    Icon(Icons.receipt_long, size: 16, color: AppColors.hint),
-                    SizedBox(width: 8),
-                    Text(
-                      '${unit['charges'] != null ? unit['charges'].length : 0} charges',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    Spacer(),
-                    if (unit['floor'] != null) ...[
-                      Icon(Icons.layers, size: 16, color: AppColors.hint),
-                      SizedBox(width: 4),
-                      Text(
-                        'Floor ${unit['floor']}',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ],
@@ -409,6 +339,71 @@ class _UnitListScreenState extends State<UnitListScreen> {
         ),
       ),
     );
+  }
+
+  LinearGradient _getStatusGradient(String status) {
+    switch (status.toLowerCase()) {
+      case 'rented':
+        return LinearGradient(
+          colors: [Colors.orange, Colors.deepOrange],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+      case 'vacant':
+        return LinearGradient(
+          colors: [Colors.green, Colors.teal],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+      case 'maintained':
+        return LinearGradient(
+          colors: [Colors.amber, Colors.orange],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+      case 'archived':
+        return LinearGradient(
+          colors: [Colors.grey, Colors.blueGrey],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+      default:
+        return LinearGradient(
+          colors: [Colors.grey, Colors.grey.shade600],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+    }
+  }
+
+  IconData _getStatusIcon(String status) {
+    switch (status.toLowerCase()) {
+      case 'rented':
+        return Icons.person;
+      case 'vacant':
+        return Icons.home_outlined;
+      case 'maintained':
+        return Icons.build;
+      case 'archived':
+        return Icons.archive;
+      default:
+        return Icons.help_outline;
+    }
+  }
+
+  String _getStatusText(String status) {
+    switch (status.toLowerCase()) {
+      case 'rented':
+        return 'RENTED';
+      case 'vacant':
+        return 'VACANT';
+      case 'maintained':
+        return 'MAINTAINED';
+      case 'archived':
+        return 'ARCHIVED';
+      default:
+        return 'UNKNOWN';
+    }
   }
 
   Widget _slideRightBackground() {
@@ -457,8 +452,11 @@ class _UnitListScreenState extends State<UnitListScreen> {
       if (!name.contains(query)) return false;
       if (_selectedFilter == 'All') return true;
       final st = (unit['status'] ?? '').toString().toLowerCase();
-      final expected = _selectedFilter.toLowerCase();
-      return st == expected;
+      if (_selectedFilter == 'Rented') return st == 'rented';
+      if (_selectedFilter == 'Vacant') return st == 'vacant';
+      if (_selectedFilter == 'Maintained') return st == 'maintained';
+      if (_selectedFilter == 'Archived') return st == 'archived';
+      return true;
     }).toList();
 
     return Scaffold(

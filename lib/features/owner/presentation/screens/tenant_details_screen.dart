@@ -2,31 +2,147 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hrms_app/core/utils/app_colors.dart';
-import 'package:hrms_app/features/tenant/presentation/widgets/custom_bottom_nav.dart';
+import 'package:hrms_app/features/auth/data/services/auth_service.dart';
+import 'package:hrms_app/core/utils/api_config.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
-class TenantDetailsScreen extends StatelessWidget {
+class TenantDetailsScreen extends StatefulWidget {
   final Map<String, dynamic> tenant;
 
   const TenantDetailsScreen({super.key, required this.tenant});
 
   @override
+  _TenantDetailsScreenState createState() => _TenantDetailsScreenState();
+}
+
+class _TenantDetailsScreenState extends State<TenantDetailsScreen> {
+  Map<String, dynamic> _tenantData = {};
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchTenantDetails();
+  }
+
+  Future<void> _fetchTenantDetails() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+
+      final token = await AuthService.getToken();
+      if (token == null) {
+        throw Exception('No authentication token found');
+      }
+
+      final response = await http.get(
+        Uri.parse(ApiConfig.getApiUrl('/tenants/${widget.tenant['id']}')),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          _tenantData = data['tenant'] ?? {};
+          _isLoading = false;
+        });
+      } else {
+        throw Exception('Failed to fetch tenant details');
+      }
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // Reduced debug prints for better performance
-    if (kDebugMode) {
-      print(
-        'DEBUG: TenantDetailsScreen building for: ${tenant['name'] ?? 'Unknown'}',
+    // Show loading state
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          title: Text('Tenant Details'),
+          backgroundColor: Colors.white,
+          elevation: 0,
+          iconTheme: IconThemeData(color: AppColors.primary),
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back, color: AppColors.primary),
+            onPressed: () {
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go('/dashboard');
+              }
+            },
+          ),
+        ),
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    // Show error state
+    if (_error != null) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          title: Text('Tenant Details'),
+          backgroundColor: Colors.white,
+          elevation: 0,
+          iconTheme: IconThemeData(color: AppColors.primary),
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back, color: AppColors.primary),
+            onPressed: () {
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go('/dashboard');
+              }
+            },
+          ),
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 64, color: Colors.red),
+              SizedBox(height: 16),
+              Text(
+                'Error loading tenant details',
+                style: TextStyle(fontSize: 18, color: Colors.red),
+              ),
+              SizedBox(height: 8),
+              Text(
+                _error!,
+                style: TextStyle(fontSize: 14, color: Colors.grey),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _fetchTenantDetails,
+                child: Text('Retry'),
+              ),
+            ],
+          ),
+        ),
       );
     }
 
     // Handle null or empty tenant data
-    if (tenant.isEmpty) {
+    if (_tenantData.isEmpty) {
       return Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(
-          title: Text(
-            'Tenant Details',
-            style: TextStyle(color: AppColors.text),
-          ),
+          title: Text('Tenant Details'),
           backgroundColor: Colors.white,
           elevation: 0,
           iconTheme: IconThemeData(color: AppColors.primary),
@@ -70,7 +186,6 @@ class TenantDetailsScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-
       body: SafeArea(
         child: Column(
           children: [
@@ -120,7 +235,8 @@ class TenantDetailsScreen extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          tenant['name'] ?? 'Unknown',
+                          '${_tenantData['first_name'] ?? ''} ${_tenantData['last_name'] ?? ''}'
+                              .trim(),
                           style: TextStyle(
                             fontSize: 14,
                             color: AppColors.textSecondary,
@@ -164,7 +280,9 @@ class TenantDetailsScreen extends StatelessWidget {
                               radius: 40,
                               backgroundColor: Colors.white.withOpacity(0.2),
                               child: Text(
-                                _getInitials(tenant['name'] ?? ''),
+                                _getInitials(
+                                  '${_tenantData['first_name'] ?? ''} ${_tenantData['last_name'] ?? ''}',
+                                ),
                                 style: TextStyle(
                                   fontSize: 24,
                                   fontWeight: FontWeight.bold,
@@ -178,7 +296,8 @@ class TenantDetailsScreen extends StatelessWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    tenant['name'] ?? 'Unknown',
+                                    '${_tenantData['first_name'] ?? ''} ${_tenantData['last_name'] ?? ''}'
+                                        .trim(),
                                     style: TextStyle(
                                       fontSize: 24,
                                       fontWeight: FontWeight.bold,
@@ -187,7 +306,7 @@ class TenantDetailsScreen extends StatelessWidget {
                                   ),
                                   SizedBox(height: 4),
                                   Text(
-                                    tenant['occupation'] ?? 'N/A',
+                                    _tenantData['occupation'] ?? 'N/A',
                                     style: TextStyle(
                                       fontSize: 16,
                                       color: Colors.white.withOpacity(0.9),
@@ -200,11 +319,13 @@ class TenantDetailsScreen extends StatelessWidget {
                                       vertical: 4,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: _getStatusColor(tenant['status']),
+                                      color: _getStatusColor(
+                                        _tenantData['status'],
+                                      ),
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: Text(
-                                      _getStatusText(tenant['status']),
+                                      _getStatusText(_tenantData['status']),
                                       style: TextStyle(
                                         color: Colors.white,
                                         fontSize: 12,
@@ -222,17 +343,21 @@ class TenantDetailsScreen extends StatelessWidget {
                     SizedBox(height: 24),
                     // Personal Information
                     _buildSectionCard('Personal Information', Icons.person, [
-                      _buildInfoRow('Full Name', tenant['name'] ?? 'N/A'),
-                      _buildInfoRow('Gender', tenant['gender'] ?? 'N/A'),
-                      _buildInfoRow('Mobile', tenant['mobile'] ?? 'N/A'),
+                      _buildInfoRow(
+                        'Full Name',
+                        '${_tenantData['first_name'] ?? ''} ${_tenantData['last_name'] ?? ''}'
+                            .trim(),
+                      ),
+                      _buildInfoRow('Gender', _tenantData['gender'] ?? 'N/A'),
+                      _buildInfoRow('Mobile', _tenantData['mobile'] ?? 'N/A'),
                       _buildInfoRow(
                         'Alt Mobile',
-                        tenant['alt_mobile'] ?? 'N/A',
+                        _tenantData['alt_mobile'] ?? 'N/A',
                       ),
-                      _buildInfoRow('Email', tenant['email'] ?? 'N/A'),
+                      _buildInfoRow('Email', _tenantData['email'] ?? 'N/A'),
                       _buildInfoRow(
                         'NID Number',
-                        tenant['nid_number'] ?? 'N/A',
+                        _tenantData['nid_number'] ?? 'N/A',
                       ),
                     ]),
                     SizedBox(height: 16),
@@ -241,11 +366,17 @@ class TenantDetailsScreen extends StatelessWidget {
                       'Address Information',
                       Icons.location_on,
                       [
-                        _buildInfoRow('Address', tenant['address'] ?? 'N/A'),
-                        _buildInfoRow('City', tenant['city'] ?? 'N/A'),
-                        _buildInfoRow('State', tenant['state'] ?? 'N/A'),
-                        _buildInfoRow('ZIP Code', tenant['zip'] ?? 'N/A'),
-                        _buildInfoRow('Country', tenant['country'] ?? 'N/A'),
+                        _buildInfoRow(
+                          'Address',
+                          _tenantData['address'] ?? 'N/A',
+                        ),
+                        _buildInfoRow('City', _tenantData['city'] ?? 'N/A'),
+                        _buildInfoRow('State', _tenantData['state'] ?? 'N/A'),
+                        _buildInfoRow('ZIP Code', _tenantData['zip'] ?? 'N/A'),
+                        _buildInfoRow(
+                          'Country',
+                          _tenantData['country'] ?? 'N/A',
+                        ),
                       ],
                     ),
                     SizedBox(height: 16),
@@ -253,25 +384,25 @@ class TenantDetailsScreen extends StatelessWidget {
                     _buildSectionCard('Work Information', Icons.work, [
                       _buildInfoRow(
                         'Occupation',
-                        tenant['occupation'] ?? 'N/A',
+                        _tenantData['occupation'] ?? 'N/A',
                       ),
-                      if (tenant['occupation']?.toString().toLowerCase() ==
+                      if (_tenantData['occupation']?.toString().toLowerCase() ==
                           'service')
                         _buildInfoRow(
                           'Company Name',
-                          tenant['company_name'] ?? 'N/A',
+                          _tenantData['company_name'] ?? 'N/A',
                         ),
-                      if (tenant['occupation']?.toString().toLowerCase() ==
+                      if (_tenantData['occupation']?.toString().toLowerCase() ==
                           'student')
                         _buildInfoRow(
                           'University/School',
-                          tenant['college_university'] ?? 'N/A',
+                          _tenantData['college_university'] ?? 'N/A',
                         ),
-                      if (tenant['occupation']?.toString().toLowerCase() ==
+                      if (_tenantData['occupation']?.toString().toLowerCase() ==
                           'business')
                         _buildInfoRow(
                           'Business Name',
-                          tenant['business_name'] ?? 'N/A',
+                          _tenantData['business_name'] ?? 'N/A',
                         ),
                     ]),
                     SizedBox(height: 16),
@@ -282,20 +413,21 @@ class TenantDetailsScreen extends StatelessWidget {
                       [
                         _buildInfoRow(
                           'Total Family Members',
-                          tenant['total_family_member']?.toString() ?? 'N/A',
+                          _tenantData['total_family_member']?.toString() ??
+                              'N/A',
                         ),
                         _buildInfoRow(
                           'Family Types',
-                          _formatFamilyTypes(tenant['family_types']),
+                          _formatFamilyTypes(_tenantData['family_types']),
                         ),
-                        if (tenant['family_types'] != null &&
-                            tenant['family_types']
+                        if (_tenantData['family_types'] != null &&
+                            _tenantData['family_types']
                                 .toString()
                                 .toLowerCase()
                                 .contains('child'))
                           _buildInfoRow(
                             'Child Quantity',
-                            tenant['child_qty']?.toString() ?? 'N/A',
+                            _tenantData['child_qty']?.toString() ?? 'N/A',
                           ),
                       ],
                     ),
@@ -304,14 +436,17 @@ class TenantDetailsScreen extends StatelessWidget {
                     _buildSectionCard('Property Information', Icons.home, [
                       _buildInfoRow(
                         'Property',
-                        tenant['property_name'] ?? 'N/A',
+                        _tenantData['property_name'] ?? 'N/A',
                       ),
-                      _buildInfoRow('Unit', tenant['unit_name'] ?? 'N/A'),
+                      _buildInfoRow('Unit', _tenantData['unit_name'] ?? 'N/A'),
                       _buildInfoRow(
                         'Check-in Date',
-                        _formatDate(tenant['check_in_date']),
+                        _formatDate(_tenantData['start_month']),
                       ),
-                      _buildInfoRow('Frequency', tenant['frequency'] ?? 'N/A'),
+                      _buildInfoRow(
+                        'Frequency',
+                        _tenantData['frequency'] ?? 'N/A',
+                      ),
                     ]),
                     SizedBox(height: 16),
                     // Financial Information
@@ -320,17 +455,43 @@ class TenantDetailsScreen extends StatelessWidget {
                       Icons.attach_money,
                       [
                         _buildInfoRow(
+                          'Monthly Rent',
+                          '৳${_tenantData['rent'] ?? '0'}',
+                        ),
+                        _buildInfoRow(
+                          'Total Amount',
+                          '৳${_tenantData['total_rent'] ?? '0'}',
+                        ),
+                        _buildInfoRow(
+                          'Due Balance',
+                          '৳${_tenantData['due_balance'] ?? '0'}',
+                        ),
+                        _buildInfoRow(
                           'Security Deposit',
-                          '৳${tenant['security_deposit'] ?? '0'}',
+                          '৳${_tenantData['security_deposit'] ?? '0'}',
                         ),
-                        _buildInfoRow(
-                          'Cleaning Charges',
-                          '৳${tenant['cleaning_charges'] ?? '0'}',
-                        ),
-                        _buildInfoRow(
-                          'Other Charges',
-                          '৳${tenant['other_charges'] ?? '0'}',
-                        ),
+                        // Unit Charges
+                        if (_tenantData['unit_charges'] != null &&
+                            (_tenantData['unit_charges'] as List)
+                                .isNotEmpty) ...[
+                          ...(_tenantData['unit_charges'] as List)
+                              .map<Widget>(
+                                (charge) => _buildInfoRow(
+                                  charge['label'] ?? 'Unknown',
+                                  '৳${charge['amount']?.toString() ?? '0'}',
+                                ),
+                              )
+                              .toList(),
+                        ] else ...[
+                          _buildInfoRow(
+                            'Cleaning Charges',
+                            '৳${_tenantData['cleaning_charges'] ?? '0'}',
+                          ),
+                          _buildInfoRow(
+                            'Other Charges',
+                            '৳${_tenantData['other_charges'] ?? '0'}',
+                          ),
+                        ],
                       ],
                     ),
                     SizedBox(height: 16),
@@ -338,14 +499,14 @@ class TenantDetailsScreen extends StatelessWidget {
                     _buildSectionCard('Additional Information', Icons.info, [
                       _buildInfoRow(
                         'Driver',
-                        tenant['is_driver'] == '1' ? 'Yes' : 'No',
+                        _tenantData['is_driver'] == '1' ? 'Yes' : 'No',
                       ),
-                      if (tenant['is_driver'] == '1')
+                      if (_tenantData['is_driver'] == '1')
                         _buildInfoRow(
                           'Driver Name',
-                          tenant['driver_name'] ?? 'N/A',
+                          _tenantData['driver_name'] ?? 'N/A',
                         ),
-                      _buildInfoRow('Remarks', tenant['remarks'] ?? 'N/A'),
+                      _buildInfoRow('Remarks', _tenantData['remarks'] ?? 'N/A'),
                     ]),
                     SizedBox(height: 24),
                     // Action Buttons
@@ -356,13 +517,11 @@ class TenantDetailsScreen extends StatelessWidget {
                             onPressed: () async {
                               final result = await context.push(
                                 '/tenant-entry',
-                                extra: tenant,
+                                extra: widget.tenant,
                               );
                               if (result == true) {
-                                // Refresh or go back
-                                if (context.canPop()) {
-                                  context.pop();
-                                }
+                                // Refresh data
+                                _fetchTenantDetails();
                               }
                             },
                             icon: Icon(Icons.edit),
@@ -381,7 +540,6 @@ class TenantDetailsScreen extends StatelessWidget {
                         Expanded(
                           child: OutlinedButton.icon(
                             onPressed: () {
-                              // Show payment history or billing info
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(
@@ -499,8 +657,7 @@ class TenantDetailsScreen extends StatelessWidget {
       return 'N/A';
     }
     try {
-      DateTime dateTime = DateTime.parse(date.toString());
-      return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+      return date.toString();
     } catch (e) {
       return date.toString();
     }

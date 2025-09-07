@@ -11,6 +11,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:hrms_app/core/services/api_service.dart';
 import 'package:hrms_app/core/widgets/app_logo.dart';
+import 'package:hrms_app/core/services/analytics_service.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -33,6 +34,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     // FIXED: Pre-fill credentials for easier development
     _mobileController.text = '';
     _passwordController.text = '123456';
+
+    // Initialize analytics service for this screen
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        AnalyticsService.initializeWithRef(ref);
+      }
+    });
   }
 
   @override
@@ -91,6 +99,32 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       print(
         'DEBUG: Auth state after login - isAuthenticated: ${authState.isAuthenticated}, role: ${authState.user?.role}',
       );
+
+      // Track user login analytics
+      try {
+        print('🔍 [DEBUG] Starting login analytics tracking...');
+        print(
+          '🔍 [DEBUG] Analytics service ready: ${AnalyticsService.isReady}',
+        );
+        print('🔍 [DEBUG] User data: $userData');
+
+        final userId = userData['id']?.toString() ?? 'unknown';
+        final email = userData['email']?.toString();
+
+        print('🔍 [DEBUG] User ID: $userId, Email: $email');
+
+        await AnalyticsService.trackUserLogin(
+          userId: userId,
+          email: email,
+          loginMethod: 'email_password',
+        );
+        print('✅ [DEBUG] User login analytics tracked successfully');
+      } catch (analyticsError) {
+        print('❌ [DEBUG] Failed to track login analytics: $analyticsError');
+        print('❌ [DEBUG] Error type: ${analyticsError.runtimeType}');
+        print('❌ [DEBUG] Stack trace: ${StackTrace.current}');
+        // Don't block login flow if analytics fails
+      }
 
       // Let router handle the navigation automatically based on auth state
       // No need to manually navigate - router will redirect based on role
@@ -365,7 +399,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 // Google Login Button
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                  child: Container(
+                  child: SizedBox(
                     width: double.infinity,
                     height: 50,
                     child: OutlinedButton(
@@ -592,6 +626,35 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               .read(authStateProvider.notifier)
               .login(token, role, userData: normalizedUser);
           await AuthService.saveToken(token);
+
+          // Track Google sign-in analytics
+          try {
+            print('🔍 [DEBUG] Starting Google sign-in analytics tracking...');
+            print(
+              '🔍 [DEBUG] Analytics service ready: ${AnalyticsService.isReady}',
+            );
+            print('🔍 [DEBUG] User data: $userData');
+
+            final userId =
+                userData?['id']?.toString() ?? 'google_user_${email.hashCode}';
+
+            print('🔍 [DEBUG] User ID: $userId, Email: $email');
+
+            await AnalyticsService.trackUserLogin(
+              userId: userId,
+              email: email,
+              loginMethod: 'google_signin',
+            );
+            print('✅ [DEBUG] Google sign-in analytics tracked successfully');
+          } catch (analyticsError) {
+            print(
+              '❌ [DEBUG] Failed to track Google sign-in analytics: $analyticsError',
+            );
+            print('❌ [DEBUG] Error type: ${analyticsError.runtimeType}');
+            print('❌ [DEBUG] Stack trace: ${StackTrace.current}');
+            // Don't block login flow if analytics fails
+          }
+
           if (mounted) {
             context.go('/dashboard');
           }

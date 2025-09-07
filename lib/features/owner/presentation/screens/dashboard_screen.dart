@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hrms_app/core/utils/app_colors.dart';
 import 'package:hrms_app/core/utils/api_config.dart';
-import 'package:hrms_app/features/owner/presentation/widgets/custom_drawer.dart';
+
 import 'package:hrms_app/core/services/api_service.dart';
 // import 'package:hrms_app/core/providers/app_providers.dart';
 import 'package:hrms_app/core/providers/language_provider.dart';
@@ -16,7 +16,7 @@ import 'dart:convert';
 import 'dart:async';
 
 class DashboardScreen extends ConsumerStatefulWidget {
-  const DashboardScreen({Key? key}) : super(key: key);
+  const DashboardScreen({super.key});
 
   @override
   ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
@@ -27,7 +27,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   // int _selectedIndex = 0; // unused
   bool _isLoading = true;
   late FocusNode _focusNode;
-  bool _otpBusy = false;
+  final bool _otpBusy = false;
   // DateTime? _lastBackTime; // unused
 
   // User data
@@ -49,13 +49,23 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   Map<String, dynamic> _dashboardStats = {};
   List<dynamic> _recentTransactions = [];
   List<Map<String, dynamic>> _unpaidSubInvoices = [];
+
+  // Ads Settings
+  bool _isAdsEnabled = true; // Default: enabled
+  List<Map<String, dynamic>> _adsData = []; // Store actual ads content
+
+  // Ads Banner Controller
+  late PageController _adsPageController;
+  int _currentAdsPage = 0;
+  Timer? _adsAutoScrollTimer;
+
   // OTP flow state/cache
-  bool _otpSent = false;
+  final bool _otpSent = false;
   DateTime? _lastOtpSentAt;
-  bool _otpSettingsLoaded = false;
-  int _otpExpirySeconds = 600; // default 10 min
-  int _resendCooldownSeconds = 300; // default 5 min
-  int _otpLength = 6;
+  final bool _otpSettingsLoaded = false;
+  final int _otpExpirySeconds = 600; // default 10 min
+  final int _resendCooldownSeconds = 300; // default 5 min
+  final int _otpLength = 6;
   bool _userLoaded = false; // prevent banner flash before user loads
 
   @override
@@ -65,9 +75,25 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     _focusNode = FocusNode();
     _focusNode.addListener(_onFocusChange);
 
+    // Initialize ads controller
+    _adsPageController = PageController();
+
     // Force refresh all data on init to avoid showing old cached data
     print('DEBUG: Dashboard initState - Force refreshing all data');
     _forceRefreshAllData();
+
+    // Load ads settings
+    _loadAdsSettings();
+    _startAdsAutoScroll();
+
+    // Set up periodic ads refresh every 2 minutes
+    Timer.periodic(const Duration(minutes: 2), (timer) {
+      if (mounted) {
+        _refreshAds();
+      } else {
+        timer.cancel();
+      }
+    });
   }
 
   Widget _subMiniStat({
@@ -97,6 +123,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     WidgetsBinding.instance.removeObserver(this);
     _focusNode.removeListener(_onFocusChange);
     _focusNode.dispose();
+
+    // Dispose ads controller
+    _adsAutoScrollTimer?.cancel();
+    _adsPageController.dispose();
+
     super.dispose();
   }
 
@@ -568,6 +599,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       _loadDashboardData(),
       _loadSubscriptionInfo(),
       _loadUnpaidSubscriptionInvoices(),
+      _loadAdsSettings(), // Refresh ads as well
     ]);
   }
 
@@ -618,23 +650,23 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   }
 
   double _computeProfileCompletion(Map<String, dynamic> user) {
-    String _s(dynamic v) => (v ?? '').toString().trim();
-    final name = _s(user['name']);
-    final first = _s(user['first_name']);
-    final last = _s(user['last_name']);
-    final email = _s(user['email']);
-    final phone = _s(
+    String s(dynamic v) => (v ?? '').toString().trim();
+    final name = s(user['name']);
+    final first = s(user['first_name']);
+    final last = s(user['last_name']);
+    final email = s(user['email']);
+    final phone = s(
       ((user['mobile'] ?? '').toString().isNotEmpty)
           ? user['mobile']
           : user['phone'],
     );
-    final country = _s(user['country']);
-    final district = _s(user['district']);
-    final address = _s(user['address']);
-    final gender = _s(user['gender']);
-    final profilePic = _s(user['profile_pic']);
+    final country = s(user['country']);
+    final district = s(user['district']);
+    final address = s(user['address']);
+    final gender = s(user['gender']);
+    final profilePic = s(user['profile_pic']);
     final emailVerified =
-        _s(user['email_verified_at']).isNotEmpty ||
+        s(user['email_verified_at']).isNotEmpty ||
         (user['email_verified'] == true);
     final phoneVerified =
         (user['phone_verified'] == true) || user['phone_verified_at'] != null;
@@ -657,13 +689,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
   Future<void> _startMobileVerificationFlow() async {
     // Debounce to prevent rapid multiple taps creating multiple OTP sends
-    DateTime? _lastOtpTapTime;
+    DateTime? lastOtpTapTime;
     final now = DateTime.now();
-    if (_lastOtpTapTime != null &&
-        now.difference(_lastOtpTapTime!).inSeconds < 2) {
+    if (lastOtpTapTime != null &&
+        now.difference(lastOtpTapTime).inSeconds < 2) {
       return;
     }
-    _lastOtpTapTime = now;
+    lastOtpTapTime = now;
     if (userMobile.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('No mobile number found in your profile')),
@@ -1038,9 +1070,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         ),
         child: Scaffold(
           backgroundColor: AppColors.background,
-          endDrawer: CustomDrawer(),
-          drawerScrimColor: Colors.black54,
-
           body: SafeArea(
             top: false,
             child: Stack(
@@ -1089,6 +1118,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                               SizedBox(height: 4),
                               _buildSummaryCards(),
                               SizedBox(height: 16),
+
+                              // Ads Section
+                              if (_isAdsEnabled) _buildAdsBanner(),
+                              if (_isAdsEnabled) SizedBox(height: 16),
 
                               // Statistics Overview
                               _buildStatisticsOverviewSection(),
@@ -1326,7 +1359,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                             ),
                             child: IconButton(
                               onPressed: () {
-                                Scaffold.of(context).openEndDrawer();
+                                context.go('/owner-more');
                               },
                               icon: Icon(
                                 Icons.menu_rounded,
@@ -1524,7 +1557,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     // final languageNotifier = ref.read(languageProvider.notifier);
 
     if (_isLoading) {
-      return Container(
+      return SizedBox(
         height: 200,
         child: Center(
           child: Column(
@@ -1545,7 +1578,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     }
 
     // Prepare property/unit limit display values (count/limit)
-    String _fmtLimit(dynamic raw) {
+    String fmtLimit(dynamic raw) {
       if (raw == null) return '—';
       if (raw is num) return raw.toInt() == -1 ? '∞' : raw.toInt().toString();
       final p = int.tryParse(raw.toString());
@@ -1564,7 +1597,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         _subscriptionData?['properties_limit'] ??
         _dashboardStats['plan']?['properties_limit'] ??
         _dashboardStats['properties_limit_text'];
-    final String propValue = '$propCount/${_fmtLimit(propLimitRaw)}';
+    final String propValue = '$propCount/${fmtLimit(propLimitRaw)}';
 
     final int unitCount = (_dashboardStats['total_units'] ?? 0) is num
         ? (_dashboardStats['total_units'] as num).toInt()
@@ -1574,7 +1607,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         _subscriptionData?['units_limit'] ??
         _dashboardStats['plan']?['units_limit'] ??
         _dashboardStats['units_limit_text'];
-    final String unitValue = '$unitCount/${_fmtLimit(unitLimitRaw)}';
+    final String unitValue = '$unitCount/${fmtLimit(unitLimitRaw)}';
 
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 16),
@@ -1709,7 +1742,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           SizedBox(height: 16),
 
           if (_recentTransactions.isEmpty)
-            Container(
+            SizedBox(
               height: 120,
               child: Center(
                 child: Column(
@@ -1830,35 +1863,24 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   }
 
   Widget _buildTransactionItem(Map<String, dynamic> transaction) {
-    // final languageNotifier = ref.read(languageProvider.notifier);
+    // Get dynamic status and color
+    final status = transaction['status'] ?? 'completed';
+    final statusColor = _getTransactionStatusColor(status);
+    final statusText = _getTransactionStatusText(status);
+
+    // Format date dynamically
+    final dateString = transaction['date'] ?? transaction['created_at'] ?? '';
+    final formattedDate = _formatTransactionDate(dateString);
 
     return Row(
       children: [
-        Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                AppColors.primary.withOpacity(0.15),
-                AppColors.primary.withOpacity(0.05),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(25),
-          ),
-          child: Icon(
-            Icons.account_balance_wallet_rounded,
-            color: AppColors.primary,
-            size: 24,
-          ),
-        ),
-        SizedBox(width: 16),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 transaction['description'] ??
+                    transaction['type'] ??
                     AppStrings.getString(
                       'transaction',
                       ref.read(languageProvider).code,
@@ -1871,7 +1893,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
               ),
               SizedBox(height: 4),
               Text(
-                transaction['date'] ?? '',
+                formattedDate,
                 style: TextStyle(color: AppColors.gray, fontSize: 13),
               ),
             ],
@@ -1892,13 +1914,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             Container(
               padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.1),
+                color: statusColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                AppStrings.getString('paid', ref.read(languageProvider).code),
+                statusText,
                 style: TextStyle(
-                  color: Colors.green,
+                  color: statusColor,
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                 ),
@@ -2160,6 +2182,350 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       ),
     );
   }
+
+  // Ads methods
+  // Load ads settings and content from system
+  Future<void> _loadAdsSettings() async {
+    try {
+      print('🔍 [Dashboard] Loading ads settings...');
+      final apiService = ref.read(apiServiceProvider);
+      final response = await apiService.get('/ads/dashboard?type=owner');
+
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data;
+        print('🔍 [Dashboard] Ads API response: $data');
+
+        if (data['data'] != null) {
+          final adsEnabled = data['data']['ads_enabled'] ?? true;
+          final adsList = data['data']['ads'] ?? [];
+
+          print(
+            '🔍 [Dashboard] Parsed - ads_enabled: $adsEnabled, ads count: ${adsList.length}',
+          );
+
+          if (mounted) {
+            setState(() {
+              _isAdsEnabled = adsEnabled;
+              _adsData = List<Map<String, dynamic>>.from(adsList);
+              _currentAdsPage = 0; // Reset to first ad
+            });
+
+            // Restart auto-scroll with new ads data
+            if (_adsData.isNotEmpty) {
+              _adsAutoScrollTimer?.cancel();
+              _startAdsAutoScroll();
+            }
+          }
+
+          print(
+            '🔍 [Dashboard] Ads enabled: $_isAdsEnabled, Count: ${_adsData.length}',
+          );
+        }
+      }
+    } catch (e) {
+      print('❌ [Dashboard] Failed to load ads settings: $e');
+      if (mounted) {
+        setState(() {
+          _isAdsEnabled = false;
+          _adsData = [];
+        });
+      }
+    }
+  }
+
+  // Force refresh ads
+  Future<void> _refreshAds() async {
+    print('🔄 [Dashboard] Force refreshing ads...');
+    _adsAutoScrollTimer?.cancel();
+    await _loadAdsSettings();
+  }
+
+  // Start auto-scrolling for ads banner
+  void _startAdsAutoScroll() {
+    if (_adsData.isEmpty || !mounted) return;
+
+    // Cancel existing timer first
+    _adsAutoScrollTimer?.cancel();
+
+    _adsAutoScrollTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      if (mounted && _adsData.length > 1) {
+        final nextPage = (_currentAdsPage + 1) % _adsData.length;
+
+        if (_adsPageController.hasClients) {
+          _adsPageController.animateToPage(
+            nextPage,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+          );
+        }
+
+        setState(() {
+          _currentAdsPage = nextPage;
+        });
+      }
+    });
+  }
+
+  // Ads banner widget
+  Widget _buildAdsBanner() {
+    print(
+      '🔍 [Dashboard] Building ads banner - Enabled: $_isAdsEnabled, Data count: ${_adsData.length}',
+    );
+
+    // If ads are disabled, don't show anything
+    if (!_isAdsEnabled) {
+      print('🔍 [Dashboard] Ads disabled, hiding banner');
+      return const SizedBox.shrink();
+    }
+
+    // If no ads data, don't show anything
+    if (_adsData.isEmpty) {
+      print('🔍 [Dashboard] No ads data, hiding banner');
+      return const SizedBox.shrink();
+    }
+
+    print('🔍 [Dashboard] Showing ads banner with ${_adsData.length} ads');
+
+    // Show ads section with dashboard's ads data
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: Card(
+        color: Colors.white,
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Ads',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.text,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: _refreshAds,
+                    icon: Icon(
+                      Icons.refresh_rounded,
+                      size: 20,
+                      color: AppColors.primary,
+                    ),
+                    tooltip: 'Refresh Ads',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              _buildCustomAdsBanner(),
+              const SizedBox(height: 6),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Custom ads banner using dashboard's ads data
+  Widget _buildCustomAdsBanner() {
+    if (_adsData.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return SizedBox(
+      height: 160,
+      child: Column(
+        children: [
+          // Ads PageView
+          Expanded(
+            child: PageView.builder(
+              controller: _adsPageController,
+              onPageChanged: (index) {
+                setState(() {
+                  _currentAdsPage = index;
+                });
+              },
+              itemCount: _adsData.length,
+              itemBuilder: (context, index) {
+                final ad = _adsData[index];
+                return GestureDetector(
+                  onTap: () => _onAdTap(ad),
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Stack(
+                        children: [
+                          // Ad Image
+                          Image.network(
+                            ad['image_url'] ?? '',
+                            width: double.infinity,
+                            height: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                color: Colors.grey[300],
+                                child: const Icon(
+                                  Icons.image_not_supported,
+                                  size: 50,
+                                  color: Colors.grey,
+                                ),
+                              );
+                            },
+                          ),
+                          // Gradient overlay
+                          Positioned.fill(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Colors.transparent,
+                                    Colors.black.withOpacity(0.3),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          // Sliding dots below the image
+          if (_adsData.length > 1)
+            Container(
+              margin: const EdgeInsets.only(top: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(_adsData.length, (index) {
+                  return Container(
+                    width: 8,
+                    height: 8,
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: index == _currentAdsPage
+                          ? Colors.blue
+                          : Colors.grey.withOpacity(0.5),
+                    ),
+                  );
+                }),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // Handle ad tap
+  void _onAdTap(Map<String, dynamic> ad) async {
+    final url = ad['url'];
+    final title = ad['title'] ?? 'Ad';
+
+    if (url != null && url.toString().isNotEmpty) {
+      try {
+        // Show snackbar
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Opening: $title'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+
+        print('Ad clicked: $title - URL: $url');
+      } catch (e) {
+        print('Failed to handle ad click: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to open ad: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  // Helper methods for transaction status and date formatting
+  Color _getTransactionStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'completed':
+      case 'paid':
+      case 'success':
+        return Colors.green;
+      case 'pending':
+      case 'processing':
+        return Colors.orange;
+      case 'failed':
+      case 'cancelled':
+      case 'declined':
+        return Colors.red;
+      case 'partial':
+        return Colors.blue;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _getTransactionStatusText(String status) {
+    switch (status.toLowerCase()) {
+      case 'completed':
+      case 'paid':
+      case 'success':
+        return AppStrings.getString('paid', ref.read(languageProvider).code);
+      case 'pending':
+      case 'processing':
+        return AppStrings.getString('unpaid', ref.read(languageProvider).code);
+      case 'failed':
+      case 'cancelled':
+      case 'declined':
+        return AppStrings.getString('failed', ref.read(languageProvider).code);
+      case 'partial':
+        return AppStrings.getString('partial', ref.read(languageProvider).code);
+      default:
+        return status;
+    }
+  }
+
+  String _formatTransactionDate(String dateString) {
+    if (dateString.isEmpty) return '';
+    try {
+      final date = DateTime.parse(dateString);
+      final now = DateTime.now();
+      final difference = now.difference(date);
+
+      if (difference.inDays == 0) {
+        return 'Today';
+      } else if (difference.inDays == 1) {
+        return 'Yesterday';
+      } else if (difference.inDays < 7) {
+        return '${difference.inDays} days ago';
+      } else {
+        return '${date.day}/${date.month}/${date.year}';
+      }
+    } catch (e) {
+      return dateString;
+    }
+  }
 }
 
 class _DashboardAvatar extends StatelessWidget {
@@ -2301,14 +2667,14 @@ class _SummaryCard extends StatelessWidget {
   final VoidCallback? onTap;
 
   const _SummaryCard({
-    Key? key,
+    super.key,
     required this.title,
     required this.value,
     required this.icon,
     required this.color,
     this.subtitle,
     this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

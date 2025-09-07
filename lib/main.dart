@@ -13,6 +13,7 @@ import 'core/providers/app_providers.dart';
 import 'core/providers/back_button_provider.dart';
 import 'core/widgets/main_app_shell.dart';
 import 'core/widgets/tenant_app_shell.dart';
+import 'core/services/analytics_service.dart';
 
 // Features
 import 'features/auth/presentation/screens/login_screen.dart';
@@ -36,7 +37,10 @@ import 'features/owner/presentation/screens/subscription_checkout_screen.dart';
 import 'features/owner/presentation/screens/subscription_center_screen.dart';
 import 'features/owner/presentation/screens/property_entry_screen.dart';
 import 'features/owner/presentation/screens/tenant_entry_screen.dart';
+import 'features/owner/presentation/screens/tenant_details_screen.dart';
 import 'features/owner/presentation/screens/checkout_form_screen.dart';
+import 'features/owner/presentation/screens/checkout_list_screen.dart';
+import 'features/owner/presentation/screens/owner_more_page.dart';
 import 'features/owner/presentation/screens/invoice_payment_screen.dart';
 import 'features/owner/presentation/screens/invoice_pdf_screen.dart';
 import 'features/tenant/presentation/screens/tenant_dashboard_screen.dart';
@@ -48,6 +52,9 @@ import 'core/widgets/auth_wrapper.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Note: AnalyticsService will be initialized in MyApp with proper Riverpod ref
+  // Track app installation will be done after Riverpod is available
 
   if (kDebugMode) {
     debugPrintRebuildDirtyWidgets = PerformanceConfig.enableWidgetRebuildLogs;
@@ -66,6 +73,15 @@ class MyApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Initialize analytics service with Riverpod ref
+    AnalyticsService.initializeWithRef(ref);
+
+    // Initialize analytics service (this generates session ID)
+    AnalyticsService.initialize();
+
+    // Track app installation only once (first time)
+    AnalyticsService.trackAppInstallOnce();
+
     final themeMode = ref.watch(appThemeModeProvider);
     final networkState = ref.watch(networkStateProvider);
 
@@ -134,6 +150,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             print(
               'DEBUG: LoginScreen BackButtonListener - Back button pressed',
             );
+
+            // Check if we can pop (meaning there are child pages)
+            if (context.canPop()) {
+              // Let child pages handle their own back button
+              return false; // Allow default back behavior
+            }
+
+            // Only show exit dialog if we're on the login screen itself
             final shouldExit = await showDialog<bool>(
               context: context,
               builder: (context) => AlertDialog(
@@ -155,7 +179,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             if (shouldExit == true) {
               SystemNavigator.pop();
             }
-            return true; // Prevent default back behavior
+            return true; // Prevent default back behavior only for login screen
           },
           child: LoginScreen(),
         ),
@@ -172,7 +196,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             } else {
               context.go('/login');
             }
-            return true;
+            return true; // Prevent default back behavior
           },
           child: SignupScreen(),
         ),
@@ -201,7 +225,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             print(
               'DEBUG: Mobile Entry BackButtonListener - Back button pressed',
             );
-            context.go('/login');
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              // If no previous page, go to login (default entry point)
+              context.go('/login');
+            }
             return true;
           },
           child: MobileEntryScreen(
@@ -272,15 +301,26 @@ final routerProvider = Provider<GoRouter>((ref) {
               },
               child: CheckoutFormScreen(
                 tenant: state.extra is Map<String, dynamic>
-                    ? (state.extra as Map<String, dynamic>)['tenant']
+                    ? state.extra
+                          as Map<String, dynamic> // Cast to correct type
                     : null,
-                unit: state.extra is Map<String, dynamic>
-                    ? (state.extra as Map<String, dynamic>)['unit']
-                    : null,
-                property: state.extra is Map<String, dynamic>
-                    ? (state.extra as Map<String, dynamic>)['property']
-                    : null,
+                unit: null,
+                property: null,
               ),
+            ),
+          ),
+          GoRoute(
+            path: '/checkout-list',
+            builder: (context, state) => BackButtonListener(
+              onBackButtonPressed: () async {
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/dashboard');
+                }
+                return true;
+              },
+              child: CheckoutListScreen(),
             ),
           ),
           GoRoute(
@@ -360,6 +400,42 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+            path: '/tenant-details',
+            builder: (context, state) => BackButtonListener(
+              onBackButtonPressed: () async {
+                print(
+                  'DEBUG: Tenant Details BackButtonListener - Back button pressed',
+                );
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/tenants');
+                }
+                return true;
+              },
+              child: TenantDetailsScreen(
+                tenant: state.extra as Map<String, dynamic>,
+              ),
+            ),
+          ),
+          GoRoute(
+            path: '/owner-more',
+            builder: (context, state) => BackButtonListener(
+              onBackButtonPressed: () async {
+                print(
+                  'DEBUG: Owner More BackButtonListener - Back button pressed',
+                );
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/dashboard');
+                }
+                return true;
+              },
+              child: OwnerMorePage(),
+            ),
+          ),
+          GoRoute(
             path: '/tenant-entry',
             builder: (context, state) => BackButtonListener(
               onBackButtonPressed: () async {
@@ -375,6 +451,25 @@ final routerProvider = Provider<GoRouter>((ref) {
               },
               child: TenantEntryScreen(
                 tenant: state.extra as Map<String, dynamic>?,
+              ),
+            ),
+          ),
+          GoRoute(
+            path: '/checkout',
+            builder: (context, state) => BackButtonListener(
+              onBackButtonPressed: () async {
+                print(
+                  'DEBUG: Checkout BackButtonListener - Back button pressed',
+                );
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/tenants');
+                }
+                return true;
+              },
+              child: CheckoutFormScreen(
+                tenant: state.extra as Map<String, dynamic>,
               ),
             ),
           ),

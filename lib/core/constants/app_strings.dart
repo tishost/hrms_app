@@ -97,7 +97,29 @@ class AppStrings {
       'new_user_mobile_continue':
           'New user detected! Please enter your mobile number to continue',
       'language_changed_english': 'Language changed to English',
-      'language_changed_bangla': 'ভাষা বাংলায় পরিবর্তন করা হয়েছে',
+      'language_changed_bangla': 'Language changed to Bangla',
+
+      // Signup specific questions
+      'are_you_landlord': 'Are you a landlord/property owner?',
+      'mobile_number': 'Mobile Number',
+      'please_enter_mobile_number': 'Please enter your mobile number',
+      'valid_bd_number': 'Enter a valid BD number (11 digits starting with 01)',
+      'tenant_found': 'Tenant Found',
+      'tenant_found_bn': 'ভাড়াটে পাওয়া গেছে',
+      'tenant_info_name': 'Name:',
+      'tenant_info_email': 'Email:',
+      'checking_mobile': 'Checking mobile number...',
+      'already_registered': 'Already Registered',
+
+      'landlord_not_registered':
+          'Your landlord/property owner is not registered in our system.',
+      'landlord_not_registered_bn':
+          'আপনার বাড়িওয়ালা/সম্পত্তির মালিক আমাদের সিস্টেমে নিবন্ধিত নন।',
+      'share_app_with_landlord': 'Please share the app with your landlord.',
+      'share_app_with_landlord_bn':
+          'অনুগ্রহ করে আপনার বাড়িওয়ালার সাথে অ্যাপটি শেয়ার করুন।',
+      'share_app': 'Share App',
+      'share_app_bn': 'অ্যাপ শেয়ার করুন',
 
       // Why Choose HRMS
       'why_choose_hrms': 'Why Choose HRMS?',
@@ -264,13 +286,13 @@ class AppStrings {
       'language': 'ভাষা',
       'select_language': 'ভাষা নির্বাচন করুন',
       'language_changed': 'ভাষা পরিবর্তন হয়েছে',
-      'good_morning': 'সুপারিশ,',
-      'good_afternoon': 'সুপারিশ,',
-      'good_evening': 'সুপারিশ,',
+      'good_morning': 'সুপ্রভাত,',
+      'good_afternoon': 'সুন্দর দুপুর,',
+      'good_evening': 'সুন্দর সন্ধ্যা,',
       'complete_your_profile': 'আপনার প্রোফাইল সম্পূর্ণ করুন',
       'completed': 'সম্পূর্ণ',
       'update_your_profile': 'আপনার প্রোফাইল আপডেট করুন',
-      'notifications_coming_soon': 'বিজ্ঞপ্তি সম্বদ্ধে আগামীতে আসছে!',
+      'notifications_coming_soon': 'নোটিফিকেশন শীঘ্রই আসছে!',
 
       // Auth
       'login': 'লগইন',
@@ -301,7 +323,7 @@ class AppStrings {
           'নেটওয়ার্কের সংযোগ নেই। অনুগ্রহ করে আপনার নেটওয়ার্ক পরীক্ষা করুন।',
       'connection_timeout': 'সংযোগ টাইমআউট। অনুগ্রহ করে আবার চেষ্টা করুন।',
       'login_failed_try_again': 'লগইন ব্যর্থ। অনুগ্রহ করে আবার চেষ্টা করুন।',
-
+      'already_registered': 'ইতিমধ্যে নিবন্ধিত',
       // Signup specific
       'welcome_to_hrms': 'HRMS-এ স্বাগতম',
       'property_management_system': 'সম্পত্তি ব্যবস্থাপনা সিস্টেম',
@@ -337,6 +359,21 @@ class AppStrings {
           'নতুন ব্যবহারকারী সনাক্ত হয়েছে! অনুগ্রহ করে চালিয়ে যেতে আপনার মোবাইল নম্বর দিন',
       'language_changed_english': 'ভাষা ইংরেজিতে পরিবর্তন করা হয়েছে',
       'language_changed_bangla': 'ভাষা বাংলায় পরিবর্তন করা হয়েছে',
+
+      // Signup specific questions
+      'are_you_landlord': 'আপনি কি বাড়িওয়ালা?',
+      'mobile_number': 'মোবাইল নম্বর',
+      'please_enter_mobile_number': 'অনুগ্রহ করে আপনার মোবাইল নম্বর দিন',
+      'valid_bd_number': 'সঠিক বাংলাদেশি নম্বর দিন (১১ ডিজিট, ০১ দিয়ে শুরু)',
+      'tenant_found': 'ভাড়াটে পাওয়া গেছে!',
+      'tenant_info_name': 'নাম:',
+      'tenant_info_email': 'ইমেইল:',
+      'checking_mobile': 'মোবাইল নম্বর চেক করা হচ্ছে...',
+      'landlord_not_registered':
+          'আপনার বাড়িওয়ালা/সম্পত্তির মালিক আমাদের সিস্টেমে নিবন্ধিত নন।',
+      'share_app_with_landlord':
+          'অনুগ্রহ করে আপনার বাড়িওয়ালার সাথে অ্যাপটি শেয়ার করুন।',
+      'share_app': 'অ্যাপ শেয়ার করুন',
 
       // Why Choose HRMS
       'why_choose_hrms': 'কেন HRMS বেছে নেবেন?',
@@ -438,12 +475,12 @@ class AppStrings {
       'reports': 'রিপোর্ট',
       'backups': 'ব্যাকআপ',
       'menu': 'মেনু',
-      'units': 'একক',
+      'units': 'ইউনিট',
       'checkout_records': 'চেকআউট রেকর্ড',
-      'notifications': 'বিজ্ঞপ্তি',
-      'help_support': 'সহায়তা & সমর্থন',
-      'about': 'বিষয়',
-      'log_out': 'লগ আউট',
+      'notifications': 'নোটিফিকেশন',
+      'help_support': 'সাহায্য ও সহায়তা',
+      'about': 'সম্পর্কে',
+      'log_out': 'লগআউট',
 
       // Messages
       'no_data_found': 'কোন ডেটা পাওয়া যায়নি',
@@ -462,21 +499,23 @@ class AppStrings {
       'required_field': 'এই ক্ষেত্রটি প্রয়োজন',
       'invalid_email': 'অনুগ্রহ করে একটি সঠিক ইমেইল দিন',
       'invalid_phone': 'অনুগ্রহ করে একটি সঠিক ফোন নম্বর দিন',
-      'password_too_short': 'পাসওয়ার্ড কমপক্ষে ৬ অক্ষর হতে হবে',
+      'password_too_short': 'পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে',
       'password_too_long': 'পাসওয়ার্ড ৫০ অক্ষরের কম হতে হবে',
-      'name_too_short': 'নাম কমপক্ষে ২ অক্ষর হতে হবে',
+      'name_too_short': 'নাম কমপক্ষে ২ অক্ষরের হতে হবে',
       'name_too_long': 'নাম ১০০ অক্ষরের কম হতে হবে',
 
       // Mobile verification
-      'mobile_verification_title': 'মোবাইল নম্বর যাচাই করুন',
+      'mobile_verification_title': 'আপনার মোবাইল নম্বর যাচাই করুন',
       'mobile_verification_message':
           'আপনার প্রোফাইল সম্পূর্ণ করতে অনুগ্রহ করে আপনার মোবাইল নম্বর যাচাই করুন',
-      'mobile_verification_button': 'এখনই যাচাই করুন',
+      'mobile_verification_button': 'এখন যাচাই করুন',
     },
   };
 
   static String getString(String key, String languageCode) {
-    return _strings[languageCode]?[key] ?? _strings['en']![key] ?? key;
+    final language = languageCode.toLowerCase();
+    final strings = _strings[language] ?? _strings['en']!;
+    return strings[key] ?? key;
   }
 
   static String getStringWithFallback(String key, String languageCode) {
@@ -488,4 +527,6 @@ class AppStrings {
 
     return key;
   }
+
+  static bool get isEnglish => true; // Default to English
 }

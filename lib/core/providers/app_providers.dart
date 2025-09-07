@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../services/security_service.dart';
 import '../services/api_service.dart';
+import '../utils/analytics_helper.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:async';
 
@@ -319,6 +320,95 @@ class NetworkStateData {
     return NetworkStateData(
       isConnected: isConnected ?? this.isConnected,
       connectionType: connectionType ?? this.connectionType,
+    );
+  }
+}
+
+// Analytics Provider
+class Analytics {
+  /// Initialize analytics
+  static Future<void> initialize() async {
+    // Track app install
+    await AnalyticsHelper.trackAppInstall();
+  }
+  
+  /// Track user login
+  static Future<void> trackLogin({
+    required String method,
+    required String userRole,
+    String? userId,
+  }) async {
+    await AnalyticsHelper.trackUserLogin(
+      method: method,
+      userRole: userRole,
+      userId: userId,
+    );
+  }
+  
+  /// Track user registration
+  static Future<void> trackRegistration({
+    required String userType,
+    required String method,
+    String? userId,
+  }) async {
+    await AnalyticsHelper.trackUserRegistration(
+      userType: userType,
+      method: method,
+      userId: userId,
+    );
+  }
+  
+  /// Track screen view
+  static Future<void> trackScreen({
+    required String screenName,
+    String? screenClass,
+    Map<String, dynamic>? parameters,
+  }) async {
+    await AnalyticsHelper.trackScreenView(
+      screenName: screenName,
+      screenClass: screenClass,
+      parameters: parameters,
+    );
+  }
+  
+  /// Track feature usage
+  static Future<void> trackFeature({
+    required String featureName,
+    String? action,
+    Map<String, dynamic>? parameters,
+  }) async {
+    await AnalyticsHelper.trackFeatureUsage(
+      featureName: featureName,
+      action: action,
+      parameters: parameters,
+    );
+  }
+  
+  /// Track errors
+  static Future<void> trackError({
+    required String errorType,
+    required String errorMessage,
+    String? screenName,
+    Map<String, dynamic>? parameters,
+  }) async {
+    await AnalyticsHelper.trackError(
+      errorType: errorType,
+      errorMessage: errorMessage,
+      screenName: screenName,
+      parameters: parameters,
+    );
+  }
+  
+  /// Track user engagement
+  static Future<void> trackEngagement({
+    required String action,
+    String? screenName,
+    Map<String, dynamic>? parameters,
+  }) async {
+    await AnalyticsHelper.trackUserEngagement(
+      action: action,
+      screenName: screenName,
+      parameters: parameters,
     );
   }
 }

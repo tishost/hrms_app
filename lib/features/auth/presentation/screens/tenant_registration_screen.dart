@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hrms_app/core/utils/app_colors.dart';
 import 'package:hrms_app/core/services/api_service.dart';
-import 'package:hrms_app/features/auth/data/services/auth_service.dart';
+import 'package:hrms_app/core/services/analytics_service.dart';
 
 class TenantRegistrationScreen extends ConsumerStatefulWidget {
   final String? mobile;
@@ -184,6 +184,30 @@ class _TenantRegistrationScreenState
 
         if (data['success'] == true) {
           print('DEBUG: Registration successful, navigating to dashboard');
+
+          // Track tenant registration analytics
+          try {
+            final userId =
+                data['user']?['id']?.toString() ??
+                'tenant_${_mobileController.text.hashCode}';
+            final email = widget.email;
+            await AnalyticsService.trackUserRegistration(
+              userId: userId,
+              email: email,
+              registrationMethod: 'mobile_signup',
+              userProfile: {
+                'mobile': _mobileController.text,
+                'role': 'tenant',
+                'tenant_info': _tenantInfo,
+              },
+            );
+            print('DEBUG: Tenant registration analytics tracked successfully');
+          } catch (analyticsError) {
+            print(
+              'DEBUG: Failed to track tenant registration analytics: $analyticsError',
+            );
+            // Don't block registration flow if analytics fails
+          }
 
           // Show success message
           ScaffoldMessenger.of(context).showSnackBar(
@@ -379,7 +403,7 @@ class _TenantRegistrationScreenState
 
               SizedBox(height: 16),
 
-                            // OTP Section removed - Tenant registration now works without OTP verification
+              // OTP Section removed - Tenant registration now works without OTP verification
 
               // Password Field
               TextFormField(

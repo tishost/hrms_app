@@ -5,7 +5,6 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../../../../core/utils/api_config.dart';
 import '../../../auth/data/services/auth_service.dart';
-import '../widgets/custom_bottom_nav.dart';
 
 class CheckoutListScreen extends StatefulWidget {
   const CheckoutListScreen({super.key});
@@ -114,14 +113,8 @@ class _CheckoutListScreenState extends State<CheckoutListScreen> {
           ),
         ],
       ),
+      backgroundColor: Colors.grey[100],
       body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Colors.blue[600]!, Colors.blue[50]!],
-          ),
-        ),
         child: _isLoading
             ? Center(child: CircularProgressIndicator())
             : _error != null
@@ -244,7 +237,6 @@ class _CheckoutListScreenState extends State<CheckoutListScreen> {
                                 ],
                               ),
                               SizedBox(height: 8),
-
                               // Property and unit info
                               Row(
                                 children: [
@@ -266,7 +258,6 @@ class _CheckoutListScreenState extends State<CheckoutListScreen> {
                                 ],
                               ),
                               SizedBox(height: 4),
-
                               // Checkout date
                               Row(
                                 children: [
@@ -286,7 +277,6 @@ class _CheckoutListScreenState extends State<CheckoutListScreen> {
                                 ],
                               ),
                               SizedBox(height: 4),
-
                               // Handover date
                               Row(
                                 children: [
@@ -306,7 +296,6 @@ class _CheckoutListScreenState extends State<CheckoutListScreen> {
                                 ],
                               ),
                               SizedBox(height: 12),
-
                               // Settlement amount
                               Container(
                                 width: double.infinity,

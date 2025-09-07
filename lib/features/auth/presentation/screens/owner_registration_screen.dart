@@ -6,6 +6,7 @@ import 'package:hrms_app/core/utils/app_colors.dart';
 import 'package:hrms_app/features/auth/data/services/auth_service.dart';
 import 'package:hrms_app/core/services/api_service.dart';
 import 'package:dropdown_search/dropdown_search.dart';
+import 'package:hrms_app/core/services/analytics_service.dart';
 
 class OwnerRegistrationScreen extends ConsumerStatefulWidget {
   final String? initialMobile;
@@ -194,9 +195,9 @@ class _OwnerRegistrationScreenState
 
       // Prepare registration data
       // Normalize BD Mobile
-      String _digitsOnly(String v) => v.replaceAll(RegExp(r'[^0-9]'), '');
+      String digitsOnly(String v) => v.replaceAll(RegExp(r'[^0-9]'), '');
       String mobile = _mobileController.text.trim();
-      String msisdn = _digitsOnly(mobile);
+      String msisdn = digitsOnly(mobile);
       if (msisdn.startsWith('0088')) {
         msisdn = msisdn.substring(4);
       } else if (msisdn.startsWith('88')) {
@@ -250,6 +251,33 @@ class _OwnerRegistrationScreenState
           await ref
               .read(authStateProvider.notifier)
               .login(token, userRole, userData: userData);
+
+          // Track owner registration analytics
+          try {
+            final userId =
+                userData?['id']?.toString() ?? 'owner_${msisdn.hashCode}';
+            final email = _emailController.text.trim().isEmpty
+                ? null
+                : _emailController.text.trim();
+            await AnalyticsService.trackUserRegistration(
+              userId: userId,
+              email: email,
+              registrationMethod: 'email_signup',
+              userProfile: {
+                'name': _nameController.text.trim(),
+                'phone': msisdn,
+                'district': _selectedDistrict,
+                'country': _selectedCountry ?? 'Bangladesh',
+                'role': userRole,
+              },
+            );
+            print('DEBUG: Owner registration analytics tracked successfully');
+          } catch (analyticsError) {
+            print(
+              'DEBUG: Failed to track owner registration analytics: $analyticsError',
+            );
+            // Don't block registration flow if analytics fails
+          }
 
           setState(() {
             _isLoading = false;
@@ -319,9 +347,7 @@ class _OwnerRegistrationScreenState
           icon: Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text(
-          'Owner Registration',
-        ),
+        title: Text('Owner Registration'),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -497,7 +523,7 @@ class _OwnerRegistrationScreenState
 
               // Country Dropdown (Bangladesh auto selected)
               DropdownButtonFormField<String>(
-                value: _selectedCountry,
+                initialValue: _selectedCountry,
                 decoration: InputDecoration(
                   labelText: 'Country',
                   prefixIcon: Icon(Icons.public, color: AppColors.primary),
